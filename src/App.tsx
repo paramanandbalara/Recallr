@@ -65,7 +65,6 @@ function App() {
   useTypingFocus();
 
   const [settings, setSettings] = useState(() => loadSettings());
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [profileName, setProfileName] = useState(() => loadActiveProfile().name);
   const reloadSettings = () => {
     setSettings(loadSettings());
@@ -281,7 +280,7 @@ function App() {
     }
   }, [addTurn, patchTurn, answerFromPrepared]);
 
-  const { isRecording, startRecording, stopRecording, errorMsg, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
+  const { isRecording, startRecording, stopRecording, errorMsg, debugLog, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
 
   useEffect(() => {
     if (!isRecording) return;
