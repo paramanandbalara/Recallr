@@ -9,7 +9,7 @@ import { audit } from '../audit.js';
 import { emails } from '../emails.js';
 import { queueEmail } from '../mailer.js';
 import { activeDevices, publicDevice } from '../devices.js';
-import { testAiKey } from '../ai.js';
+import { PROVIDER_IDS, testAiKey } from '../ai.js';
 import { HttpError, route } from '../http.js';
 import { testRazorpayKeys } from '../razorpay.js';
 import { getSettings, isNumberSetting, saveSettings, SETTING_KEYS, SETTINGS, settingsForAdmin, type SettingKey } from '../settings.js';
@@ -57,7 +57,7 @@ adminRoutes.get('/stats', route(async (_req, res) => {
   res.json({
     // What still needs setting up, for the dashboard's checklist
     setup: {
-      ai: !!(settings.groqApiKey || settings.openaiApiKey),
+      ai: !!(settings.groqApiKey || settings.openaiApiKey || settings.anthropicApiKey),
       razorpay: !!(settings.razorpayKeyId && settings.razorpayKeySecret),
       offlinePayment: !!settings.offlinePaymentInfo,
       supportEmail: !!settings.supportEmail,
@@ -247,8 +247,11 @@ adminRoutes.patch('/settings', route(async (req, res) => {
   for (const [key, value] of Object.entries(changes)) {
     if (value && isNumberSetting(key as SettingKey) && !/^\d+$/.test(value)) throw new HttpError(400, `${SETTINGS[key as SettingKey].label} must be a whole number.`);
   }
-  if (changes.aiProviderOrder && !/^(groq|openai)(,(groq|openai))?$/.test(changes.aiProviderOrder.replace(/\s/g, ''))) {
-    throw new HttpError(400, 'Provider order must be "groq,openai" or "openai,groq".');
+  if (changes.aiProviderOrder) {
+    const listed = changes.aiProviderOrder.replace(/\s/g, '').split(',');
+    if (!listed.every(p => (PROVIDER_IDS as string[]).includes(p)) || new Set(listed).size !== listed.length) {
+      throw new HttpError(400, 'Provider order lists groq, openai and claude, separated by commas, e.g. "groq,openai,claude".');
+    }
   }
   await saveSettings(changes, req.user!.id);
   // The log names what changed, never the secret values
@@ -261,11 +264,12 @@ adminRoutes.patch('/settings', route(async (req, res) => {
 
 // Checks the saved keys actually work
 adminRoutes.post('/settings/test', route(async (req, res) => {
-  const what = z.enum(['groq', 'openai', 'razorpay']).parse(req.body.what);
+  const what = z.enum(['groq', 'openai', 'claude', 'razorpay']).parse(req.body.what);
   const s = await getSettings();
+  const keys = { groq: s.groqApiKey, openai: s.openaiApiKey, claude: s.anthropicApiKey };
   const error = what === 'razorpay'
     ? await testRazorpayKeys(s.razorpayKeyId, s.razorpayKeySecret)
-    : await testAiKey(what, what === 'groq' ? s.groqApiKey : s.openaiApiKey);
+    : await testAiKey(what, keys[what]);
   res.json({ ok: !error, error });
 }));
 

@@ -10,6 +10,10 @@ const CHAT: { match: RegExp; input: number; output: number }[] = [ // Per millio
   { match: /^gpt-5(\.\d+)*-mini/, input: 0.25, output: 2.00 },
   { match: /^gpt-4\.1-mini/, input: 0.40, output: 1.60 },
   { match: /^gpt-4o-mini$/, input: 0.15, output: 0.60 },
+  { match: /^claude-haiku-5-5/, input: 0.10, output: 0.50 },
+  { match: /^claude-sonnet-5-5/, input: 2.00, output: 10.00 },
+  { match: /^claude-opus-5-5/, input: 4.00, output: 20.00 },
+  { match: /^claude-opus-5($|-)/, input: 5.00, output: 25.00 },
 ];
 const AUDIO: { match: RegExp; perHour: number }[] = [
   { match: /^whisper-large-v3-turbo$/, perHour: 0.04 },
@@ -17,7 +21,7 @@ const AUDIO: { match: RegExp; perHour: number }[] = [
   { match: /^gpt-4o-mini-transcribe$/, perHour: 0.18 },
   { match: /^whisper-1$/, perHour: 0.36 },
 ];
-// For models missing above: the dearest known price, so the estimate errs high
+// For models missing above: a mid-range price, so the estimate is in the right range
 const FALLBACK_CHAT = { input: 0.40, output: 2.00 };
 const FALLBACK_AUDIO = 0.36;
 

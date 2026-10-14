@@ -1,10 +1,14 @@
 import OpenAI, { toFile } from 'openai';
+import { CLAUDE_DEFAULT_MODELS, createClaude, testClaudeKey, type ClaudeModels } from './claude.js';
 import { HttpError } from './http.js';
 
-// The AI providers, with the server's own keys. Groq first (fastest), then OpenAI if Groq fails.
-// Same model choice as the desktop app had: Groq's ids are known, OpenAI's newest mini is discovered.
+// The AI providers, with the server's own keys, tried in the admin's order (Groq first by default: fastest).
+// Groq's model ids are known, OpenAI's newest mini is discovered; Claude is in claude.ts.
+// Claude has no speech-to-text, so transcription only uses Groq and OpenAI.
 
-export type ProviderId = 'groq' | 'openai';
+export type ProviderId = 'groq' | 'openai' | 'claude';
+type OpenAiCompatible = Exclude<ProviderId, 'claude'>;
+export const PROVIDER_IDS: ProviderId[] = ['groq', 'openai', 'claude'];
 export type ModelTier = 'fast' | 'quality' | 'vision';
 
 export interface ChatRequest {
@@ -36,7 +40,7 @@ export interface AiGateway {
   transcribe: (audio: Buffer, language: string) => Promise<TranscribeResult>;
 }
 
-const BASE_URLS: Record<ProviderId, string | undefined> = { groq: 'https://api.groq.com/openai/v1', openai: undefined };
+const BASE_URLS: Record<OpenAiCompatible, string | undefined> = { groq: 'https://api.groq.com/openai/v1', openai: undefined };
 
 const GROQ_PREFERRED: Record<ModelTier, string[]> = {
   fast: ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'],
@@ -44,7 +48,7 @@ const GROQ_PREFERRED: Record<ModelTier, string[]> = {
   vision: ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'],
 };
 
-const TRANSCRIBE_MODELS: Record<ProviderId, string[]> = {
+const TRANSCRIBE_MODELS: Record<OpenAiCompatible, string[]> = {
   groq: ['whisper-large-v3-turbo', 'whisper-large-v3'],
   openai: ['gpt-4o-mini-transcribe', 'whisper-1'],
 };
@@ -86,10 +90,16 @@ const rejectedParam = (error: unknown) => {
 };
 
 // `order`: which provider is tried first
-export const createAi = (keys: Partial<Record<ProviderId, string>>, order: ProviderId[] = ['groq', 'openai']): AiGateway => {
+export const createAi = (
+  keys: Partial<Record<ProviderId, string>>,
+  order: ProviderId[] = PROVIDER_IDS,
+  claudeModels: ClaudeModels = CLAUDE_DEFAULT_MODELS,
+): AiGateway => {
   const providers = order.filter(p => keys[p]);
-  const clients = new Map<ProviderId, OpenAI>();
-  const client = (provider: ProviderId) => {
+  const transcribers = providers.filter((p): p is OpenAiCompatible => p !== 'claude');
+  const claude = keys.claude ? createClaude(keys.claude, claudeModels) : null;
+  const clients = new Map<OpenAiCompatible, OpenAI>();
+  const client = (provider: OpenAiCompatible) => {
     if (!clients.has(provider)) clients.set(provider, new OpenAI({ apiKey: keys[provider], baseURL: BASE_URLS[provider], maxRetries: 1 }));
     return clients.get(provider)!;
   };
@@ -97,19 +107,19 @@ export const createAi = (keys: Partial<Record<ProviderId, string>>, order: Provi
   // Remembered while the server runs
   const modelCache = new Map<string, string>();
   const effortCache = new Map<string, string>();
-  const transcribeCache = new Map<ProviderId, string>();
+  const transcribeCache = new Map<OpenAiCompatible, string>();
 
-  const discover = async (provider: ProviderId, tier: ModelTier) => {
+  const discover = async (provider: OpenAiCompatible, tier: ModelTier) => {
     const ids = (await client(provider).models.list()).data.map(m => m.id);
     const model = provider === 'groq' ? pickGroqModel(ids, tier) : pickOpenAiModel(ids, tier);
     if (!model) throw new Error(`No ${tier} model available on ${provider}`);
     modelCache.set(`${provider}:${tier}`, model);
     return model;
   };
-  const resolve = async (provider: ProviderId, tier: ModelTier) =>
+  const resolve = async (provider: OpenAiCompatible, tier: ModelTier) =>
     modelCache.get(`${provider}:${tier}`) ?? (provider === 'groq' ? GROQ_PREFERRED[tier][0] : discover(provider, tier));
 
-  const params = (provider: ProviderId, model: string, req: ChatRequest) => {
+  const params = (provider: OpenAiCompatible, model: string, req: ChatRequest) => {
     const result: Record<string, unknown> = {};
     if (provider === 'groq') {
       if (req.temperature !== undefined) result.temperature = req.temperature;
@@ -120,7 +130,7 @@ export const createAi = (keys: Partial<Record<ProviderId, string>>, order: Provi
     return result;
   };
 
-  const streamFrom = async (provider: ProviderId, req: ChatRequest, onText: (delta: string) => void, signal: AbortSignal): Promise<ChatResult> => {
+  const streamFrom = async (provider: OpenAiCompatible, req: ChatRequest, onText: (delta: string) => void, signal: AbortSignal): Promise<ChatResult> => {
     let model = await resolve(provider, req.tier);
     let extra = params(provider, model, req);
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -190,7 +200,9 @@ export const createAi = (keys: Partial<Record<ProviderId, string>>, order: Provi
       for (const provider of providers) {
         let emitted = false;
         try {
-          return await streamFrom(provider, req, delta => { emitted = true; onText(delta, provider); }, signal);
+          const onDelta = (delta: string) => { emitted = true; onText(delta, provider); };
+          if (provider === 'claude') return { ...(await claude!.streamChat(req, onDelta, signal)), provider };
+          return await streamFrom(provider, req, onDelta, signal);
         } catch (error) {
           if (signal.aborted) throw error;
           console.error(`${provider} chat error:`, error);
@@ -202,10 +214,10 @@ export const createAi = (keys: Partial<Record<ProviderId, string>>, order: Provi
     },
 
     transcribe: async (audio, language) => {
-      if (providers.length === 0) throw noProvider();
+      if (transcribers.length === 0) throw noProvider();
       const file = await toFile(audio, 'audio.webm', { type: 'audio/webm' });
       let lastError: unknown;
-      for (const provider of providers) {
+      for (const provider of transcribers) {
         const candidates = transcribeCache.has(provider) ? [transcribeCache.get(provider)!] : TRANSCRIBE_MODELS[provider];
         for (const model of candidates) {
           try {
@@ -231,14 +243,30 @@ export const createAi = (keys: Partial<Record<ProviderId, string>>, order: Provi
 };
 
 // The gateway for the keys saved in Admin → Settings, rebuilt when they change
-export const createAiFromSettings = (getSettings: () => Promise<{ groqApiKey: string; openaiApiKey: string; aiProviderOrder: string }>): AiGateway => {
+interface AiSettings {
+  groqApiKey: string;
+  openaiApiKey: string;
+  anthropicApiKey: string;
+  claudeModelFast: string;
+  claudeModelQuality: string;
+  aiProviderOrder: string;
+}
+
+// Providers missing from the admin's order are tried after the ones listed
+export const parseProviderOrder = (value: string) => {
+  const listed = value.split(',').map(p => p.trim()).filter((p): p is ProviderId => (PROVIDER_IDS as string[]).includes(p));
+  return [...new Set([...listed, ...PROVIDER_IDS])];
+};
+
+export const createAiFromSettings = (getSettings: () => Promise<AiSettings>): AiGateway => {
   let current: { signature: string; ai: AiGateway } | null = null;
   const gateway = async () => {
     const s = await getSettings();
-    const order = s.aiProviderOrder.split(',').map(p => p.trim()).filter((p): p is ProviderId => p === 'groq' || p === 'openai');
-    const signature = `${s.groqApiKey}|${s.openaiApiKey}|${order.join(',')}`;
+    const order = parseProviderOrder(s.aiProviderOrder);
+    const models = { fast: s.claudeModelFast || CLAUDE_DEFAULT_MODELS.fast, quality: s.claudeModelQuality || CLAUDE_DEFAULT_MODELS.quality };
+    const signature = JSON.stringify([s.groqApiKey, s.openaiApiKey, s.anthropicApiKey, order, models]);
     if (current?.signature !== signature) {
-      current = { signature, ai: createAi({ groq: s.groqApiKey, openai: s.openaiApiKey }, order.length ? [...new Set([...order, 'groq', 'openai'] as ProviderId[])] : undefined) };
+      current = { signature, ai: createAi({ groq: s.groqApiKey, openai: s.openaiApiKey, claude: s.anthropicApiKey }, order, models) };
     }
     return current.ai;
   };
@@ -250,6 +278,7 @@ export const createAiFromSettings = (getSettings: () => Promise<{ groqApiKey: st
 
 // Checks a key works (for the admin panel). Returns an error message, or '' when it works.
 export const testAiKey = async (provider: ProviderId, apiKey: string) => {
+  if (provider === 'claude') return testClaudeKey(apiKey);
   if (!apiKey) return 'No key saved.';
   try {
     await new OpenAI({ apiKey, baseURL: BASE_URLS[provider], maxRetries: 0, timeout: 15_000 }).models.list();

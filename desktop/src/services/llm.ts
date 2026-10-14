@@ -1,14 +1,15 @@
 import { ApiError, request } from './account';
 
-// AI answers come from the Recallr server, which picks the provider and model (Groq first, as it's
-// the fastest, then OpenAI) and counts the tokens against the user's plan.
+// AI answers come from the Recallr server, which picks the provider and model (Groq, OpenAI or Claude,
+// in the order set in Admin → Settings) and counts the tokens against the user's plan.
 
-export type ProviderId = 'groq' | 'openai';
+export type ProviderId = 'groq' | 'openai' | 'claude';
 export type ModelTier = 'fast' | 'quality' | 'vision'; // fast = live answers, quality = background jobs, vision = reads screenshots
 
 export const PROVIDERS: Record<ProviderId, { label: string }> = {
   groq: { label: 'Groq' },
   openai: { label: 'OpenAI' },
+  claude: { label: 'Claude' },
 };
 
 export interface ChatRequest {

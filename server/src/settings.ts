@@ -19,7 +19,10 @@ interface Definition {
 export const SETTINGS = {
   groqApiKey: { label: 'Groq API key', group: 'ai', secret: true, env: 'GROQ_API_KEY', hint: 'console.groq.com/keys. Used first: the fastest.' },
   openaiApiKey: { label: 'OpenAI API key', group: 'ai', secret: true, env: 'OPENAI_API_KEY', hint: 'platform.openai.com/api-keys. Used when Groq fails, or alone.' },
-  aiProviderOrder: { label: 'Provider order', group: 'ai', default: 'groq,openai', hint: '"groq,openai" or "openai,groq": who answers first.' },
+  anthropicApiKey: { label: 'Anthropic (Claude) API key', group: 'ai', secret: true, env: 'ANTHROPIC_API_KEY', hint: 'platform.claude.com → API keys. Claude answers chat; listening still needs Groq or OpenAI.' },
+  claudeModelFast: { label: 'Claude model for live answers', group: 'ai', default: 'claude-haiku-5-5', hint: 'Live answers and reading the screen. Claude Haiku 5.5 is the fastest.' },
+  claudeModelQuality: { label: 'Claude model for background work', group: 'ai', default: 'claude-opus-5-5', hint: 'Reviews, prep packs and mock interview scores.' },
+  aiProviderOrder: { label: 'Provider order', group: 'ai', default: 'groq,openai,claude', hint: 'Who answers first, e.g. "groq,openai,claude" or "claude,groq,openai". Missing ones are tried last.' },
   razorpayKeyId: { label: 'Key ID', group: 'razorpay', env: 'RAZORPAY_KEY_ID', hint: 'rzp_live_... (or rzp_test_... to try it out)' },
   razorpayKeySecret: { label: 'Key secret', group: 'razorpay', secret: true, env: 'RAZORPAY_KEY_SECRET' },
   razorpayWebhookSecret: { label: 'Webhook secret', group: 'razorpay', secret: true, env: 'RAZORPAY_WEBHOOK_SECRET', hint: 'The secret you typed when adding the webhook.' },

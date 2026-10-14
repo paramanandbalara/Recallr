@@ -358,7 +358,9 @@ describe('settings in the database', () => {
   });
 
   it('rejects a provider order it does not know', async () => {
-    expect((await request(app).patch('/api/admin/settings').set(auth(admin)).send({ aiProviderOrder: 'claude' })).status).toBe(400);
+    expect((await request(app).patch('/api/admin/settings').set(auth(admin)).send({ aiProviderOrder: 'gemini' })).status).toBe(400);
+    expect((await request(app).patch('/api/admin/settings').set(auth(admin)).send({ aiProviderOrder: 'groq,groq' })).status).toBe(400);
+    expect((await request(app).patch('/api/admin/settings').set(auth(admin)).send({ aiProviderOrder: 'claude,groq' })).status).toBe(200);
   });
 
   it('logs what admins change, without the secret values', async () => {

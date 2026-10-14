@@ -14,10 +14,10 @@ interface Setting {
   value: string; // Secrets come masked: "••••1234"
 }
 
-const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what: 'groq' | 'openai' | 'razorpay' | 'email'; label: string }[] }[] = [
+const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what: 'groq' | 'openai' | 'claude' | 'razorpay' | 'email'; label: string }[] }[] = [
   {
-    id: 'ai', title: 'AI providers', text: 'The keys every answer and transcription uses. At least one is needed. Users never see them.',
-    test: [{ what: 'groq', label: 'Test Groq' }, { what: 'openai', label: 'Test OpenAI' }],
+    id: 'ai', title: 'AI providers', text: 'The keys every answer and transcription uses. Listening needs Groq or OpenAI; Claude can answer too. Users never see them.',
+    test: [{ what: 'groq', label: 'Test Groq' }, { what: 'openai', label: 'Test OpenAI' }, { what: 'claude', label: 'Test Claude' }],
   },
   {
     id: 'razorpay', title: 'Razorpay (online payments)',

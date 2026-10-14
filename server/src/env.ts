@@ -19,6 +19,7 @@ const schema = z.object({
   // Optional starting values for Admin → Settings (a value saved there wins)
   GROQ_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
