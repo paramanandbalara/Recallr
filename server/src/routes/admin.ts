@@ -247,6 +247,7 @@ adminRoutes.patch('/settings', route(async (req, res) => {
   for (const [key, value] of Object.entries(changes)) {
     if (value && isNumberSetting(key as SettingKey) && !/^\d+$/.test(value)) throw new HttpError(400, `${SETTINGS[key as SettingKey].label} must be a whole number.`);
   }
+  if (changes.aiRouting && !['speed', 'order'].includes(changes.aiRouting)) throw new HttpError(400, 'Choosing the AI must be "speed" or "order".');
   if (changes.aiProviderOrder) {
     const listed = changes.aiProviderOrder.replace(/\s/g, '').split(',');
     if (!listed.every(p => (PROVIDER_IDS as string[]).includes(p)) || new Set(listed).size !== listed.length) {

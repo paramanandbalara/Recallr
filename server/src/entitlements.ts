@@ -36,7 +36,7 @@ export const purchaseFor = async (userId: string, kind: UsageKind) => {
 
 export const recordUsage = async (usage: {
   userId: string; purchaseId: string; kind: UsageKind; provider: string; model: string;
-  inputTokens?: number; outputTokens?: number; audioSeconds?: number;
+  inputTokens?: number; outputTokens?: number; audioSeconds?: number; latencyMs?: number;
 }) => {
   const tokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
   const [, purchase] = await db.$transaction([

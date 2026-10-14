@@ -41,7 +41,7 @@ export const aiRoutes = (ai: AiGateway) => {
       }, controller.signal);
       await recordUsage({
         userId: req.user!.id, purchaseId: purchase.id, kind: 'CHAT', provider: result.provider, model: result.model,
-        inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+        inputTokens: result.inputTokens, outputTokens: result.outputTokens, latencyMs: result.firstTextMs,
       });
       send({ done: true, provider: result.provider });
     } catch (error) {

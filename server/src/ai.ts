@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from 'openai';
 import { CLAUDE_DEFAULT_MODELS, createClaude, testClaudeKey, type ClaudeModels } from './claude.js';
 import { HttpError } from './http.js';
+import { createLatencyTracker, fastestFirst, hedgeDelay, raceProviders, type LatencyTracker } from './routing.js';
 
 // The AI providers, with the server's own keys, tried in the admin's order (Groq first by default: fastest).
 // Groq's model ids are known, OpenAI's newest mini is discovered; Claude is in claude.ts.
@@ -27,6 +28,7 @@ export interface ChatResult {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  firstTextMs?: number; // How long until the first words arrived
 }
 
 export interface TranscribeResult {
@@ -93,10 +95,17 @@ const rejectedParam = (error: unknown) => {
 };
 
 // `order`: which provider is tried first
+// Guesses of each provider's time to first words (ms), until real ones are measured
+const SPEED_PRIORS: Partial<Record<ProviderId, number>> = { groq: 500, claude: 800, openai: 1000 };
+
+// "speed": the fastest provider right now answers (see routing.ts); "order": always the admin's order
+export type Routing = 'speed' | 'order';
+
 export const createAi = (
   keys: Partial<Record<ProviderId, string>>,
   order: ProviderId[] = PROVIDER_IDS,
   claudeModels: ClaudeModels = CLAUDE_DEFAULT_MODELS,
+  { routing = 'speed', tracker = createLatencyTracker() }: { routing?: Routing; tracker?: LatencyTracker } = {},
 ): AiGateway => {
   const providers = order.filter(p => keys[p]);
   const transcribers = providers.filter((p): p is OpenAiCompatible => p !== 'claude');
@@ -199,21 +208,29 @@ export const createAi = (
   return {
     streamChat: async (req, onText, signal) => {
       if (providers.length === 0) throw noProvider();
-      let lastError: unknown;
-      for (const provider of providers) {
-        let emitted = false;
-        try {
-          const onDelta = (delta: string) => { emitted = true; onText(delta, provider); };
-          if (provider === 'claude') return { ...(await claude!.streamChat(req, onDelta, signal)), provider };
-          return await streamFrom(provider, req, onDelta, signal);
-        } catch (error) {
-          if (signal.aborted) throw error;
-          console.error(`${provider} chat error:`, error);
-          lastError = error;
-          if (emitted) break; // Don't mix two providers' text in one answer
-        }
-      }
-      throw lastError;
+      // Speed is measured per kind of request (a JSON reply arrives all at once, so it's timed apart)
+      const speedKey = (provider: ProviderId) => `${provider}:${req.tier}${req.json ? ':json' : ''}`;
+      const ordered = routing === 'speed' ? fastestFirst(providers, p => tracker.estimate(speedKey(p)), SPEED_PRIORS) : providers;
+      const { provider, result, firstTextMs } = await raceProviders(
+        ordered.map(provider => ({
+          provider,
+          run: async (onDelta: (delta: string) => void, attemptSignal: AbortSignal): Promise<Omit<ChatResult, 'provider'>> =>
+            provider === 'claude' ? claude!.streamChat(req, onDelta, attemptSignal) : streamFrom(provider, req, onDelta, attemptSignal),
+        })),
+        (delta, p) => onText(delta, p as ProviderId),
+        signal,
+        {
+          // Live answers only: background work and JSON aren't worth paying twice for
+          hedge: routing === 'speed' && req.tier !== 'quality' && !req.json && ordered.length > 1,
+          delayFor: p => hedgeDelay(tracker.estimate(speedKey(p as ProviderId))),
+          onFirstText: (p, ms) => tracker.record(speedKey(p as ProviderId), ms),
+          onFailure: (p, error) => {
+            console.error(`${p} chat error:`, error);
+            tracker.failed(speedKey(p as ProviderId));
+          },
+        },
+      );
+      return { ...result, provider: provider as ProviderId, firstTextMs };
     },
 
     transcribe: async (audio, language, options = {}) => {
@@ -253,6 +270,7 @@ interface AiSettings {
   claudeModelFast: string;
   claudeModelQuality: string;
   aiProviderOrder: string;
+  aiRouting: string;
 }
 
 // Providers missing from the admin's order are tried after the ones listed
@@ -263,13 +281,15 @@ export const parseProviderOrder = (value: string) => {
 
 export const createAiFromSettings = (getSettings: () => Promise<AiSettings>): AiGateway => {
   let current: { signature: string; ai: AiGateway } | null = null;
+  const tracker = createLatencyTracker(); // Kept when the keys change, so the speeds measured so far still count
   const gateway = async () => {
     const s = await getSettings();
     const order = parseProviderOrder(s.aiProviderOrder);
     const models = { fast: s.claudeModelFast || CLAUDE_DEFAULT_MODELS.fast, quality: s.claudeModelQuality || CLAUDE_DEFAULT_MODELS.quality };
-    const signature = JSON.stringify([s.groqApiKey, s.openaiApiKey, s.anthropicApiKey, order, models]);
+    const routing: Routing = s.aiRouting === 'order' ? 'order' : 'speed';
+    const signature = JSON.stringify([s.groqApiKey, s.openaiApiKey, s.anthropicApiKey, order, models, routing]);
     if (current?.signature !== signature) {
-      current = { signature, ai: createAi({ groq: s.groqApiKey, openai: s.openaiApiKey, claude: s.anthropicApiKey }, order, models) };
+      current = { signature, ai: createAi({ groq: s.groqApiKey, openai: s.openaiApiKey, claude: s.anthropicApiKey }, order, models, { routing, tracker }) };
     }
     return current.ai;
   };
