@@ -65,7 +65,8 @@ function App() {
   useTypingFocus();
 
   const [settings, setSettings] = useState(() => loadSettings());
-  const [setProfileName] = useState(() => loadActiveProfile().name);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [profileName, setProfileName] = useState(() => loadActiveProfile().name);
   const reloadSettings = () => {
     setSettings(loadSettings());
     setProfileName(loadActiveProfile().name);
