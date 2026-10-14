@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, Settings, X, Minus, MessageSquareQuote, SendHorizontal, Pin, PinOff, SquarePen, Volume2, SlidersHorizontal, History, ScanText, Users } from 'lucide-react';
 import { useAudioCapture, type Speaker } from './hooks/useAudioCapture';
+import { useClickThrough, useTypingFocus } from './hooks/useClickThrough';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
@@ -17,9 +18,7 @@ import { SetupCheck } from './components/SetupCheck';
 import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
 
-// Answer once no new speech has arrived for this long (speech chunks already end on a ~0.8s pause)
 const PAUSE_BEFORE_ANSWER_MS = 500;
-// Filler ("okay", "yeah, great") that isn't followed by a real question within this time is dropped
 const FILLER_TIMEOUT_MS = 5000;
 const SAVE_DELAY_MS = 600;
 
@@ -31,12 +30,10 @@ const sendIpc = (channel: string, ...args: unknown[]) => {
   window.ipcRenderer?.send(channel, ...args);
 };
 
-// Global keyboard shortcuts from the main process; returns a function that stops listening
 const onShortcut = (listener: (action: string) => void): (() => void) | undefined =>
   // @ts-expect-error ipcRenderer is injected by the preload script
   window.ipcRenderer?.onShortcut?.(listener);
 
-// Screenshots of every screen from the main process
 const captureScreens = (): Promise<{ images?: string[]; error?: 'permission' | 'empty' } | undefined> =>
   // @ts-expect-error ipcRenderer is injected by the preload script
   window.ipcRenderer?.invoke('capture-screens');
@@ -46,26 +43,27 @@ const SCREEN_ERRORS = {
   empty: "Couldn't capture the screen.",
 };
 
-// The audio button cycles through these
 const AUDIO_SOURCES: Record<AudioSource, { next: AudioSource; label: string; title: string }> = {
   system: { next: 'both', label: 'Call audio', title: 'Hearing the call audio: only the other people in the call (click to also hear your microphone)' },
   both: { next: 'microphone', label: 'Call + mic', title: 'Hearing the call and your microphone separately, so Recallr knows what you actually said (click for microphone only)' },
   microphone: { next: 'system', label: 'Mic', title: 'Hearing your microphone only (click for the call audio)' },
 };
 
-// An answer being written, and what to put back if it gets cancelled
 interface InFlight {
   controller: AbortController;
   restore: Partial<Turn>;
 }
 
-// Anything cut off mid-answer (by a restart, or saved while answering) is closed off
 const closeUnfinished = (turns: Turn[]): Turn[] => turns.map(turn =>
   ['listening', 'thinking', 'answering'].includes(turn.status)
     ? { ...turn, status: turn.answer ? 'done' : 'skipped' }
     : turn);
 
 function App() {
+  // ⬇️ ADDED: click-through + typing focus management
+  useClickThrough();
+  useTypingFocus();
+
   const [settings, setSettings] = useState(() => loadSettings());
   const [profileName, setProfileName] = useState(() => loadActiveProfile().name);
   const reloadSettings = () => {
@@ -75,7 +73,6 @@ function App() {
   const [hasApiKey, setHasApiKey] = useState(() => hasAnyKey(settings));
 
   const [turns, setTurns] = useState<Turn[]>(() => closeUnfinished(loadConversation<Turn>()));
-  // Where this conversation is saved in the history (the ref is for saving outside of render)
   const [session, setSession] = useState(loadCurrentSession);
   const sessionRef = useRef(session);
   const turnsRef = useRef(turns);
@@ -86,18 +83,17 @@ function App() {
   const [display, setDisplay] = useState(() => loadDisplay());
   const [isDisplayOpen, setIsDisplayOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [reviewId, setReviewId] = useState<string | null>(null); // Conversation whose review is open
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const [isCheckOpen, setIsCheckOpen] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
   const closeDisplay = useCallback(() => setIsDisplayOpen(false), []);
 
-  const openTurnRef = useRef<{ id: string; question: string } | null>(null); // Turn still collecting speech
+  const openTurnRef = useRef<{ id: string; question: string } | null>(null);
   const lastSpeechAtRef = useRef(0);
-  const inFlightRef = useRef(new Map<string, InFlight>()); // Answers currently being written
+  const inFlightRef = useRef(new Map<string, InFlight>());
   const lastPreparedIdRef = useRef<string | null>(null);
 
-  // Save the conversation to the history, once it has an answer
   const persistSession = useCallback((list: Turn[]) => {
     if (!hasAnswers(list)) return;
     const profile = loadActiveProfile();
@@ -111,7 +107,6 @@ function App() {
     })?.catch(error => console.error('Could not save to history:', error));
   }, []);
 
-  // Keep the conversation across restarts (saved shortly after changes, not on every streamed word)
   useEffect(() => {
     turnsRef.current = turns;
     const timer = setTimeout(() => {
@@ -121,7 +116,6 @@ function App() {
     return () => clearTimeout(timer);
   }, [turns, persistSession]);
 
-  // Don't lose the last changes when the app closes before the delayed save
   useEffect(() => {
     const flush = () => {
       saveConversation(turnsRef.current);
@@ -131,12 +125,10 @@ function App() {
     return () => window.removeEventListener('pagehide', flush);
   }, [persistSession]);
 
-  // Apply the saved overlay preference on startup
   useEffect(() => {
     sendIpc('set-overlay', loadOverlay());
   }, []);
 
-  // Apply display options as they change (theme, answer text size, background and text opacity)
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = display.theme;
@@ -146,7 +138,6 @@ function App() {
     saveDisplay(display);
   }, [display]);
 
-  // Roomy window for setup, compact transcript window afterwards
   useEffect(() => {
     const size = hasApiKey ? COMPACT_SIZE : SETUP_SIZE;
     sendIpc('set-window-size', size.width, size.height);
@@ -173,7 +164,6 @@ function App() {
     setTurns(prev => [...prev, turn]);
   }, []);
 
-  // Cancel an answer still being written, putting back what was there before
   const stopAnswer = useCallback((id: string) => {
     const running = inFlightRef.current.get(id);
     if (!running) return;
@@ -182,15 +172,12 @@ function App() {
     patchTurn(id, running.restore);
   }, [patchTurn]);
 
-  // Key points and likely follow-ups for a finished answer. Best effort: the answer stands without them.
   const addExtras = useCallback((turnId: string, question: string, answer: string) => {
     answerExtras(question, answer, loadSettings())
       .then(extras => setTurns(prev => prev.map(t => (t.id === turnId && t.answer === answer ? { ...t, ...extras } : t))))
       .catch(error => console.error('Key points / follow-ups error:', error));
   }, []);
 
-  // Stream an answer; with a matched prepared answer, the AI retells it naturally instead of word for word.
-  // With `adjust`, the turn's existing answer is redone (shorter, simpler, ...) and kept if that fails.
   const answerWithAi = useCallback(async (
     turnId: string,
     question: string,
@@ -199,7 +186,6 @@ function App() {
     if (adjust) {
       stopAnswer(turnId);
     } else {
-      // The newest question wins: stop any answer still being written for an earlier one
       for (const id of [...inFlightRef.current.keys()]) stopAnswer(id);
     }
     const controller = new AbortController();
@@ -221,7 +207,6 @@ function App() {
       error: undefined,
     });
     const startedAt = performance.now();
-    // Everything said before this question, so answers stay consistent with what was already said
     const history = turnsRef.current
       .filter(t => t.id !== turnId && t.status !== 'listening')
       .map(t => ({ question: t.question, answer: t.spoken || (t.status === 'done' ? t.answer : '') }));
@@ -245,7 +230,7 @@ function App() {
         patchTurn(turnId, restore);
       }
     } catch (error) {
-      if (controller.signal.aborted) return; // Replaced by a newer question
+      if (controller.signal.aborted) return;
       console.error('AI error:', error);
       patchTurn(turnId, previous ? { ...restore, error: describeAiError(error) } : { status: 'error', answer: describeAiError(error) });
     } finally {
@@ -253,7 +238,6 @@ function App() {
     }
   }, [patchTurn, stopAnswer, addExtras]);
 
-  // Redo a finished answer from the buttons under it (or the regenerate shortcut)
   const adjustAnswer = useCallback((turnId: string, mode: AdjustMode) => {
     const turn = turnsRef.current.find(t => t.id === turnId);
     if (!turn || turn.status !== 'done' || !turn.answer) return;
@@ -261,7 +245,6 @@ function App() {
     answerWithAi(turnId, turn.question, { prepared, adjust: { mode, previous: turn } });
   }, [answerWithAi]);
 
-  // If the question matches one of the user's prepared answers, answer right away from it
   const answerFromPrepared = useCallback((turnId: string, question: string) => {
     if (!isLikelyQuestion(question)) return false;
     const match = matchPreparedAnswer(question, loadSettings().answers);
@@ -272,7 +255,6 @@ function App() {
   }, [answerWithAi]);
 
   const handleTranscript = useCallback((text: string, speaker: Speaker) => {
-    // What the user says is kept with the latest question (it never triggers an answer)
     if (speaker === 'you') {
       setTurns(prev => prev.length === 0 ? prev : prev.map((t, i) => (
         i === prev.length - 1 ? { ...t, spoken: t.spoken ? `${t.spoken} ${text}` : text } : t
@@ -281,7 +263,6 @@ function App() {
     }
     lastSpeechAtRef.current = Date.now();
 
-    // Keep adding speech to the open question until the interviewer pauses
     let open = openTurnRef.current;
     if (open) {
       open = { id: open.id, question: `${open.question} ${text}` };
@@ -299,8 +280,6 @@ function App() {
 
   const { isRecording, startRecording, stopRecording, errorMsg, debugLog, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
 
-  // When the interviewer pauses, answer the open question if it's a real question.
-  // Filler waits to be joined by the next sentence, and is dropped if nothing follows.
   useEffect(() => {
     if (!isRecording) return;
 
@@ -325,7 +304,6 @@ function App() {
   const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
-      // Answer whatever was said last
       const open = openTurnRef.current;
       openTurnRef.current = null;
       if (open && isLikelyQuestion(open.question)) {
@@ -339,7 +317,6 @@ function App() {
     }
   };
 
-  // Find the interview question on screen (a coding problem, a chat message...) and answer it
   const [isReadingScreen, setIsReadingScreen] = useState(false);
   const readScreen = async () => {
     if (isReadingScreen) return;
@@ -373,7 +350,6 @@ function App() {
     if (!answerFromPrepared(id, question)) answerWithAi(id, question);
   };
 
-  // Leave the current conversation (it stays in the history) and show `next` instead
   const switchConversation = (target: { id: string; startedAt: number }, next: Turn[]) => {
     for (const id of [...inFlightRef.current.keys()]) stopAnswer(id);
     persistSession(turnsRef.current);
@@ -397,13 +373,11 @@ function App() {
     switchConversation({ id: saved.id, startedAt: saved.startedAt }, closeUnfinished(saved.turns));
   };
 
-  // Global shortcuts (see electron/main.ts). Kept in a ref so the listener always sees the latest state.
   const shortcutRef = useRef<(action: string) => void>(() => {});
   useEffect(() => {
     shortcutRef.current = action => {
       if (!hasApiKey) return;
       if (action === 'toggle-listening') {
-        // The mock interview and the check use the mic themselves
         if (!isMockOpen && !isCheckOpen) toggleRecording();
       }
       else if (action === 'focus-ask') askInputRef.current?.focus();
@@ -423,8 +397,11 @@ function App() {
 
   return (
     <div className="relative flex flex-col h-screen w-full select-none">
-      {/* Header (draggable) */}
-      <div className="drag-area fade-with-text flex items-center justify-between gap-2 px-2.5 py-2 border-b border-slate-800 shrink-0">
+      {/* Header (draggable) — every button here needs real clicks */}
+      <div
+        data-interactive
+        className="drag-area fade-with-text flex items-center justify-between gap-2 px-2.5 py-2 border-b border-slate-800 shrink-0"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleRecording}
@@ -435,7 +412,6 @@ function App() {
           >
             {isRecording ? (
               <>
-                {/* Live level meter: bars move when sound is reaching the app */}
                 <span className="flex items-end gap-[2px] h-3" aria-hidden>
                   {[0.15, 0.35, 0.6].map(step => (
                     <span
@@ -503,19 +479,25 @@ function App() {
       )}
 
       {isDisplayOpen && (
-        <DisplayMenu
-          display={display}
-          onChange={setDisplay}
-          onClose={closeDisplay}
-          onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
-          onMock={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsMockOpen(true); }}
-        />
+        <div data-interactive>
+          <DisplayMenu
+            display={display}
+            onChange={setDisplay}
+            onClose={closeDisplay}
+            onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
+            onMock={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsMockOpen(true); }}
+          />
+        </div>
       )}
 
-      <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
+      {/* Feed contains per-turn buttons (regenerate etc.) so mark it interactive too */}
+      <div data-interactive className="flex-1 min-h-0 flex flex-col">
+        <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
+      </div>
 
-      {/* Ask a question by typing */}
+      {/* Ask form: input + buttons */}
       <form
+        data-interactive
         onSubmit={e => { e.preventDefault(); submitAsk(); }}
         className="fade-with-text flex items-center gap-1.5 px-2.5 pt-2 border-t border-slate-800 shrink-0"
       >
@@ -551,30 +533,44 @@ function App() {
           <SquarePen className="w-3.5 h-3.5" /> New
         </button>
       </form>
-      <div className="fade-with-text flex gap-2 px-3 py-1 text-[10px] text-slate-600 shrink-0">
-        <span className="min-w-0 flex-1 truncate">{debugLog || 'Ready'}</span>
-        <span className="max-w-[45%] truncate" title="Active profile (change it in Settings)">{profileName}</span>
-      </div>
+
+      {/* Status bar is non-interactive — leave it click-through */}
 
       {isHistoryOpen && (
-        <HistoryPanel
-          currentId={session.id}
-          canOpen={!isRecording}
-          onOpen={openSession}
-          onReview={setReviewId}
-          refreshKey={reviewId}
-          onClose={() => setIsHistoryOpen(false)}
-        />
+        <div data-interactive>
+          <HistoryPanel
+            currentId={session.id}
+            canOpen={!isRecording}
+            onOpen={openSession}
+            onReview={setReviewId}
+            refreshKey={reviewId}
+            onClose={() => setIsHistoryOpen(false)}
+          />
+        </div>
       )}
 
-      {reviewId && <ReviewPanel sessionId={reviewId} onClose={() => setReviewId(null)} />}
+      {reviewId && (
+        <div data-interactive>
+          <ReviewPanel sessionId={reviewId} onClose={() => setReviewId(null)} />
+        </div>
+      )}
 
-      {isCheckOpen && <SetupCheck onClose={() => setIsCheckOpen(false)} />}
+      {isCheckOpen && (
+        <div data-interactive>
+          <SetupCheck onClose={() => setIsCheckOpen(false)} />
+        </div>
+      )}
 
-      {isMockOpen && <MockInterview onClose={() => setIsMockOpen(false)} />}
+      {isMockOpen && (
+        <div data-interactive>
+          <MockInterview onClose={() => setIsMockOpen(false)} />
+        </div>
+      )}
 
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />
+        <div data-interactive>
+          <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />
+        </div>
       )}
     </div>
   );
