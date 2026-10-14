@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { TEXT_SIZES, type Display } from '../services/storage';
+import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, type Display, type EnglishStyle } from '../services/storage';
 
 interface Props {
   display: Display;
@@ -73,6 +73,8 @@ const stepButton = 'p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-sla
 export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock }) => {
   const ref = useRef<HTMLDivElement>(null);
   const patch = (changes: Partial<Display>) => onChange({ ...display, ...changes });
+  // Answer English: 'broken' adds small everyday slips (applies to the next answer)
+  const [english, setEnglish] = useState<EnglishStyle>(loadEnglishStyle);
 
   // Close on a click outside or Escape
   useEffect(() => {
@@ -126,6 +128,17 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
         value={display.textOpacity}
         onChange={textOpacity => patch({ textOpacity })}
       />
+
+      <Row label="English">
+        <Segmented
+          value={english}
+          options={[{ id: 'normal', label: 'Normal' }, { id: 'broken', label: 'Broken' }]}
+          onChange={style => {
+            setEnglish(style);
+            saveEnglishStyle(style);
+          }}
+        />
+      </Row>
 
       <Row label="Theme">
         <Segmented

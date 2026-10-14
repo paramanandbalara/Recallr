@@ -37,6 +37,7 @@ const KEYS = {
   audioSource: 'secondBrain_audioSource',
   conversation: 'secondBrain_conversation',
   display: 'secondBrain_display',
+  english: 'secondBrain_english',
   profiles: 'secondBrain_profiles',
   activeProfile: 'secondBrain_activeProfile',
   session: 'secondBrain_session',
@@ -269,6 +270,11 @@ export const loadDisplay = (): Display => {
   }
 };
 export const saveDisplay = (display: Display) => write(KEYS.display, JSON.stringify(display));
+
+// How the answers' English sounds: 'broken' adds the small slips of everyday non-native English
+export type EnglishStyle = 'normal' | 'broken';
+export const loadEnglishStyle = (): EnglishStyle => (read(KEYS.english) === 'broken' ? 'broken' : 'normal');
+export const saveEnglishStyle = (style: EnglishStyle) => write(KEYS.english, style);
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
 

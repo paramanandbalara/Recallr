@@ -1,5 +1,5 @@
 import { completeChat, streamChat, type ProviderId } from './llm';
-import { fillPlaceholders, newId, type PreparedAnswer, type Settings } from './storage';
+import { fillPlaceholders, loadEnglishStyle, newId, type PreparedAnswer, type Settings } from './storage';
 
 // Keep prompts well inside the model's context window (and short, for speed)
 const MAX_CV_CHARS = 12000;
@@ -18,7 +18,7 @@ const NO_AI_STYLE = `- Never use words or phrases that sound AI-written: "Great 
   "synergy", "landscape", "realm", "tapestry", "testament", "navigate" (for anything but a map), "spearheaded",
   "ensure", "enhance", "facilitate", "optimal", "numerous", "various", "notably", "essentially", "in essence", "in order to",
   "Furthermore", "Moreover", "Additionally", "It's worth noting", "In summary", "In conclusion", "Overall,", "Ultimately,",
-  "at the end of the day", "in today's fast-paced world", "key takeaway", and hedges like "I think", "I guess", "I believe",
+  "at the end of the day", "in today's fast-paced world", "key takeaway", "under the hood", "behind the scenes", "out of the box", and hedges like "I think", "I guess", "I believe",
   "I feel like", "probably", "kind of", "sort of", "if I remember right". Say it straight and confident. Use the plain everyday word instead (use, make sure, improve, help, also).
 - No long dashes (—) and no semicolons; people don't speak in them. No neat groups of three, and no tidy moral or summary at the end.
 - No AI sentence patterns: "First… Second… Finally", "Not only… but also", "It's not just X, it's Y", "This allows/ensures/enables…",
@@ -32,6 +32,8 @@ KEEP IT SIMPLE (most important)
 - Use simple, everyday English, like explaining to a friend. Short sentences, one idea each.
 - Prefer the simple word: "use" not "utilize", "fast" not "performant", "split" not "partition", "check" not "validate".
 - If you need a technical term, say what it does in plain words right after it, once.
+- When speaking in general, say "we" (or "I"), never the generic "you": "we don't want to index everything", not
+  "you don't want to index everything"; "our app", not "your app".
 - No long, complicated sentences, and no stacking of ideas. If it can be said in fewer, simpler words, do that.
 
 SOUND HUMAN
@@ -55,7 +57,7 @@ HOW A REAL PERSON SOUNDS (match how simple these are; never copy their content o
 Question: "What is the event loop?"
 Too complicated, never like this: "The event loop is a mechanism that enables Node.js to perform non-blocking I/O operations despite being
 single-threaded, by offloading operations to the system kernel and processing callbacks from the event queue."
-Simple, like a real person: "Node runs your code on just one thread, so it can't sit and wait for slow things like a database call.
+Simple, like a real person: "Node runs the code on just one thread, so it can't sit and wait for slow things like a database call.
 It starts the call, moves on to other work, and when the result comes back it runs the callback. The event loop is the part that keeps
 checking 'is anything ready?' and runs it. That's why one Node server can handle lots of requests at once."
 
@@ -163,10 +165,22 @@ const PLAIN_WORDS: [string, string][] = [
   ['essentially', 'basically'], ['in essence', 'basically'], ['in order to', 'to'],
   ['crucial', 'important'], ['pivotal', 'key'], ['paramount', 'really important'], ['optimal', 'best'],
   ['robust', 'solid'], ['seamless', 'smooth'], ['seamlessly', 'smoothly'], ['meticulous', 'careful'], ['meticulously', 'carefully'],
+  ['under the hood', 'internally'], ['behind the scenes', 'internally'], ['out of the box', 'by default'],
   ['comprehensive', 'full'], ['numerous', 'many'], ['a plethora of', 'a lot of'], ['a myriad of', 'a lot of'],
 ];
 const PLAIN_WORD_PATTERN = new RegExp(`\\b(${PLAIN_WORDS.map(([word]) => word).sort((a, b) => b.length - a.length).join('|')})\\b`, 'gi');
 const PLAIN_WORD_MAP = new Map(PLAIN_WORDS);
+
+// Words before "you" that mean it's really the interviewer ("thank you", "as you said", "can you")
+const INTERVIEWER_YOU = new Set(['thank', 'thanking', 'as', 'do', 'does', 'did', 'would', 'could', 'can', 'will', 'are', 'were', 'have', 'has', 'told', 'asked']);
+// Words after which "you" is the object ("gives you", "for you")
+const OBJECT_BEFORE = new Set([
+  'give', 'gives', 'gave', 'giving', 'let', 'lets', 'help', 'helps', 'helped', 'allow', 'allows', 'tell', 'tells', 'make', 'makes',
+  'cost', 'costs', 'save', 'saves', 'take', 'takes', 'get', 'gets', 'send', 'sends', 'force', 'forces', 'stop', 'stops', 'protect',
+  'protects', 'warn', 'warns', 'notify', 'notifies', 'remind', 'reminds', 'charge', 'charges', 'hit', 'hits', 'block', 'blocks',
+  'for', 'to', 'with', 'from', 'at', 'on', 'by', 'of', 'about', 'into', 'than', 'like', 'around', 'without', 'toward', 'towards',
+  'between', 'against', 'after', 'before',
+]);
 
 const plainWords = (text: string) => text
   .replace(PLAIN_WORD_PATTERN, match => {
@@ -181,6 +195,22 @@ const plainWords = (text: string) => text
   .replace(/(^|[.!?]\s+)(?:I think|I guess|I believe|I feel like|probably),?\s+(?!(?:about|of|through|back|over)\b)(\w)/gi,
     (_m, before: string, next: string) => before + next.toUpperCase())
   .replace(/,\s*(?:I think|I guess|I believe),\s*/gi, ' ')
+  // Generic "you" in speech: as the subject it becomes "we" ("you don't want to index everything" → "we don't…"),
+  // as the object "me" ("it gives you more control" → "it gives me…"). Left alone where it's really the interviewer
+  // ("thank you", "as you mentioned", "can you").
+  .replace(/\b(you[’']re|you[’']ve|you[’']d|you[’']ll|yourselves|yourself|yours|your|you)\b/gi,
+    (match: string, _word: string, offset: number, text: string) => {
+      const lower = match.toLowerCase();
+      const capital = (word: string) => (match[0] === 'Y' ? word.charAt(0).toUpperCase() + word.slice(1) : word);
+      if (lower === 'you') {
+        const previous = text.slice(Math.max(0, offset - 20), offset).match(/(\w+)\s+$/)?.[1].toLowerCase() ?? '';
+        if (INTERVIEWER_YOU.has(previous)) return match;
+        const next = text.slice(offset + match.length).match(/^\s*([\w.,!?;:]?)/)?.[1] ?? '';
+        if (OBJECT_BEFORE.has(previous) || /^[.,!?;:]?$/.test(next)) return capital('me');
+        return capital('we');
+      }
+      return capital(/^yoursel/.test(lower) ? 'ourselves' : lower.startsWith('your') ? `our${lower.slice(4)}` : `we${lower.slice(3)}`);
+    })
   // "kind of" / "sort of" as a hedge ("it's kind of slow"), but not as real wording ("what kind of database")
   .replace(/(?<!\b(?:what|this|that|these|those|the|a|an|any|some|every|which|one|same|other|different|each|no|many|all|my|our|your|their|his|her|its|what's)\s)\b(?:kind|sort) of\s+/gi, '');
 
@@ -223,6 +253,13 @@ const ANSWER_REMINDER = `Remember: say it the simple way a real person talks, so
 everyday words, not a definition. Short sentences, plain words. Answer only what was asked: don't mention your own projects or
 where you used it unless the question is about your experience. No hedges like "I think" or "kind of".`;
 
+// "Broken" English (Display menu): everyday Indian English with small slips, so it doesn't sound too perfect
+const BROKEN_ENGLISH = `Speak like a normal Indian engineer whose English is good but not perfect, the way people really talk in interviews:
+in about one sentence out of three, make a small natural slip, such as dropping "a" or "the", a simple tense slip ("we are having one issue
+that time"), "one" for "a" ("we had one service for that"), "only" or "itself" for emphasis ("that time only", "in the API itself"),
+starting with "basically what happens is…" or "so what we did is…", or restarting a sentence halfway. Keep the meaning clear and the
+technical words correct. Not every sentence, and never so much that it sounds like a joke.`;
+
 // Ways to redo an answer from the buttons under it
 export type AdjustMode = 'regenerate' | 'shorter' | 'longer' | 'simpler' | 'technical';
 
@@ -231,7 +268,7 @@ const ADJUST_INSTRUCTIONS: Record<AdjustMode, string> = {
   shorter: 'Say it again in about half the words. Keep the main point and drop the rest.',
   longer: 'Say it again with more detail: how you did it, why, and a concrete example from your experience.',
   simpler: 'Say it again in simpler, everyday words, as if to a non-technical interviewer. No jargon.',
-  technical: 'Say it again with more technical depth: specific technologies, how it works under the hood, and the trade-offs.',
+  technical: 'Say it again with more technical depth: specific technologies, how it works internally, and the trade-offs.',
 };
 
 export interface AnswerOptions {
@@ -263,7 +300,7 @@ export const streamInterviewAnswer = async (
   const text = await streamChat(settings, {
     tier: 'fast',
     system: SYSTEM_PROMPT_BASE + buildContext(settings),
-    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}\n\nWhat you say:`,
+    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${loadEnglishStyle() === 'broken' ? `\n${BROKEN_ENGLISH}` : ''}\n\nWhat you say:`,
     temperature: 0.85, // A little more variety, like real speech
     maxTokens: 2000, // Room for long answers (includes the model's brief reasoning)
     signal,
