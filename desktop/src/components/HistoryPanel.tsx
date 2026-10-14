@@ -60,7 +60,7 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+    <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <h2 className="text-sm font-semibold text-slate-100">History</h2>
         <IconButton onClick={onClose} title="Close">

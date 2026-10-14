@@ -186,7 +186,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
           const hasPoints = keyPointsView && turn.status === 'done' && !!turn.keyPoints?.length;
           const showFull = !hasPoints || isLatest || expanded.has(turn.id);
           return (
-          <div key={turn.id} ref={isLatest ? latestRef : undefined} className={`group ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
+          <div key={turn.id} ref={isLatest ? latestRef : undefined} className={`group turn-in ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
             {/* What was heard */}
             <p className="text-slate-400 leading-relaxed select-text" style={{ fontSize: 'calc(var(--answer-size) * 0.86)' }}>
               <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? 'Read from your screen' : undefined}>
@@ -233,7 +233,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
                 </div>
                 <div className="text-slate-100 leading-relaxed select-text" style={{ fontSize: 'var(--answer-size)' }}>
                   {hasPoints && (
-                    <div className={showFull ? 'mb-2 rounded-md bg-slate-800/60 px-2.5 py-2' : ''}>
+                    <div className={`fade-in ${showFull ? 'mb-2 rounded-md bg-slate-800/60 px-2.5 py-2' : ''}`}>
                       <KeyPoints points={turn.keyPoints!} />
                     </div>
                   )}

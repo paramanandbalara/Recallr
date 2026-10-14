@@ -81,7 +81,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
   const email = review?.email.body ? `Subject: ${review.email.subject}\n\n${review.email.body}` : '';
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+    <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center gap-2 px-2 py-2.5 border-b border-slate-800 shrink-0">
         <IconButton onClick={onClose} title="Back to history"><ArrowLeft className="w-4 h-4" /></IconButton>
         <div className="min-w-0 flex-1">

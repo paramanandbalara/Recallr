@@ -7,29 +7,34 @@ import { ProfileBar } from './ProfileBar';
 import { AccountPanel } from './AccountPanel';
 import { BackupPanel } from './BackupPanel';
 import { KnowledgeEditor } from './KnowledgeEditor';
+import { PrepPack } from './PrepPack';
+import { StoryBankEditor } from './StoryBankEditor';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
   onClose: () => void;
   onSaved: () => void;
+  onPractise?: (questions: string[]) => void; // Start a mock interview with these questions
 }
 
-type Tab = 'profile' | 'answers' | 'account' | 'data';
+type Tab = 'profile' | 'answers' | 'stories' | 'account' | 'data';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'answers', label: 'Answers' },
+  { id: 'stories', label: 'Stories' },
   { id: 'account', label: 'Account' },
   { id: 'data', label: 'Data' },
 ];
 
 // Mounted only while open, so it always starts from the saved settings
-export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise }) => {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [tab, setTab] = useState<Tab>('profile');
   const [preparedMode, setPreparedMode] = useState<PreparedMode>(loadPreparedMode); // Saved right away
   const [profiles, setProfiles] = useState(() => loadProfiles());
   const [activeId, setActiveId] = useState(() => loadActiveProfile().id);
+  const [prepOpen, setPrepOpen] = useState(false);
 
   // Profile changes save the current edits first, so nothing typed is lost
   const changeProfiles = (change: () => void) => {
@@ -56,7 +61,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+    <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       {/* Header */}
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <h2 className="text-sm font-semibold text-slate-100">Settings</h2>
@@ -83,7 +88,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
         ))}
       </div>
 
-      {(tab === 'profile' || tab === 'answers') && (
+      {(tab === 'profile' || tab === 'answers' || tab === 'stories') && (
         <ProfileBar
           profiles={profiles}
           activeId={activeId}
@@ -177,12 +182,28 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
           </div>
         )}
         {tab === 'answers' && (
-          <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} />
+          <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} onOpenPrepPack={() => setPrepOpen(true)} />
+        )}
+        {tab === 'stories' && (
+          <StoryBankEditor settings={settings} onChange={stories => patch({ stories })} />
         )}
 
         {tab === 'account' && <AccountPanel />}
         {tab === 'data' && <BackupPanel />}
       </div>
+
+      {prepOpen && (
+        <PrepPack
+          settings={settings}
+          onAdd={added => patch({ answers: [...settings.answers, ...added] })}
+          onPractise={onPractise && (questions => {
+            saveSettings(settings); // Keep what was added before leaving
+            onSaved();
+            onPractise(questions);
+          })}
+          onClose={() => setPrepOpen(false)}
+        />
+      )}
 
       {/* Footer */}
       <div className="flex justify-end gap-2 px-4 py-3 border-t border-slate-800 shrink-0">

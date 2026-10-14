@@ -11,6 +11,7 @@ import { Button, IconButton } from './ui';
 
 interface Props {
   onClose: () => void;
+  initialQuestions?: string[]; // From the prep pack
 }
 
 type Phase = 'setup' | 'preparing' | 'asking' | 'answering' | 'scoring' | 'feedback' | 'summary';
@@ -98,7 +99,7 @@ const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
 );
 
 // Practice: questions are read out loud, you answer by voice, and each answer gets scored
-export const MockInterview: React.FC<Props> = ({ onClose }) => {
+export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) => {
   const [settings] = useState(() => loadSettings());
   const [keys] = useState(() => ({ ...settings, keepFillers: true })); // Keep "um", "uh"... for speaking feedback
   const answerStartedRef = useRef(0);
@@ -106,7 +107,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
   const [phase, setPhase] = useState<Phase>('setup');
   const [count, setCount] = useState(5);
   const [readAloud, setReadAloud] = useState(true);
-  const [source, setSource] = useState<'new' | 'past'>('new'); // New questions, or real ones from History
+  const [source, setSource] = useState<'new' | 'past' | 'prep'>(initialQuestions?.length ? 'prep' : 'new'); // New questions, real ones from History, or the prep pack's
   const [questions, setQuestions] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [transcript, setTranscript] = useState('');
@@ -150,7 +151,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     setSaved('no');
     setPhase('preparing');
     try {
-      const list = source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
+      const list = source === 'prep' ? initialQuestions!.slice(0, count) : source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
       if (run !== runRef.current) return;
       if (list.length === 0) {
         throw new Error(source === 'past' ? 'No past interview questions yet. They come from conversations saved in History.' : 'No questions came back. Try again.');
@@ -235,7 +236,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
 
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+    <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <div>
           <h2 className="text-sm font-semibold text-slate-100">Mock interview</h2>
@@ -272,7 +273,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
             <div>
               <div className="mb-1.5 text-xs font-semibold text-slate-300">Questions from</div>
               <div className="flex gap-1.5">
-                {([['new', 'Resume & job'], ['past', 'My past interviews']] as const).map(([id, label]) => (
+                {([['new', 'Resume & job'], ['past', 'My past interviews'], ...(initialQuestions?.length ? [['prep', 'Prep pack']] as const : [])] as const).map(([id, label]) => (
                   <button
                     key={id}
                     onClick={() => setSource(id)}

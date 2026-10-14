@@ -8,6 +8,22 @@ export interface PreparedAnswer {
   answer: string;
 }
 
+// A real story from the candidate's work, kept ready for "Tell me about a time..." questions
+export interface Story {
+  id: string;
+  title: string;     // A few words to recognise it, e.g. "Checkout latency fix"
+  situation: string; // The context and the problem
+  action: string;    // What the candidate did
+  result: string;    // What changed, with numbers if there are any
+  themes: StoryTheme[]; // The kinds of questions it answers
+}
+
+// The kinds of behavioural questions interviewers ask, so gaps in the story bank show
+export const STORY_THEMES = [
+  'Leadership', 'Conflict', 'Failure', 'Tight deadline', 'Hard problem', 'Improvement', 'Teamwork', 'Ownership',
+] as const;
+export type StoryTheme = typeof STORY_THEMES[number];
+
 export interface Settings {
   cv: string;
   cvFileName: string;
@@ -19,6 +35,7 @@ export interface Settings {
   language: string; // Interview language for speech-to-text: a code like 'en' or 'hi', or 'auto'
   answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
+  stories: Story[]; // The story bank, for behavioural questions
 }
 
 // Answer in the language the question was asked in, or always in English
@@ -143,9 +160,20 @@ export interface Profile {
   language: string;
   answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
+  stories: Story[];
 }
 
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
+
+const isStory = (value: unknown): value is Partial<Story> => !!value && typeof value === 'object' && typeof (value as Story).title === 'string';
+export const toStory = (s: Partial<Story>): Story => ({
+  id: str(s.id) || newId(),
+  title: str(s.title).trim(),
+  situation: str(s.situation),
+  action: str(s.action),
+  result: str(s.result),
+  themes: Array.isArray(s.themes) ? s.themes.filter((t): t is StoryTheme => (STORY_THEMES as readonly string[]).includes(t)) : [],
+});
 
 const toProfile = (p: Partial<Profile>): Profile => ({
   id: str(p.id) || newId(),
@@ -160,6 +188,7 @@ const toProfile = (p: Partial<Profile>): Profile => ({
   language: LANGUAGES.some(l => l.code === p.language) ? p.language! : 'en',
   answerLanguage: p.answerLanguage === 'english' ? 'english' : 'same',
   answers: Array.isArray(p.answers) ? p.answers : [],
+  stories: Array.isArray(p.stories) ? p.stories.filter(isStory).map(toStory) : [],
 });
 
 // Before profiles existed these were stored on their own; they become the first profile
@@ -199,7 +228,7 @@ export const setActiveProfile = (id: string) => write(KEYS.activeProfile, id);
 // A new profile keeps the resume and prepared answers of `base`, with the job details left blank
 export const createProfile = (name: string, base: Profile): Profile => {
   const profile = toProfile({
-    name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers, knowledge: base.knowledge,
+    name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers, knowledge: base.knowledge, stories: base.stories,
     language: base.language, answerLanguage: base.answerLanguage,
   });
   saveProfiles([...loadProfiles(), profile]);
@@ -231,6 +260,7 @@ export const loadSettings = (): Settings => {
     language: profile.language,
     answerLanguage: profile.answerLanguage,
     answers: profile.answers,
+    stories: profile.stories,
   };
 };
 
@@ -258,6 +288,7 @@ export const saveSettings = (settings: Settings) => {
     language: settings.language,
     answerLanguage: settings.answerLanguage,
     answers: settings.answers.filter(a => a.question.trim() || a.answer.trim()),
+    stories: settings.stories.filter(st => st.title.trim() || st.situation.trim() || st.action.trim() || st.result.trim()),
   })));
 };
 

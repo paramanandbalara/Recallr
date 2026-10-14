@@ -96,6 +96,7 @@ function App() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [isCheckOpen, setIsCheckOpen] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(false);
+  const [mockQuestions, setMockQuestions] = useState<string[] | undefined>(); // From the prep pack
   const askInputRef = useRef<HTMLInputElement>(null);
   const closeDisplay = useCallback(() => setIsDisplayOpen(false), []);
 
@@ -501,7 +502,7 @@ function App() {
             onClick={toggleRecording}
             title={isRecording ? `Stop listening${debugLog ? ` · ${debugLog}` : ''}` : 'Start listening'}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              isRecording ? 'bg-red-500/90 text-white hover:bg-red-500' : 'bg-blue-600 text-white hover:bg-blue-500'
+              isRecording ? 'listening-ring bg-red-500/90 text-white hover:bg-red-500' : 'bg-blue-600 text-white hover:bg-blue-500'
             }`}
           >
             {isRecording ? (
@@ -659,13 +660,17 @@ function App() {
 
       {isMockOpen && (
         <div data-interactive>
-          <MockInterview onClose={() => setIsMockOpen(false)} />
+          <MockInterview initialQuestions={mockQuestions} onClose={() => { setIsMockOpen(false); setMockQuestions(undefined); }} />
         </div>
       )}
 
       {isSettingsOpen && (
         <div data-interactive>
-          <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />
+          <SettingsModal
+            onClose={() => setIsSettingsOpen(false)}
+            onSaved={reloadSettings}
+            onPractise={isRecording ? undefined : questions => { setIsSettingsOpen(false); setMockQuestions(questions); setIsMockOpen(true); }}
+          />
         </div>
       )}
 

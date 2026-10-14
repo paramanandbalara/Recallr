@@ -72,7 +72,7 @@ export const NoticeBar: React.FC = () => {
   return (
     <div className="fade-with-text shrink-0">
       {shown.map(item => (
-        <div key={item.id} className={`flex items-center gap-1.5 border-b px-3 py-1.5 text-[11px] ${
+        <div key={item.id} className={`notice-in flex items-center gap-1.5 border-b px-3 py-1.5 text-[11px] ${
           item.tone === 'warn' ? 'border-amber-900 bg-amber-950/60 text-amber-100' : 'border-blue-900 bg-blue-950/60 text-blue-100'}`}>
           {item.tone === 'warn' ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <Info className="w-3.5 h-3.5 shrink-0" />}
           <span className="min-w-0 flex-1 truncate" title={item.text}>{item.text}</span>

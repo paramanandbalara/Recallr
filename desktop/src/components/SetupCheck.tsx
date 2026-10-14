@@ -210,7 +210,7 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
   const warned = CHECKS.filter(c => checks[c.id].status === 'warn').length;
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+    <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <h2 className="text-sm font-semibold text-slate-100">Pre-interview check</h2>
         <IconButton onClick={onClose} title="Close"><X className="w-4 h-4" /></IconButton>

@@ -2,7 +2,7 @@ import { cleanAnswer } from './cleanAnswer';
 import type { QuestionKind } from './questionDetect';
 import { relevantNotes } from './knowledge';
 import { completeChat, streamChat, type ProviderId } from './llm';
-import { fillPlaceholders, loadEnglishStyle, newId, type PreparedAnswer, type Settings } from './storage';
+import { fillPlaceholders, loadEnglishStyle, newId, STORY_THEMES, toStory, type PreparedAnswer, type Settings, type Story } from './storage';
 
 // Keep prompts well inside the model's context window (and short, for speed)
 const MAX_CV_CHARS = 12000;
@@ -142,6 +142,14 @@ const formatBank = (answers: PreparedAnswer[], company: string) => {
   return text.slice(0, MAX_BANK_CHARS) || 'None';
 };
 
+const MAX_STORY_CHARS = 6000;
+
+const formatStories = (stories: Story[]) => stories
+  .filter(st => st.situation.trim() || st.action.trim())
+  .map(st => `- ${st.title}${st.themes.length ? ` (${st.themes.join(', ')})` : ''}: ${st.situation.trim()} What I did: ${st.action.trim()} Result: ${st.result.trim()}`)
+  .join('\n')
+  .slice(0, MAX_STORY_CHARS);
+
 const buildContext = (settings: Settings) => `
 [CANDIDATE CONTEXT]
 Resume/Experience: ${settings.cv.slice(0, MAX_CV_CHARS) || 'Not provided'}
@@ -154,7 +162,12 @@ Interviewer: ${settings.interviewer.slice(0, MAX_NOTES_CHARS) || 'Not provided'}
 
 [PREPARED ANSWERS]
 ${formatBank(settings.answers, settings.company)}
-`;
+${settings.stories?.length ? `
+[STORY BANK]
+The candidate's own true stories. For "tell me about a time" and other experience questions, tell the one that fits best, in order:
+the situation, what you did, and the result, as natural speech.
+${formatStories(settings.stories)}
+` : ''}`;
 
 
 // Repeated next to every question: style rules buried in a long system prompt lose weight, a reminder here doesn't
@@ -385,56 +398,76 @@ not polished or textbook-like, 60–150 words. Use ONLY facts from the resume an
 Plain text, no markdown, no lists.
 ${NO_AI_STYLE}${englishNote()}`;
 
-const parseGeneratedAnswers = (response: string): PreparedAnswer[] => {
-  const parsed = JSON.parse(response || '{}');
-  return (Array.isArray(parsed.items) ? parsed.items : [])
-    .map((item: Partial<PreparedAnswer>) => ({
-      id: newId(),
-      question: asText(item?.question),
-      notes: asText(item?.notes) || undefined,
-      answer: cleanAnswer(asText(item?.answer)),
-    }))
-    .filter((item: PreparedAnswer) => item.question && item.answer);
-};
+// ---------- Prep pack ----------
 
-// The questions this job will most likely bring up, with an answer to each drafted from the resume
-export const answersFromJobDescription = async (settings: Settings): Promise<PreparedAnswer[]> => {
+export interface PrepItem {
+  question: string;
+  kind: 'about-you' | 'experience' | 'coding' | 'design' | 'concept' | 'other';
+  why: string;    // Why this job will likely bring it up, or what the interviewer is checking
+  answer: string; // Drafted from the resume and the story bank
+}
+
+const PREP_KINDS: PrepItem['kind'][] = ['about-you', 'experience', 'coding', 'design', 'concept', 'other'];
+
+// The questions this job will most likely bring up, each with why and a drafted answer. `commonQuestions` are the
+// questions asked most in real interviews (Recallr's question bank), for the model to pick the relevant ones from.
+export const prepPack = async (settings: Settings, commonQuestions: string[] = []): Promise<PrepItem[]> => {
+  const common = commonQuestions.slice(0, 40).map(q => `- ${q}`).join('\n');
   const response = await completeChat({
     tier: 'quality',
     json: true,
-    system: `You help a candidate prepare for an interview for the job below. Predict the 8 to 12 questions they are most likely to be asked
-for THIS job: the main skills and responsibilities in the job description, how the resume fits or falls short of them, and the company.
-Mix technical and experience questions, and include one about a gap between the resume and the job if there is one. Skip generic ones like "Tell me about yourself".
-Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
-- "notes": one short tip, e.g. which project to mention or what the interviewer is really checking.
+    system: `You help a candidate prepare for an interview for the job below. Predict the 12 to 15 questions they are most likely to be asked
+for THIS job: the main skills and responsibilities in the job description, how the resume fits or falls short of them, the company, and the
+behavioural questions most interviews include. Include one about a gap between the resume and the job if there is one.${common ? `
+These questions come up most in real interviews; include the ones that fit this job, reworded if needed:
+${common}` : ''}
+Return JSON: {"items":[{"question":"...","kind":"...","why":"...","answer":"..."}]}
+- "kind": one of ${PREP_KINDS.map(k => `"${k}"`).join(', ')}.
+- "why": one short line: why this job will bring it up, or what the interviewer is really checking.
+- For experience questions, build the answer on the best story from the story bank when there is one.
 ${spokenAnswerRules()}
 ${buildContext({ ...settings, answers: [] })}`,
     user: `Write the likely questions and draft answers.${(n => (n ? `\n\nMy own notes (use real details from them):\n${n}` : ''))(relevantNotes(settings.knowledge, settings.job, 8))}`,
     temperature: 0.5,
-    maxTokens: 12000,
+    maxTokens: 14000,
   });
-  return parseGeneratedAnswers(response);
+  const parsed = JSON.parse(response || '{}');
+  return (Array.isArray(parsed.items) ? parsed.items : [])
+    .map((item: Partial<PrepItem>) => ({
+      question: asText(item?.question),
+      kind: PREP_KINDS.includes(item?.kind as PrepItem['kind']) ? item!.kind! : 'other',
+      why: asText(item?.why),
+      answer: cleanAnswer(asText(item?.answer)),
+    }))
+    .filter((item: PrepItem) => item.question && item.answer);
 };
 
-// Real stories from the resume, ready to reuse for behavioural questions
-export const storiesFromResume = async (settings: Settings): Promise<PreparedAnswer[]> => {
+// ---------- Story bank ----------
+
+// Real stories from the resume and notes, split into situation / action / result, for behavioural questions
+export const findStories = async (settings: Settings): Promise<Story[]> => {
   const response = await completeChat({
     tier: 'quality',
     json: true,
-    system: `Find 5 to 8 real stories in the candidate's resume that they can tell in behavioural interview questions:
-a hard technical problem, a conflict or disagreement, a failure or mistake, leading people or a project, a tight deadline, improving something
-(performance, cost, process), and going beyond the role. Only use what the resume actually supports; skip a type if there's no story for it.
-Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
-- "question": the behavioural question this story answers best, e.g. "Tell me about a time you disagreed with your manager".
-- "notes": a few words naming the story and other questions it also fits, e.g. "Payments outage story. Also fits: pressure, ownership".
-- "answer": the story told as situation, what you did, and the result, but as natural speech, not with those labels.
-${spokenAnswerRules()}
-${buildContext({ ...settings, answers: [] })}`,
-    user: `Find the stories in my resume.${(n => (n ? `\n\nMy own notes (they can hold more stories):\n${n}` : ''))(relevantNotes(settings.knowledge, 'project problem incident outage conflict disagreement mistake failure deadline led migration improved', 8))}`,
-    temperature: 0.5,
-    maxTokens: 12000,
+    system: `Find 5 to 8 real stories in the candidate's resume and notes that they can tell in behavioural interview questions.
+Cover as many of these themes as the resume truly supports: ${STORY_THEMES.join(', ')}. Only use what the resume or notes actually say;
+skip a theme if there's no story for it, and never invent people, numbers or events.
+Return JSON: {"stories":[{"title":"...","situation":"...","action":"...","result":"...","themes":["..."]}]}
+- "title": 2 to 5 words naming the story, e.g. "Checkout latency fix".
+- "situation": 1 or 2 sentences: the context and the problem.
+- "action": 2 or 3 sentences: what the candidate did themselves (first person).
+- "result": 1 sentence: what changed, with numbers if the resume has them.
+- "themes": the themes it fits, from this list only: ${STORY_THEMES.map(t => `"${t}"`).join(', ')}.
+Plain text inside the JSON, no markdown.
+${buildContext({ ...settings, answers: [], stories: [] })}`,
+    user: `Find the stories.${(n => (n ? `\n\nMy own notes (they can hold more stories):\n${n}` : ''))(relevantNotes(settings.knowledge, 'project problem incident outage conflict disagreement mistake failure deadline led migration improved', 8))}`,
+    temperature: 0.4,
+    maxTokens: 8000,
   });
-  return parseGeneratedAnswers(response);
+  const parsed = JSON.parse(response || '{}');
+  return (Array.isArray(parsed.stories) ? parsed.stories : [])
+    .map((st: Partial<Story>) => toStory({ ...st, title: asText(st?.title), situation: asText(st?.situation), action: asText(st?.action), result: asText(st?.result) }))
+    .filter((st: Story) => st.title && (st.situation || st.action));
 };
 
 // ---------- Mock interview ----------

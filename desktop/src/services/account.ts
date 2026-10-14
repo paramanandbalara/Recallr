@@ -300,3 +300,9 @@ export const formatTokens = (n: number | null) =>
 
 export const formatDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
+
+// ---------- Question bank ----------
+
+// The questions asked most in real interviews (published on the website), to help the prep pack
+export const fetchCommonQuestions = async () =>
+  (await json<{ questions: { text: string }[] }>('/public/questions')).questions.map(q => q.text);

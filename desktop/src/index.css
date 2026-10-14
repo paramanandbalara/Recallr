@@ -97,3 +97,34 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 0.8); /* slate-600/80 */
 }
+
+/* ---------- Motion: quick and small, so it never gets in the way during an interview.
+   All of it is off when the computer asks for reduced motion. ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .panel-in { animation: panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .menu-in { animation: menu-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: top right; }
+  .dialog-in { animation: dialog-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .backdrop-in { animation: fade-in 0.2s ease-out; }
+  .turn-in { animation: turn-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .list-in { animation: turn-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .notice-in { animation: notice-in 0.25s ease-out; }
+  .fade-in { animation: fade-in 0.3s ease-out; }
+  .listening-ring { position: relative; }
+  .listening-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+    animation: listening-ring 1.8s ease-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes panel-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes menu-in { from { opacity: 0; transform: scale(0.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(0.95) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes turn-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes notice-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes listening-ring { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70%, 100% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } }

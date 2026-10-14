@@ -50,8 +50,8 @@ export const UpdatePrompt: React.FC<{ paused: boolean }> = ({ paused }) => {
   };
 
   return (
-    <div data-interactive className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]">
-      <div role="dialog" aria-labelledby="update-title" className="w-full max-w-[320px] rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+    <div data-interactive className="backdrop-in absolute inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]">
+      <div role="dialog" aria-labelledby="update-title" className="dialog-in w-full max-w-[320px] rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
         <div className="flex items-start gap-2.5">
           <div className="rounded-lg bg-blue-500/15 p-2 text-blue-400"><Sparkles className="w-4 h-4" /></div>
           <div className="min-w-0 flex-1">

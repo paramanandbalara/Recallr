@@ -95,7 +95,7 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
   }, [onClose]);
 
   return (
-    <div ref={ref} className="absolute right-2 top-11 z-40 w-64 space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl">
+    <div ref={ref} className="menu-in absolute right-2 top-11 z-40 w-64 space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl">
       <Row label="Answers as">
         <Segmented
           value={display.keyPoints ? 'points' : 'full'}
