@@ -204,6 +204,11 @@ ipcMain.handle('sessions:get', (_event, id: string) => readSession(sessionFile(i
 
 ipcMain.handle('sessions:delete', (_event, id: string) => fs.rm(sessionFile(id), { force: true }))
 
+// Permission state for the pre-interview check ('granted' on systems that don't ask)
+ipcMain.handle('media-access', () => process.platform === 'darwin'
+  ? { microphone: systemPreferences.getMediaAccessStatus('microphone'), screen: systemPreferences.getMediaAccessStatus('screen') }
+  : { microphone: 'granted', screen: 'granted' })
+
 // ---------- Read a question from the screen ----------
 // Screenshots of every screen (at most 3), sized so text stays readable without huge uploads.
 // Recallr's own window is left out of captures by setContentProtection.

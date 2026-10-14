@@ -13,6 +13,7 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { DisplayMenu } from './components/DisplayMenu';
 import { HistoryPanel } from './components/HistoryPanel';
 import { ReviewPanel } from './components/ReviewPanel';
+import { SetupCheck } from './components/SetupCheck';
 import { IconButton } from './components/ui';
 
 // Answer once no new speech has arrived for this long (speech chunks already end on a ~0.8s pause)
@@ -85,6 +86,7 @@ function App() {
   const [isDisplayOpen, setIsDisplayOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null); // Conversation whose review is open
+  const [isCheckOpen, setIsCheckOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
   const closeDisplay = useCallback(() => setIsDisplayOpen(false), []);
 
@@ -496,10 +498,15 @@ function App() {
       )}
 
       {isDisplayOpen && (
-        <DisplayMenu display={display} onChange={setDisplay} onClose={closeDisplay} />
+        <DisplayMenu
+          display={display}
+          onChange={setDisplay}
+          onClose={closeDisplay}
+          onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
+        />
       )}
 
-      <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} />
+      <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} />
 
       {/* Ask a question by typing */}
       <form
@@ -555,6 +562,8 @@ function App() {
       )}
 
       {reviewId && <ReviewPanel sessionId={reviewId} onClose={() => setReviewId(null)} />}
+
+      {isCheckOpen && <SetupCheck onClose={() => setIsCheckOpen(false)} />}
 
       {isSettingsOpen && (
         <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />

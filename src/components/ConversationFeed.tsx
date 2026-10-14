@@ -101,9 +101,10 @@ interface Props {
   isRecording: boolean;
   keyPointsView: boolean;
   onAdjust: (turnId: string, mode: AdjustMode) => void;
+  onCheck: () => void; // Open the pre-interview check
 }
 
-export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust }) => {
+export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust, onCheck }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -142,6 +143,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
             <p className="text-sm text-slate-400">
               {isRecording ? 'Listening... answers will appear here.' : 'Press the mic to start listening.'}
             </p>
+            {!isRecording && (
+              <button onClick={onCheck} className="mt-1 text-[11px] font-medium text-blue-400 hover:text-blue-300">
+                Run the pre-interview check
+              </button>
+            )}
           </div>
         )}
 

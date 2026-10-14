@@ -261,6 +261,18 @@ export const describeAiError = (error: unknown): string => {
   return cause instanceof Error ? cause.message : 'Unknown error talking to the AI.';
 };
 
+// The first provider (in the user's order) with a model that can read screenshots, or null
+export const findVisionModel = async (settings: Settings): Promise<{ provider: ProviderId; model: string } | null> => {
+  for (const provider of providerOrder(settings)) {
+    try {
+      return { provider, model: await discoverModel(provider, keyFor(settings, provider), 'vision') };
+    } catch {
+      // Try the next provider
+    }
+  }
+  return null;
+};
+
 // Check a key works. Returns an error message, or '' if the key is valid.
 export const testKey = async (provider: ProviderId, apiKey: string): Promise<string> => {
   try {

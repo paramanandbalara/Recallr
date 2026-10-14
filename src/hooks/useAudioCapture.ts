@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // Chromium only hands out system audio together with a screen video track. We don't need the
 // video, so we stop it right away (on macOS it also floods the log with "Can't wrap SharedImage").
 // If stopping it would end the audio too, we keep the video track and just disable it.
-const getSystemAudioStream = async () => {
+export const getSystemAudioStream = async () => {
   const display = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: { frameRate: { max: 1 } } });
   const [audioTrack] = display.getAudioTracks();
   if (!audioTrack) {
@@ -28,7 +28,7 @@ const getSystemAudioStream = async () => {
   return { capture: retry, videoKept: true };
 };
 
-const getMicrophoneStream = () => navigator.mediaDevices.getUserMedia({
+export const getMicrophoneStream = () => navigator.mediaDevices.getUserMedia({
   audio: {
     channelCount: 1,
     echoCancellation: true,
