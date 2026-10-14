@@ -237,6 +237,23 @@ export const isOlder = (version: string, than: string | null) => {
   return false;
 };
 
+// "Remind me later" on the optional update: hidden for this version until `until`
+export interface UpdateSnooze {
+  version: string;
+  until: number;
+}
+
+export const REMIND_LATER_MS = 24 * 60 * 60 * 1000;
+
+// The optional update to offer, if any: a newer version than this one that wasn't put off for later.
+// (An app older than the minimum version is stopped by AccessGate instead.)
+export const updateToOffer = (current: string, info: VersionInfo | null, snooze: UpdateSnooze | null, now: number) => {
+  const latest = info?.latest;
+  if (!latest || !isOlder(current, latest)) return null;
+  if (snooze && snooze.version === latest && snooze.until > now) return null;
+  return latest;
+};
+
 export const downloadUrl = (info: VersionInfo) =>
   (device?.platform === 'darwin' ? info.downloads.mac : info.downloads.windows) || `${WEB_URL}/download`;
 

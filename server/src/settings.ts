@@ -34,7 +34,7 @@ export const SETTINGS = {
   referralBonusMinutes: { label: 'Bonus listening (minutes)', group: 'referrals', number: true, default: '30', hint: 'Given to both people when an invited friend makes their first payment. 0 turns referrals off.' },
   referralBonusTokens: { label: 'Bonus AI tokens', group: 'referrals', number: true, default: '100000' },
   referralBonusDays: { label: 'Bonus valid for (days)', group: 'referrals', number: true, default: '30' },
-  latestAppVersion: { label: 'Latest app version', group: 'app', public: true, hint: 'e.g. 1.2.0. Older apps show "Update available".' },
+  latestAppVersion: { label: 'Latest app version', group: 'app', public: true, hint: 'e.g. 1.2.0. Older apps offer it in a popup (Update / Remind me later), never while listening.' },
   minimumAppVersion: { label: 'Minimum app version', group: 'app', public: true, hint: 'Older apps must update before they can be used. Leave empty to allow all.' },
   releaseNotes: { label: "What's new", group: 'app', public: true, hint: 'Shown with the update message.' },
   businessName: { label: 'Business name', group: 'website', public: true, default: 'Recallr' },

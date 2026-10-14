@@ -16,6 +16,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { ReviewPanel } from './components/ReviewPanel';
 import { SetupCheck } from './components/SetupCheck';
 import { NoticeBar } from './components/NoticeBar';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
 
@@ -634,6 +635,8 @@ function App() {
           <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />
         </div>
       )}
+
+      <UpdatePrompt paused={isRecording || isMockOpen || isCheckOpen} />
     </div>
   );
 }
