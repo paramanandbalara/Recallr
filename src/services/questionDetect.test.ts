@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLikelyQuestion } from './questionDetect';
+import { classifyQuestion, isLikelyQuestion } from './questionDetect';
 
 describe('isLikelyQuestion', () => {
   it.each([
@@ -31,4 +31,22 @@ describe('isLikelyQuestion in other languages', () => {
     'waits on filler: %s',
     (text, language) => expect(isLikelyQuestion(text, language)).toBe(false),
   );
+});
+
+describe('classifyQuestion', () => {
+  it.each([
+    ['Write a SQL query for the top 3 customers by revenue', 'coding'],
+    ['Can you implement an LRU cache?', 'coding'],
+    ['How would you design a rate limiter for our API?', 'design'],
+    ['Design a URL shortener', 'design'],
+    ['Tell me about a time you disagreed with your manager', 'experience'],
+    ['What was the most challenging project you worked on?', 'experience'],
+    ['Tell me about yourself', 'about-you'],
+    ['Why should we hire you?', 'about-you'],
+    ['What is the event loop?', 'concept'],
+    ['Explain the difference between a process and a thread', 'concept'],
+    ['example?', 'other'],
+    ['code?', 'coding'],
+    ['Can you show me the code for that?', 'coding'],
+  ])('%s → %s', (text, kind) => expect(classifyQuestion(text)).toBe(kind));
 });

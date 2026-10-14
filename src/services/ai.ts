@@ -1,4 +1,5 @@
 import { cleanAnswer } from './cleanAnswer';
+import type { QuestionKind } from './questionDetect';
 import { completeChat, streamChat, type ProviderId } from './llm';
 import { fillPlaceholders, loadEnglishStyle, newId, type PreparedAnswer, type Settings } from './storage';
 
@@ -193,7 +194,18 @@ export interface AnswerOptions {
   adjust?: { mode: AdjustMode; previous: string }; // Redo an earlier answer to this question
   signal?: AbortSignal;
   onFirstText?: (provider: ProviderId) => void;
+  kind?: QuestionKind; // The type of question, for the shape of the answer
 }
+
+// The shape of a good answer for each type of question
+const KIND_SHAPES: Record<QuestionKind, string> = {
+  coding: 'This is a coding question: follow the CODE AND QUERIES rules.',
+  design: 'This is a system design question: in one line say what you\'d check first (scale, main need), then the main parts in plain words, then one trade-off. Keep it simple; they\'ll ask for more.',
+  experience: 'This asks about your experience: tell one real story from the resume, short: what the situation was, what you did, what happened.',
+  'about-you': 'This is about you: answer short and direct, from the resume and profile.',
+  concept: 'This is a concept question: explain simply what it does and roughly how it works. Don\'t bring up your own projects.',
+  other: '',
+};
 
 // Streams the answer; onText receives the full text so far. Returns the final answer ('' if none).
 // `history` is the conversation before this question.
@@ -202,7 +214,7 @@ export const streamInterviewAnswer = async (
   history: PastTurn[],
   settings: Settings,
   onText: (text: string) => void,
-  { prepared, adjust, signal, onFirstText }: AnswerOptions = {},
+  { prepared, adjust, signal, onFirstText, kind = 'other' }: AnswerOptions = {},
 ): Promise<string> => {
   if (!question?.trim()) return '';
 
@@ -217,7 +229,7 @@ export const streamInterviewAnswer = async (
   const text = await streamChat(settings, {
     tier: 'fast',
     system: SYSTEM_PROMPT_BASE + buildContext(settings),
-    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${englishNote()}${languageNote(settings)}\n\nWhat you say:`,
+    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${KIND_SHAPES[kind] ? `${KIND_SHAPES[kind]}\n` : ''}${ANSWER_REMINDER}${englishNote()}${languageNote(settings)}\n\nWhat you say:`,
     temperature: 0.85, // A little more variety, like real speech
     maxTokens: 2000, // Room for long answers (includes the model's brief reasoning)
     signal,

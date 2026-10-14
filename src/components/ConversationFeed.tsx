@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, Copy, Check, Ear, RotateCcw, CornerDownRight, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AdjustMode, FollowUp } from '../services/ai';
+import type { QuestionKind } from '../services/questionDetect';
 import { PROVIDERS, type ProviderId } from '../services/llm';
 import { AnswerText } from './AnswerText';
 
@@ -19,7 +20,16 @@ export interface Turn {
   error?: string;          // Redoing the answer failed (the previous answer is kept)
   origin?: 'screen';       // The question was read from the screen, not heard
   spoken?: string;         // What the user actually said (heard on the mic in "Call + mic" mode)
+  kind?: QuestionKind;     // Technical, coding, system design... (shown as a badge)
 }
+
+const KIND_BADGES: Partial<Record<QuestionKind, { label: string; className: string }>> = {
+  coding: { label: 'Coding', className: 'bg-violet-500/15 text-violet-300' },
+  design: { label: 'System design', className: 'bg-sky-500/15 text-sky-300' },
+  experience: { label: 'Experience', className: 'bg-emerald-500/15 text-emerald-300' },
+  'about-you': { label: 'About you', className: 'bg-amber-500/15 text-amber-300' },
+  concept: { label: 'Concept', className: 'bg-slate-500/20 text-slate-300' },
+};
 
 const ADJUST_BUTTONS: { mode: Exclude<AdjustMode, 'regenerate'>; label: string }[] = [
   { mode: 'shorter', label: 'Shorter' },
@@ -182,6 +192,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
               <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? 'Read from your screen' : undefined}>
                 {turn.origin === 'screen' ? 'Screen · ' : 'Q · '}
               </span>
+              {turn.kind && KIND_BADGES[turn.kind] && (
+                <span className={`mr-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9px] font-semibold uppercase tracking-wide ${KIND_BADGES[turn.kind]!.className}`}>
+                  {KIND_BADGES[turn.kind]!.label}
+                </span>
+              )}
               {turn.question}
               {turn.status === 'listening' && <span className="ml-1 text-slate-600 animate-pulse">…</span>}
             </p>

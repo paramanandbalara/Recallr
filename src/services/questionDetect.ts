@@ -46,3 +46,21 @@ export const isLikelyQuestion = (text: string, language = 'en'): boolean => {
   const meaningful = list.filter(w => !FILLER.has(w));
   return meaningful.length >= 5;
 };
+
+// ---------- Question type ----------
+// Fast keyword rules (no AI call), checked in this order; the answer gets a matching shape
+
+export type QuestionKind = 'coding' | 'design' | 'experience' | 'about-you' | 'concept' | 'other';
+
+const KIND_RULES: [QuestionKind, RegExp][] = [
+  ['coding', /(^code\b|\bshow (me )?(the )?code\b|\bin code\b|\b(write (a |an |the )?(query|function|program|code|script|sql|regex|method|class)|implement|code (it|this|that)|reverse (a|an|the)|find the (first|second|nth|longest|shortest|missing|duplicate)|time complexity of your|leetcode|coding (problem|question))\b)/],
+  ['design', /\b(design (a|an|the|our|your)\b|system design|how would you (design|build|architect|scale)|architecture (for|of)|high[- ]level design|scale (it|this|that) to|handle (millions|billions))/],
+  ['experience', /\b(tell me about a time|describe a (time|situation)|give (me )?an example of a time|have you ever|a time when|conflict|disagree|mistake|failure|failed|proud|toughest|hardest|most challenging|challenging project|difficult (person|situation|stakeholder|teammate)|how did you handle|in your (last|current|previous) (role|job|company|team)|walk me through (a|your) project)\b/],
+  ['about-you', /\b(about yourself|introduce yourself|your background|why (do you want|are you (leaving|looking)|should we hire|this (company|role)|us)|your (greatest )?strengths?|your weakness(es)?|five years|salary|notice period|expected ctc|current ctc|relocat|why (did you|are you) (leave|leaving|switch))/],
+  ['concept', /\b(what is|what's|what are|what does|explain|difference between|how does|how do .+ work|why (is|are|do|does|would)|when (would|should) you use|pros and cons|advantages|disadvantages|compare)\b/],
+];
+
+export const classifyQuestion = (text: string): QuestionKind => {
+  const clean = text.toLowerCase();
+  return KIND_RULES.find(([, rule]) => rule.test(clean))?.[0] ?? 'other';
+};

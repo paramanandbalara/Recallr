@@ -5,7 +5,7 @@ import { useClickThrough, useTypingFocus } from './hooks/useClickThrough';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
-import { isLikelyQuestion } from './services/questionDetect';
+import { classifyQuestion, isLikelyQuestion } from './services/questionDetect';
 import { hasAnyKey, loadActiveProfile, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { setUsageConversation } from './services/usage';
@@ -200,7 +200,12 @@ function App() {
       : { status: 'skipped', answer: '' };
     inFlightRef.current.set(turnId, { controller, restore });
 
+    // A redo keeps the type; a follow-up without a clear type of its own keeps the previous question's
+    const ownKind = classifyQuestion(question);
+    const kind = adjust?.previous.kind ?? (ownKind !== 'other' ? ownKind
+      : [...turnsRef.current].reverse().find(t => t.id !== turnId && t.kind && t.status === 'done')?.kind ?? 'other');
     patchTurn(turnId, {
+      kind,
       status: 'thinking',
       source: prepared ? 'prepared' : 'ai',
       notes: prepared?.notes,
@@ -220,6 +225,7 @@ function App() {
         if (!controller.signal.aborted) patchTurn(turnId, { status: 'answering', answer: text });
       }, {
         prepared,
+        kind,
         adjust: previous && adjust ? { mode: adjust.mode, previous: previous.answer } : undefined,
         signal: controller.signal,
         onFirstText: provider => {
