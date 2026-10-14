@@ -63,6 +63,11 @@ npm run dev:web        # http://localhost:5174 (proxies /api to the server)
 npm run dev:desktop    # Electron window, talking to http://localhost:4000
 ```
 
+**Database naming:** tables and columns are snake_case in MySQL (`users.created_at`) and camelCase in code
+(`user.createdAt`); `server/prisma/schema.prisma` maps them with `@map` / `@@map`. Every table has `created_at` and
+`updated_at`. A database made before the migrations were replaced by `20261015000000_init` has to be rebuilt, which
+deletes its data: in `server/`, run `npx prisma migrate reset`.
+
 Register on the website with the `ADMIN_EMAIL` address to become the admin (the **Admin** link appears in the header), then add the AI keys under **Admin → Settings**.
 Razorpay test keys (`rzp_test_...`) let you try online payments without real money.
 

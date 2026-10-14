@@ -1,4 +1,6 @@
 // Recallr accounts, plans, payments and usage. MySQL locally, Amazon RDS (MySQL) in production.
+// In MySQL, tables and columns are snake_case (users.created_at); in code they stay camelCase (user.createdAt) through
+// @map / @@map. Every table has created_at and updated_at.
 
 generator client {
   provider = "prisma-client-js"
@@ -21,31 +23,34 @@ enum UserStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String
-  passwordHash String
-  role         Role       @default(USER)
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
-  lastSeenAt   DateTime?
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  name               String
+  passwordHash       String          @map("password_hash")
+  role               Role            @default(USER)
+  status             UserStatus      @default(ACTIVE)
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt         DateTime?       @map("last_seen_at")
   // Referrals: everyone gets a code to share; the person who invited this user, and when both got their bonus
-  referralCode       String?   @unique
-  referredById       String?
-  referralRewardedAt DateTime?
-  referredBy   User?      @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals    User[]     @relation("Referrals")
-  purchases    Purchase[]
-  payments     Payment[]  @relation("PaymentUser")
-  recorded     Payment[]  @relation("PaymentRecordedBy")
-  usage        UsageEvent[]
-  auditLogs    AuditLog[]
-  devices      Device[]
-  passwordResets PasswordReset[]
-  emails       EmailLog[]
-  backup       Backup?
-  tickets      Ticket[]
-  ticketMessages TicketMessage[]
+  referralCode       String?         @unique @map("referral_code")
+  referredById       String?         @map("referred_by_id")
+  referralRewardedAt DateTime?       @map("referral_rewarded_at")
+  referredBy         User?           @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals          User[]          @relation("Referrals")
+  purchases          Purchase[]
+  payments           Payment[]       @relation("PaymentUser")
+  recorded           Payment[]       @relation("PaymentRecordedBy")
+  usage              UsageEvent[]
+  auditLogs          AuditLog[]
+  devices            Device[]
+  passwordResets     PasswordReset[]
+  emails             EmailLog[]
+  backup             Backup?
+  tickets            Ticket[]
+  ticketMessages     TicketMessage[]
+
+  @@map("users")
 }
 
 // A pack the admin sells: price, how long it lasts, and what it allows
@@ -53,16 +58,19 @@ model Plan {
   id               String     @id @default(cuid())
   name             String
   description      String     @default("") @db.VarChar(1000)
-  pricePaise       Int        // Price in paise (₹1 = 100)
-  durationDays     Int
-  listeningMinutes Int?       // Audio that can be transcribed; null = unlimited
-  tokenLimit       Int?       // AI tokens (in + out); null = unlimited
+  pricePaise       Int        @map("price_paise") // Price in paise (₹1 = 100)
+  durationDays     Int        @map("duration_days")
+  listeningMinutes Int?       @map("listening_minutes") // Audio that can be transcribed; null = unlimited
+  tokenLimit       Int?       @map("token_limit") // AI tokens (in + out); null = unlimited
   active           Boolean    @default(true) // Shown on the website and can be bought
-  isTrial          Boolean    @default(false) // The free trial: given once to every new account, never sold
-  sortOrder        Int        @default(0)
-  createdAt        DateTime   @default(now())
+  isTrial          Boolean    @default(false) @map("is_trial") // The free trial: given once to every new account, never sold
+  sortOrder        Int        @default(0) @map("sort_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
   purchases        Purchase[]
   payments         Payment[]
+
+  @@map("plans")
 }
 
 enum PurchaseSource {
@@ -78,25 +86,27 @@ enum PurchaseSource {
 // The plan's limits are copied in, so editing a plan never changes packs already sold.
 model Purchase {
   id               String         @id @default(cuid())
-  userId           String
-  planId           String?        // Empty for packs not from a plan (referral bonus)
-  planName         String
-  startsAt         DateTime       @default(now())
-  expiresAt        DateTime
-  listeningMinutes Int?
-  tokenLimit       Int?
-  usedSeconds      Float          @default(0)
-  usedTokens       Int            @default(0)
+  userId           String         @map("user_id")
+  planId           String?        @map("plan_id") // Empty for packs not from a plan (referral bonus)
+  planName         String         @map("plan_name")
+  startsAt         DateTime       @default(now()) @map("starts_at")
+  expiresAt        DateTime       @map("expires_at")
+  listeningMinutes Int?           @map("listening_minutes")
+  tokenLimit       Int?           @map("token_limit")
+  usedSeconds      Float          @default(0) @map("used_seconds")
+  usedTokens       Int            @default(0) @map("used_tokens")
   source           PurchaseSource
-  paymentId        String?        @unique
-  createdAt        DateTime       @default(now())
-  notifiedEnding   Boolean        @default(false) // "Ends in 2 days" email sent
-  notifiedLow      Boolean        @default(false) // "Listening time almost used" email sent
+  paymentId        String?        @unique @map("payment_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @default(now()) @updatedAt @map("updated_at")
+  notifiedEnding   Boolean        @default(false) @map("notified_ending") // "Ends in 2 days" email sent
+  notifiedLow      Boolean        @default(false) @map("notified_low") // "Listening time almost used" email sent
   user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan             Plan?          @relation(fields: [planId], references: [id])
   payment          Payment?       @relation(fields: [paymentId], references: [id])
 
   @@index([userId, expiresAt])
+  @@map("purchases")
 }
 
 enum PaymentMethod {
@@ -106,30 +116,31 @@ enum PaymentMethod {
 }
 
 enum PaymentStatus {
-  CREATED   // Razorpay order made, not paid yet
-  PENDING   // Offline payment reported by the user, waiting for the admin
+  CREATED // Razorpay order made, not paid yet
+  PENDING // Offline payment reported by the user, waiting for the admin
   PAID
   FAILED
-  REJECTED  // Offline payment the admin couldn't confirm
+  REJECTED // Offline payment the admin couldn't confirm
 }
 
 model Payment {
   id                String        @id @default(cuid())
-  userId            String
-  planId            String
-  amountPaise       Int           // What the user pays, after any coupon
-  discountPaise     Int           @default(0)
-  couponId          String?
+  userId            String        @map("user_id")
+  planId            String        @map("plan_id")
+  amountPaise       Int           @map("amount_paise") // What the user pays, after any coupon
+  discountPaise     Int           @default(0) @map("discount_paise")
+  couponId          String?       @map("coupon_id")
   currency          String        @default("INR")
   method            PaymentMethod
   status            PaymentStatus
-  razorpayOrderId   String?       @unique
-  razorpayPaymentId String?       @unique
-  reference         String?       // Offline: UPI / bank reference given by the user or admin
+  razorpayOrderId   String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+  reference         String? // Offline: UPI / bank reference given by the user or admin
   note              String?       @db.Text
-  recordedById      String?       // Admin who confirmed an offline payment
-  createdAt         DateTime      @default(now())
-  paidAt            DateTime?
+  recordedById      String?       @map("recorded_by_id") // Admin who confirmed an offline payment
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at")
+  paidAt            DateTime?     @map("paid_at")
   user              User          @relation("PaymentUser", fields: [userId], references: [id], onDelete: Cascade)
   plan              Plan          @relation(fields: [planId], references: [id])
   recordedBy        User?         @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
@@ -137,6 +148,7 @@ model Payment {
   purchase          Purchase?
 
   @@index([status, createdAt])
+  @@map("payments")
 }
 
 enum UsageKind {
@@ -146,18 +158,20 @@ enum UsageKind {
 
 model UsageEvent {
   id           BigInt    @id @default(autoincrement())
-  userId       String
-  purchaseId   String?
+  userId       String    @map("user_id")
+  purchaseId   String?   @map("purchase_id")
   kind         UsageKind
   provider     String
   model        String
-  inputTokens  Int       @default(0)
-  outputTokens Int       @default(0)
-  audioSeconds Float     @default(0)
-  createdAt    DateTime  @default(now())
+  inputTokens  Int       @default(0) @map("input_tokens")
+  outputTokens Int       @default(0) @map("output_tokens")
+  audioSeconds Float     @default(0) @map("audio_seconds")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@map("usage_events")
 }
 
 // Settings the admin changes in the admin panel: AI and Razorpay keys, payment details, website info.
@@ -165,29 +179,34 @@ model UsageEvent {
 model Setting {
   key         String   @id
   value       String   @db.Text
-  updatedAt   DateTime @updatedAt
-  updatedById String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id")
+
+  @@map("settings")
 }
 
 // What admins did: approvals, blocks, plan and settings changes
 model AuditLog {
   id        BigInt   @id @default(autoincrement())
-  actorId   String?
-  action    String   // e.g. "payment.approve", "settings.update"
-  target    String?  // What it was done to, e.g. a user's email or a plan's name
+  actorId   String?  @map("actor_id")
+  action    String // e.g. "payment.approve", "settings.update"
+  target    String? // What it was done to, e.g. a user's email or a plan's name
   details   Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([action, createdAt])
+  @@map("audit_logs")
 }
 
 // ---------- Coupons ----------
 
 enum CouponKind {
   PERCENT // amount = percent off (1–100)
-  FIXED   // amount = paise off
+  FIXED // amount = paise off
 }
 
 model Coupon {
@@ -195,15 +214,18 @@ model Coupon {
   code       String     @unique // Stored in capitals
   kind       CouponKind
   amount     Int
-  maxUses    Int?       // In total; null = no limit
-  usedCount  Int        @default(0)
-  onePerUser Boolean    @default(true)
-  planIds    Json?      // Plans it works for; null = all
-  expiresAt  DateTime?
+  maxUses    Int?       @map("max_uses") // In total; null = no limit
+  usedCount  Int        @default(0) @map("used_count")
+  onePerUser Boolean    @default(true) @map("one_per_user")
+  planIds    Json?      @map("plan_ids") // Plans it works for; null = all
+  expiresAt  DateTime?  @map("expires_at")
   active     Boolean    @default(true)
   note       String     @default("")
-  createdAt  DateTime   @default(now())
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
   payments   Payment[]
+
+  @@map("coupons")
 }
 
 // ---------- Devices and trials ----------
@@ -211,36 +233,44 @@ model Coupon {
 // A computer the desktop app is signed in on. Its id is in the app's sign-in token, so removing it signs that computer out.
 model Device {
   id          String    @id @default(cuid())
-  userId      String
-  fingerprint String    // Hash of the computer's identity, made by the app
-  name        String    // e.g. "Paramanand's MacBook Pro"
+  userId      String    @map("user_id")
+  fingerprint String // Hash of the computer's identity, made by the app
+  name        String // e.g. "Paramanand's MacBook Pro"
   platform    String
-  appVersion  String    @default("")
-  createdAt   DateTime  @default(now())
-  lastSeenAt  DateTime  @default(now())
-  revokedAt   DateTime?
+  appVersion  String    @default("") @map("app_version")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  revokedAt   DateTime? @map("revoked_at")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fingerprint])
+  @@map("devices")
 }
 
 // Each computer gets one free trial, whatever account signs in on it
 model TrialClaim {
   fingerprint String   @id
-  userId      String
-  createdAt   DateTime @default(now())
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("trial_claims")
 }
 
 // ---------- Email ----------
 
 model PasswordReset {
   id        String    @id @default(cuid())
-  userId    String
-  tokenHash String    @unique // SHA-256 of the token in the emailed link
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash") // SHA-256 of the token in the emailed link
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
 }
 
 enum EmailStatus {
@@ -251,17 +281,19 @@ enum EmailStatus {
 
 model EmailLog {
   id        BigInt      @id @default(autoincrement())
-  userId    String?
+  userId    String?     @map("user_id")
   to        String
-  kind      String      // e.g. "welcome", "payment_received"
+  kind      String // e.g. "welcome", "payment_received"
   subject   String
   status    EmailStatus
   error     String?     @db.Text
-  createdAt DateTime    @default(now())
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at")
   user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([createdAt])
+  @@map("email_logs")
 }
 
 // ---------- Announcements ----------
@@ -284,52 +316,62 @@ model Announcement {
   level     AnnouncementLevel @default(INFO)
   audience  Audience          @default(ALL)
   active    Boolean           @default(true)
-  startsAt  DateTime          @default(now())
-  endsAt    DateTime?
-  createdAt DateTime          @default(now())
+  startsAt  DateTime          @default(now()) @map("starts_at")
+  endsAt    DateTime?         @map("ends_at")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  @@map("announcements")
 }
 
 // ---------- Cloud backup ----------
 
 // One backup per user: the desktop app's profiles, answers and history, encrypted
 model Backup {
-  userId     String   @id
+  userId     String   @id @map("user_id")
   data       String   @db.LongText
-  sizeBytes  Int
-  deviceName String   @default("")
-  updatedAt  DateTime @updatedAt
+  sizeBytes  Int      @map("size_bytes")
+  deviceName String   @default("") @map("device_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("backups")
 }
 
 // ---------- Support ----------
 
 enum TicketStatus {
-  OPEN     // Waiting for us
+  OPEN // Waiting for us
   ANSWERED // Waiting for the user
   CLOSED
 }
 
 model Ticket {
   id        String          @id @default(cuid())
-  userId    String
+  userId    String          @map("user_id")
   subject   String
   status    TicketStatus    @default(OPEN)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @default(now()) @updatedAt @map("updated_at")
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  TicketMessage[]
 
   @@index([status, updatedAt])
   @@index([userId, updatedAt])
+  @@map("tickets")
 }
 
 model TicketMessage {
   id        String   @id @default(cuid())
-  ticketId  String
-  authorId  String?
-  fromAdmin Boolean
+  ticketId  String   @map("ticket_id")
+  authorId  String?  @map("author_id")
+  fromAdmin Boolean  @map("from_admin")
   body      String   @db.Text
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@map("ticket_messages")
 }

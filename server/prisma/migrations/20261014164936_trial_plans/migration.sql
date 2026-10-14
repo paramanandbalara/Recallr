@@ -1,5 +1,0 @@
--- AlterTable
-ALTER TABLE `Plan` ADD COLUMN `isTrial` BOOLEAN NOT NULL DEFAULT false;
-
--- AlterTable
-ALTER TABLE `Purchase` MODIFY `source` ENUM('RAZORPAY', 'OFFLINE', 'ADMIN_GRANT', 'TRIAL') NOT NULL;

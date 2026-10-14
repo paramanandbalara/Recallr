@@ -172,19 +172,20 @@ adminExtraRoutes.get('/reports', route(async (req, res) => {
   const since = new Date(Date.now() - (days - 1) * DAY_MS);
   since.setUTCHours(0, 0, 0, 0);
 
+  // Raw SQL uses the database's snake_case names; the AS aliases give the camelCase names the code reads
   const [signups, revenue, active, usage, byPlan, planUsage] = await Promise.all([
-    db.$queryRaw<Row[]>`SELECT DATE(createdAt) AS day, COUNT(*) AS n FROM User WHERE createdAt >= ${since} GROUP BY day`,
-    db.$queryRaw<Row[]>`SELECT DATE(paidAt) AS day, SUM(amountPaise) AS n FROM Payment WHERE status = 'PAID' AND paidAt >= ${since} GROUP BY day`,
-    db.$queryRaw<Row[]>`SELECT DATE(createdAt) AS day, COUNT(DISTINCT userId) AS n FROM UsageEvent WHERE createdAt >= ${since} GROUP BY day`,
+    db.$queryRaw<Row[]>`SELECT DATE(created_at) AS day, COUNT(*) AS n FROM users WHERE created_at >= ${since} GROUP BY day`,
+    db.$queryRaw<Row[]>`SELECT DATE(paid_at) AS day, SUM(amount_paise) AS n FROM payments WHERE status = 'PAID' AND paid_at >= ${since} GROUP BY day`,
+    db.$queryRaw<Row[]>`SELECT DATE(created_at) AS day, COUNT(DISTINCT user_id) AS n FROM usage_events WHERE created_at >= ${since} GROUP BY day`,
     db.$queryRaw<(UsageTotals & { day: Date | string })[]>`
-      SELECT DATE(createdAt) AS day, kind, model, SUM(inputTokens) AS inputTokens, SUM(outputTokens) AS outputTokens, SUM(audioSeconds) AS audioSeconds
-      FROM UsageEvent WHERE createdAt >= ${since} GROUP BY day, kind, model`,
+      SELECT DATE(created_at) AS day, kind, model, SUM(input_tokens) AS inputTokens, SUM(output_tokens) AS outputTokens, SUM(audio_seconds) AS audioSeconds
+      FROM usage_events WHERE created_at >= ${since} GROUP BY day, kind, model`,
     db.$queryRaw<{ planName: string; revenue: unknown; sold: unknown }[]>`
-      SELECT pl.name AS planName, SUM(p.amountPaise) AS revenue, COUNT(*) AS sold
-      FROM Payment p JOIN Plan pl ON pl.id = p.planId WHERE p.status = 'PAID' AND p.paidAt >= ${since} GROUP BY pl.name`,
+      SELECT pl.name AS planName, SUM(p.amount_paise) AS revenue, COUNT(*) AS sold
+      FROM payments p JOIN plans pl ON pl.id = p.plan_id WHERE p.status = 'PAID' AND p.paid_at >= ${since} GROUP BY pl.name`,
     db.$queryRaw<(UsageTotals & { planName: string })[]>`
-      SELECT pu.planName AS planName, u.kind, u.model, SUM(u.inputTokens) AS inputTokens, SUM(u.outputTokens) AS outputTokens, SUM(u.audioSeconds) AS audioSeconds
-      FROM UsageEvent u JOIN Purchase pu ON pu.id = u.purchaseId WHERE u.createdAt >= ${since} GROUP BY pu.planName, u.kind, u.model`,
+      SELECT pu.plan_name AS planName, u.kind, u.model, SUM(u.input_tokens) AS inputTokens, SUM(u.output_tokens) AS outputTokens, SUM(u.audio_seconds) AS audioSeconds
+      FROM usage_events u JOIN purchases pu ON pu.id = u.purchase_id WHERE u.created_at >= ${since} GROUP BY pu.plan_name, u.kind, u.model`,
   ]);
 
   const series = Array.from({ length: days }, (_, i) => ({

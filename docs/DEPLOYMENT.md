@@ -40,8 +40,9 @@ docker build -t recallr .
 docker run -d -p 4000:4000 --env-file production.env --restart unless-stopped recallr
 ```
 
-Migrations run automatically on start (`prisma migrate deploy`). The first time, add the example plans and the free
-trial (then change them in Admin → Plans):
+Migrations run automatically on start (`prisma migrate deploy`). A database created with the old migrations (before
+`20261015000000_init`) won't upgrade: drop and recreate it (step 1) before the first start, which deletes its data.
+The first time, add the example plans and the free trial (then change them in Admin → Plans):
 
 ```bash
 docker exec <container> npm run db:seed:prod
