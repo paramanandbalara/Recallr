@@ -7,6 +7,7 @@ import { ResumeInput } from './ResumeInput';
 import { AnswerBankEditor } from './AnswerBankEditor';
 import { ProfileBar } from './ProfileBar';
 import { UsagePanel } from './UsagePanel';
+import { BackupPanel } from './BackupPanel';
 import { KnowledgeEditor } from './KnowledgeEditor';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
@@ -16,12 +17,13 @@ interface Props {
   conversationId: string; // For the usage of the current conversation
 }
 
-type Tab = 'profile' | 'answers' | 'api';
+type Tab = 'profile' | 'answers' | 'api' | 'data';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'answers', label: 'Answers' },
   { id: 'api', label: 'API keys' },
+  { id: 'data', label: 'Data' },
 ];
 
 // Mounted only while open, so it always starts from the saved settings
@@ -85,7 +87,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationI
         ))}
       </div>
 
-      {tab !== 'api' && (
+      {(tab === 'profile' || tab === 'answers') && (
         <ProfileBar
           profiles={profiles}
           activeId={activeId}
@@ -191,7 +193,12 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationI
             onKeyEdited={keyTests.reset}
           />
         )}
-        {tab === 'api' && <UsagePanel conversationId={conversationId} />}
+        {tab === 'data' && (
+          <>
+            <BackupPanel />
+            <UsagePanel conversationId={conversationId} />
+          </>
+        )}
       </div>
 
       {/* Footer */}

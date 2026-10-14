@@ -1,5 +1,6 @@
 import type { Turn } from '../components/ConversationFeed';
 import type { InterviewReview } from './ai';
+import { isRestoring } from './storage';
 
 // Past conversations, saved as files by the main process (see electron/main.ts)
 
@@ -20,7 +21,8 @@ const invoke = async <T>(channel: string, ...args: unknown[]): Promise<T | undef
   // @ts-expect-error ipcRenderer is injected by the preload script
   window.ipcRenderer?.invoke(channel, ...args);
 
-export const saveSession = (session: Session) => invoke<void>('sessions:save', session);
+// Not while a backup is being restored: the window reloads right after and must not overwrite it
+export const saveSession = (session: Session) => (isRestoring() ? Promise.resolve(undefined) : invoke<void>('sessions:save', session));
 export const listSessions = async (query = '') => (await invoke<SessionSummary[]>('sessions:list', query)) ?? [];
 export const loadSession = async (id: string) => (await invoke<Session | null>('sessions:get', id)) ?? null;
 export const deleteSession = (id: string) => invoke<void>('sessions:delete', id);
@@ -35,7 +37,7 @@ export const sessionTitle = (turns: Turn[]) => {
 };
 
 // Ask where to save, then write the file. Returns false if the user cancelled.
-export const exportFile = async (name: string, kind: 'md' | 'pdf', content: string) =>
+export const exportFile = async (name: string, kind: 'md' | 'pdf' | 'json', content: string) =>
   (await invoke<boolean>('export:file', { name, kind, content })) ?? false;
 
 // Real questions from past interviews for practice: weak spots from reviews first, then the rest shuffled

@@ -82,7 +82,20 @@ const read = (key: string) => {
   }
 };
 
+const remove = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Unavailable; nothing to remove
+  }
+};
+
+// While a backup is restored, nothing else may write (the window reloads right after)
+let restoring = false;
+export const isRestoring = () => restoring;
+
 const write = (key: string, value: string) => {
+  if (restoring) return;
   try {
     localStorage.setItem(key, value);
   } catch {
@@ -97,6 +110,76 @@ const readAnswers = (): PreparedAnswer[] => {
   } catch {
     return [];
   }
+};
+
+// ---------- Backup ----------
+// Everything in localStorage except the API keys (kept out of backups on purpose) and caches
+
+const BACKUP_PREFIX = 'secondBrain_';
+const NOT_BACKED_UP = /^secondBrain_(groq|openai|model_|effort_)/;
+
+export const backupStorage = (): Record<string, string> => {
+  const entries: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(BACKUP_PREFIX) && !NOT_BACKED_UP.test(key)) entries[key] = localStorage.getItem(key) ?? '';
+  }
+  return entries;
+};
+
+// Replaces the backed-up entries, then blocks further writes until the window reloads
+export const restoreStorage = (entries: Record<string, string>) => {
+  for (const key of Object.keys(backupStorage())) remove(key);
+  for (const [key, value] of Object.entries(entries)) {
+    if (key.startsWith(BACKUP_PREFIX) && !NOT_BACKED_UP.test(key) && typeof value === 'string') write(key, value);
+  }
+  restoring = true;
+};
+
+// ---------- API keys ----------
+// Kept encrypted by the OS through the main process (see "API keys" in electron/main.ts), and held in memory
+// here so the rest of the app can read them synchronously. Falls back to localStorage where the OS can't
+// encrypt (or outside Electron, e.g. in tests).
+
+type ApiKeys = { groqKey: string; openaiKey: string };
+let secureKeys: ApiKeys | null = null; // null: not using the OS store
+
+const keysIpc = (): { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> } | undefined =>
+  // @ts-expect-error ipcRenderer is injected by the preload script
+  typeof window === 'undefined' ? undefined : window.ipcRenderer;
+
+// Load the keys before the app starts; moves keys saved in plain text by older versions into the OS store
+export const initKeyStore = async () => {
+  const ipc = keysIpc();
+  if (!ipc) return;
+  try {
+    const stored = await ipc.invoke('keys:get') as ({ available: boolean } & Partial<ApiKeys>) | undefined;
+    if (!stored?.available) return;
+    secureKeys = { groqKey: stored.groqKey ?? '', openaiKey: stored.openaiKey ?? '' };
+    const plain = { groqKey: read(KEYS.groqKey), openaiKey: read(KEYS.openaiKey) };
+    if (plain.groqKey || plain.openaiKey) {
+      secureKeys = { groqKey: secureKeys.groqKey || plain.groqKey, openaiKey: secureKeys.openaiKey || plain.openaiKey };
+      if (await ipc.invoke('keys:set', secureKeys)) {
+        remove(KEYS.groqKey);
+        remove(KEYS.openaiKey);
+      }
+    }
+  } catch (error) {
+    console.error('Could not open the secure key store; keeping keys in local storage:', error);
+    secureKeys = null;
+  }
+};
+
+const readKey = (field: keyof ApiKeys) => (secureKeys ? secureKeys[field] : read(KEYS[field]));
+
+const writeKeys = (keys: ApiKeys) => {
+  if (!secureKeys) {
+    write(KEYS.groqKey, keys.groqKey);
+    write(KEYS.openaiKey, keys.openaiKey);
+    return;
+  }
+  secureKeys = keys;
+  keysIpc()?.invoke('keys:set', keys).catch(error => console.error('Could not save the API keys:', error));
 };
 
 // ---------- Profiles ----------
@@ -195,8 +278,8 @@ export const loadSettings = (): Settings => {
   const profile = loadActiveProfile();
   return {
     // Keys from .env are a development convenience only: in a release build they'd be readable by anyone
-    groqKey: read(KEYS.groqKey) || (import.meta.env.DEV ? import.meta.env.VITE_GROQ_API_KEY : '') || '',
-    openaiKey: read(KEYS.openaiKey) || (import.meta.env.DEV ? import.meta.env.VITE_OPENAI_API_KEY : '') || '',
+    groqKey: readKey('groqKey') || (import.meta.env.DEV ? import.meta.env.VITE_GROQ_API_KEY : '') || '',
+    openaiKey: readKey('openaiKey') || (import.meta.env.DEV ? import.meta.env.VITE_OPENAI_API_KEY : '') || '',
     answerProvider: (['groq', 'openai'].includes(read(KEYS.answerProvider)) ? read(KEYS.answerProvider) : 'auto') as AnswerProvider,
     cv: profile.cv,
     cvFileName: profile.cvFileName,
@@ -222,8 +305,7 @@ export const settingsForProfile = (profileId: string): Settings => {
 
 // Saves the keys, and the rest into the active profile
 export const saveSettings = (settings: Settings) => {
-  write(KEYS.groqKey, settings.groqKey.trim());
-  write(KEYS.openaiKey, settings.openaiKey.trim());
+  writeKeys({ groqKey: settings.groqKey.trim(), openaiKey: settings.openaiKey.trim() });
   write(KEYS.answerProvider, settings.answerProvider);
   const active = loadActiveProfile();
   saveProfiles(loadProfiles().map(p => (p.id !== active.id ? p : {

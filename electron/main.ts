@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage, shell, desktopCapturer, screen, globalShortcut, dialog, systemPreferences } from 'electron'
+import { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage, shell, desktopCapturer, screen, globalShortcut, dialog, systemPreferences, safeStorage } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -165,6 +165,34 @@ function registerShortcuts() {
 
 app.on('will-quit', () => globalShortcut.unregisterAll())
 
+// ---------- API keys ----------
+// Encrypted by the OS (macOS Keychain, Windows DPAPI, the Linux keyring) and kept in the app's data folder,
+// instead of as plain text in the page's localStorage. Without OS encryption the page keeps them itself.
+
+type ApiKeys = { groqKey: string; openaiKey: string }
+const keysFile = () => path.join(app.getPath('userData'), 'keys.json')
+
+ipcMain.handle('keys:get', async () => {
+  if (!safeStorage.isEncryptionAvailable()) return { available: false }
+  try {
+    const saved: Partial<Record<keyof ApiKeys, string>> = JSON.parse(await fs.readFile(keysFile(), 'utf8'))
+    const decrypt = (value?: string) => (value ? safeStorage.decryptString(Buffer.from(value, 'base64')) : '')
+    return { available: true, groqKey: decrypt(saved.groqKey), openaiKey: decrypt(saved.openaiKey) }
+  } catch {
+    return { available: true, groqKey: '', openaiKey: '' } // Nothing saved yet
+  }
+})
+
+ipcMain.handle('keys:set', async (_event, keys: ApiKeys) => {
+  if (!safeStorage.isEncryptionAvailable()) return false
+  const encrypt = (value: string) => (value ? safeStorage.encryptString(value).toString('base64') : '')
+  const file = keysFile()
+  const temp = `${file}.${Date.now()}.tmp`
+  await fs.writeFile(temp, JSON.stringify({ groqKey: encrypt(String(keys.groqKey || '')), openaiKey: encrypt(String(keys.openaiKey || '')) }))
+  await fs.rename(temp, file)
+  return true
+})
+
 // ---------- Session history ----------
 interface SavedTurn { question?: string; answer?: string }
 interface SavedSession { id: string; title: string; profileName: string; startedAt: number; updatedAt: number; turns: SavedTurn[]; review?: unknown }
@@ -233,14 +261,32 @@ ipcMain.handle('capture-screens', async () => {
   return images.length ? { images } : { error: 'empty' }
 })
 
+// ---------- Restore a backup ----------
+// Returns the chosen file's text, or null if the user cancelled
+const MAX_BACKUP_BYTES = 200 * 1024 * 1024
+
+ipcMain.handle('backup:open', async () => {
+  const options = { filters: [EXPORT_FILTERS.json], properties: ['openFile' as const] }
+  const { canceled, filePaths } = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  if (canceled || !filePaths[0]) return null
+  if ((await fs.stat(filePaths[0])).size > MAX_BACKUP_BYTES) throw new Error('This file is too big to be a Recallr backup.')
+  return fs.readFile(filePaths[0], 'utf8')
+})
+
 // ---------- Export ----------
 const safeFileName = (name: string) => String(name).replace(/[\\/:*?"<>|\n\r]+/g, ' ').trim().slice(0, 100) || 'Interview'
 
-ipcMain.handle('export:file', async (_event, { name, kind, content }: { name: string; kind: 'md' | 'pdf'; content: string }) => {
-  const extension = kind === 'pdf' ? 'pdf' : 'md'
+const EXPORT_FILTERS = {
+  md: { name: 'Markdown', extensions: ['md'] },
+  pdf: { name: 'PDF', extensions: ['pdf'] },
+  json: { name: 'Recallr backup', extensions: ['json'] },
+}
+
+ipcMain.handle('export:file', async (_event, { name, kind, content }: { name: string; kind: keyof typeof EXPORT_FILTERS; content: string }) => {
+  const filter = EXPORT_FILTERS[kind] ?? EXPORT_FILTERS.md
   const options = {
-    defaultPath: path.join(app.getPath('documents'), `${safeFileName(name)}.${extension}`),
-    filters: [kind === 'pdf' ? { name: 'PDF', extensions: ['pdf'] } : { name: 'Markdown', extensions: ['md'] }],
+    defaultPath: path.join(app.getPath('documents'), `${safeFileName(name)}.${filter.extensions[0]}`),
+    filters: [filter],
   }
   const { canceled, filePath } = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
   if (canceled || !filePath) return false

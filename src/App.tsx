@@ -6,7 +6,7 @@ import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type Adjus
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
 import { classifyQuestion, isFiller, isLikelyQuestion } from './services/questionDetect';
-import { fillPlaceholders, hasAnyKey, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
+import { fillPlaceholders, hasAnyKey, isRestoring, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { setUsageConversation } from './services/usage';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
@@ -104,7 +104,7 @@ function App() {
   // Save the conversation to the history, once it has an answer (and not just because it was reopened)
   const openedTurnsRef = useRef<Turn[] | null>(null);
   const persistSession = useCallback((list: Turn[]) => {
-    if (!hasAnswers(list) || list === openedTurnsRef.current) return;
+    if (!hasAnswers(list) || list === openedTurnsRef.current || isRestoring()) return;
     const profile = loadActiveProfile();
     saveSession({
       ...sessionRef.current,
