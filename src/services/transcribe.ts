@@ -13,7 +13,7 @@ const PROMPT = 'This is a corporate job interview. Transcribe accurately.';
 // On unclear or near-silent audio Whisper sometimes repeats the prompt back ("Transcribe accurately. Transcribe.").
 // Drop sentences that are only that echo (real speech that mentions "transcribe" is kept); '' means there was no speech.
 const PROMPT_ECHO = /^(?:this is a (?:corporate )?job interview|transcribe(?: (?:it|this|that))?(?: accurately| to the question)?)$/i;
-const stripPromptEcho = (text: string) => text
+export const stripPromptEcho = (text: string) => text
   .split(/(?<=[.!?])\s+/)
   .filter(sentence => !PROMPT_ECHO.test(sentence.replace(/[.,!?\s]+$/, '').trim()))
   .join(' ')

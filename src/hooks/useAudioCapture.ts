@@ -1,5 +1,6 @@
 import type { AudioSource, Settings } from '../services/storage';
 import { canTranscribe, transcribeAudio } from '../services/transcribe';
+import { ECHO_WINDOW_MS, isEcho } from '../services/echo';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // System audio = what comes out of the speakers (the other people in the call), not the user's mic.
@@ -48,20 +49,6 @@ const HALLUCINATIONS = [
   'see you next time', 'bye', 'subtitles', 'transcription', 'youtube', 'channel', 'amen',
 ];
 const isHallucination = (text: string) => text.length < 50 && HALLUCINATIONS.some(h => text.toLowerCase().includes(h));
-
-// ---------- Echo: the mic hearing the interviewer through the speakers ----------
-
-const ECHO_WINDOW_MS = 15000;
-const words = (text: string) => text.toLowerCase().match(/[a-z0-9']{3,}/g) ?? [];
-
-// Mic speech whose words mostly match what the call said just before is the speakers' echo, not the user
-const isEcho = (micText: string, recentCall: { text: string; at: number }[]) => {
-  const micWords = words(micText);
-  if (micWords.length === 0) return false;
-  const callWords = new Set(recentCall.filter(c => Date.now() - c.at < ECHO_WINDOW_MS).flatMap(c => words(c.text)));
-  const shared = micWords.filter(w => callWords.has(w)).length;
-  return shared / micWords.length >= 0.6;
-};
 
 // ---------- One audio stream: detect speech, cut it into chunks, transcribe each chunk ----------
 
