@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { Settings } from './storage';
+import { recordChatUsage } from './usage';
 
 // Groq and OpenAI both speak the OpenAI API, so one SDK covers both.
 // "Auto" uses Groq first (fastest: ~1000 tokens/s on gpt-oss-20b), then OpenAI if Groq fails.
@@ -185,16 +186,21 @@ const streamFrom = async (provider: ProviderId, apiKey: string, req: ChatRequest
         ],
         max_completion_tokens: req.maxTokens,
         stream: true,
+        // OpenAI only sends token counts when asked; Groq always adds them (as x_groq.usage)
+        ...(provider === 'openai' ? { stream_options: { include_usage: true } } : {}),
       }, { signal: req.signal });
 
       let text = '';
+      let usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content;
         if (delta) {
           text += delta;
           onText(text);
         }
+        usage = chunk.usage ?? (chunk as { x_groq?: { usage?: typeof usage } }).x_groq?.usage ?? usage;
       }
+      if (usage) recordChatUsage(provider, model, usage.prompt_tokens ?? 0, usage.completion_tokens ?? 0);
       return text;
     } catch (error) {
       if (req.signal?.aborted) throw error;

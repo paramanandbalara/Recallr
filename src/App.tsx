@@ -8,6 +8,7 @@ import { matchPreparedAnswer } from './services/matchAnswer';
 import { isLikelyQuestion } from './services/questionDetect';
 import { hasAnyKey, loadActiveProfile, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
+import { setUsageConversation } from './services/usage';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
 import { SettingsModal } from './components/SettingsModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
@@ -75,6 +76,8 @@ function App() {
   const [turns, setTurns] = useState<Turn[]>(() => closeUnfinished(loadConversation<Turn>()));
   const [session, setSession] = useState(loadCurrentSession);
   const sessionRef = useRef(session);
+  // AI usage is counted per conversation
+  useEffect(() => setUsageConversation(session.id), [session.id]);
   const turnsRef = useRef(turns);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [askText, setAskText] = useState('');
@@ -572,7 +575,7 @@ function App() {
 
       {isSettingsOpen && (
         <div data-interactive>
-          <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />
+          <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} conversationId={session.id} />
         </div>
       )}
     </div>

@@ -84,10 +84,10 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
   // Call audio arrives at its raw level (no auto gain), so it needs a lower threshold than the mic
   const voiceThreshold = isSystem ? 0.004 : 0.012;
 
-  const transcribe = async (blob: Blob) => {
+  const transcribe = async (blob: Blob, seconds: number) => {
     onLog('Transcribing...');
     try {
-      const text = await transcribeAudio(blob, keys);
+      const text = await transcribeAudio(blob, keys, seconds);
       if (text && text.length > 2 && !isHallucination(text)) {
         onLog(`Heard: ${text.substring(0, 30)}...`);
         if (running || flushing) onText(text);
@@ -159,7 +159,7 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
       // Don't send silence to speech-to-text (prevents hallucinations at the source)
       if (blob.size > 0 && (running || flushing) && hasVoice) {
-        queue = queue.then(() => transcribe(blob));
+        queue = queue.then(() => transcribe(blob, recordingTime / 1000));
       } else if (running && !hasVoice) {
         onLog('Waiting for speech...');
       }

@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { client, describeAiError, PROVIDERS, type ProviderId } from './llm';
 import type { Settings } from './storage';
+import { recordAudioUsage } from './usage';
 
 // Speech-to-text: Groq Whisper is the fastest; OpenAI is the fallback.
 const MODELS: Record<ProviderId, string[]> = {
@@ -27,7 +28,7 @@ const isModelUnavailable = (error: unknown) =>
 
 type TranscribeSettings = Pick<Settings, 'groqKey' | 'openaiKey'> & Partial<Pick<Settings, 'language'>>;
 
-const transcribeWith = async (provider: ProviderId, apiKey: string, file: File, language: string) => {
+const transcribeWith = async (provider: ProviderId, apiKey: string, file: File, language: string, seconds: number) => {
   const candidates = workingModel[provider] ? [workingModel[provider]!] : MODELS[provider];
   let lastError: unknown;
   for (const model of candidates) {
@@ -42,6 +43,7 @@ const transcribeWith = async (provider: ProviderId, apiKey: string, file: File, 
         ...(provider === 'groq' ? { temperature: 0 } : {}), // Reduces hallucination
       });
       workingModel[provider] = model;
+      recordAudioUsage(provider, model, seconds);
       return stripPromptEcho(result.text);
     } catch (error) {
       lastError = error;
@@ -55,7 +57,8 @@ export const canTranscribe = (settings: Pick<Settings, 'groqKey' | 'openaiKey'>)
   settings.groqKey.trim().length > 10 || settings.openaiKey.trim().length > 10;
 
 // Returns the transcribed text, trying Groq first, then OpenAI
-export const transcribeAudio = async (blob: Blob, settings: TranscribeSettings): Promise<string> => {
+// `seconds` is how long the recording is, for the usage tracker
+export const transcribeAudio = async (blob: Blob, settings: TranscribeSettings, seconds = 0): Promise<string> => {
   const file = new File([blob], 'audio.webm', { type: 'audio/webm' });
   const order: ProviderId[] = (['groq', 'openai'] as const).filter(p => settings[PROVIDERS[p].keyField].trim().length > 10);
   if (order.length === 0) throw new Error('Speech-to-text needs a Groq or OpenAI key. Add one in Settings → API keys.');
@@ -63,7 +66,7 @@ export const transcribeAudio = async (blob: Blob, settings: TranscribeSettings):
   let lastError: unknown;
   for (const provider of order) {
     try {
-      return await transcribeWith(provider, settings[PROVIDERS[provider].keyField], file, settings.language || 'en');
+      return await transcribeWith(provider, settings[PROVIDERS[provider].keyField], file, settings.language || 'en', seconds);
     } catch (error) {
       console.error(`${PROVIDERS[provider].label} transcription error:`, error);
       lastError = error;

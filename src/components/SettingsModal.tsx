@@ -6,11 +6,13 @@ import { ApiKeysForm } from './ApiKeysForm';
 import { ResumeInput } from './ResumeInput';
 import { AnswerBankEditor } from './AnswerBankEditor';
 import { ProfileBar } from './ProfileBar';
+import { UsagePanel } from './UsagePanel';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
   onClose: () => void;
   onSaved: () => void;
+  conversationId: string; // For the usage of the current conversation
 }
 
 type Tab = 'profile' | 'answers' | 'api';
@@ -22,7 +24,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 // Mounted only while open, so it always starts from the saved settings
-export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationId }) => {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [tab, setTab] = useState<Tab>('profile');
   const keyTests = useKeyTests();
@@ -158,6 +160,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
             onKeyEdited={keyTests.reset}
           />
         )}
+        {tab === 'api' && <UsagePanel conversationId={conversationId} />}
       </div>
 
       {/* Footer */}
