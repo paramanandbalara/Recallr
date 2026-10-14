@@ -408,7 +408,7 @@ function App() {
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleRecording}
-            title={isRecording ? 'Stop listening' : 'Start listening'}
+            title={isRecording ? `Stop listening${debugLog ? ` · ${debugLog}` : ''}` : 'Start listening'}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               isRecording ? 'bg-red-500/90 text-white hover:bg-red-500' : 'bg-blue-600 text-white hover:bg-blue-500'
             }`}
@@ -463,7 +463,7 @@ function App() {
           >
             {overlay ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
           </IconButton>
-          <IconButton onClick={() => setIsSettingsOpen(true)} title="Settings (resume, answers, API key)">
+          <IconButton onClick={() => setIsSettingsOpen(true)} title={`Settings (resume, answers, API key) · Profile: ${profileName}`}>
             <Settings className="w-4 h-4" />
           </IconButton>
           <IconButton onClick={() => sendIpc('hide-app')} title="Hide (to system tray)">
