@@ -3,6 +3,7 @@ import { BookOpen, Copy, Check, Ear, RotateCcw, CornerDownRight, ChevronRight, C
 import type { AdjustMode, FollowUp } from '../services/ai';
 import type { QuestionKind } from '../services/questionDetect';
 import { PROVIDERS, type ProviderId } from '../services/llm';
+import { scoreAnswer } from '../services/answerScore';
 import { AnswerText } from './AnswerText';
 
 export interface Turn {
@@ -88,6 +89,22 @@ const FollowUps: React.FC<{ items: FollowUp[]; startOpen: boolean }> = ({ items,
 };
 
 const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
+// How natural and simple the finished answer sounds out loud; a low score offers a simpler version
+const NaturalScore: React.FC<{ answer: string; question: string; onSimpler: () => void }> = ({ answer, question, onSimpler }) => {
+  const { score, issues } = scoreAnswer(answer, question);
+  const tone = score >= 8 ? 'text-emerald-300 bg-emerald-500/10' : score >= 6 ? 'text-slate-300 bg-slate-700/40' : 'text-amber-300 bg-amber-500/10';
+  const title = `Sounds natural and simple: ${score}/10${issues.length ? `\n${issues.join('\n')}` : '\nShort sentences, everyday words.'}${score < 6 ? '\nClick for a simpler version.' : ''}`;
+  return (
+    <button
+      onClick={score < 6 ? onSimpler : undefined}
+      title={title}
+      className={`rounded px-1.5 py-px text-[10px] font-semibold tabular-nums ${tone} ${score < 6 ? 'hover:brightness-125' : 'cursor-default'}`}
+    >
+      {score < 6 ? 'Simplify' : 'Natural'} {score}/10
+    </button>
+  );
+};
 
 const CopyButton: React.FC<{ text: string }> = ({ text }) => {
   const [copied, setCopied] = useState(false);
@@ -228,6 +245,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
                         {formatSeconds(turn.firstTextMs)}{turn.provider && ` · ${PROVIDERS[turn.provider].label}`}
                       </span>
                     )}
+                    {turn.status === 'done' && turn.answer && <NaturalScore answer={turn.answer} question={turn.question} onSimpler={() => onAdjust(turn.id, 'simpler')} />}
                     {turn.status === 'done' && <CopyButton text={turn.answer} />}
                   </span>
                 </div>

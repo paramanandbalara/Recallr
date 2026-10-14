@@ -18,6 +18,14 @@ const PLAIN_WORDS: [string, string][] = [
   ['robust', 'solid'], ['seamless', 'smooth'], ['seamlessly', 'smoothly'], ['meticulous', 'careful'], ['meticulously', 'carefully'],
   ['under the hood', 'internally'], ['behind the scenes', 'internally'], ['out of the box', 'by default'],
   ['comprehensive', 'full'], ['numerous', 'many'], ['a plethora of', 'a lot of'], ['a myriad of', 'a lot of'],
+  // Long, hard-to-say words with a short everyday one
+  ['approximately', 'about'], ['subsequently', 'then'], ['consequently', 'so'], ['nevertheless', 'still'], ['nonetheless', 'still'],
+  ['demonstrate', 'show'], ['demonstrates', 'shows'], ['demonstrated', 'showed'], ['demonstrating', 'showing'],
+  ['methodology', 'method'], ['methodologies', 'methods'], ['utilization', 'use'], ['predominantly', 'mostly'], ['primarily', 'mainly'],
+  ['prior to', 'before'], ['subsequent to', 'after'], ['with respect to', 'about'], ['in regards to', 'about'], ['with regard to', 'about'],
+  ['significantly', 'a lot'], ['substantially', 'a lot'], ['endeavor', 'try'], ['endeavour', 'try'], ['ascertain', 'find out'],
+  ['intricacies', 'details'], ['aforementioned', 'that'], ['initiated', 'started'], ['initiate', 'start'], ['initiating', 'starting'],
+  ['therefore', 'so'], ['thereby', 'so'], ['accordingly', 'so'],
 ];
 const PLAIN_WORD_PATTERN = new RegExp(`\\b(${PLAIN_WORDS.map(([word]) => word).sort((a, b) => b.length - a.length).join('|')})\\b`, 'gi');
 const PLAIN_WORD_MAP = new Map(PLAIN_WORDS);
