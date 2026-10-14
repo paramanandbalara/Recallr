@@ -38,7 +38,7 @@ export const getMicrophoneStream = () => navigator.mediaDevices.getUserMedia({
   }
 });
 
-type Keys = Pick<Settings, 'groqKey' | 'openaiKey'>;
+type Keys = Pick<Settings, 'groqKey' | 'openaiKey'> & Partial<Pick<Settings, 'language'>>;
 
 // Who said it: the call audio is the interviewer, the microphone is the user
 export type Speaker = 'interviewer' | 'you';

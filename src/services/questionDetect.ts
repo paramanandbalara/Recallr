@@ -7,6 +7,8 @@ const FILLER = new Set([
   'ah', 'oh', 'well', 'got', 'it', 'i', 'see', 'makes', 'sense', 'interesting', 'fine', 'exactly', 'correct',
   'wow', 'hi', 'hello', 'hey', 'the', 'a', 'that', 'this', 'is', 'was', 'very', 'really', 'just', 'let', 'me',
   'one', 'second', 'sec', 'moment', 'hold', 'on', 'sorry', 'go', 'ahead', 'please', 'continue',
+  // Hindi / Hinglish
+  'haan', 'han', 'ha', 'ji', 'achha', 'acha', 'accha', 'theek', 'thik', 'hai', 'bilkul', 'sahi', 'chalo', 'dhanyavaad', 'shukriya',
 ]);
 
 const QUESTION_STARTERS = /^(what|why|how|when|where|which|who|whom|whose|can|could|would|will|should|do|does|did|is|are|was|were|have|has|tell|describe|explain|walk|talk|give|share|define|compare|design|implement|write|imagine|suppose|say|let's say)\b/;
@@ -21,13 +23,19 @@ const FOLLOW_UP_WORDS = new Set([
 
 const words = (text: string) => text.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').split(/\s+/).filter(Boolean);
 
-export const isLikelyQuestion = (text: string): boolean => {
+// `language` is the profile's interview language; the phrase rules below only know English
+export const isLikelyQuestion = (text: string, language = 'en'): boolean => {
   const clean = text.trim().toLowerCase();
   const list = words(clean);
-  if (list.length === 0) return false;
+  // Words in other scripts (Devanagari, Arabic...) don't match a-z, so count them separately
+  const allWords = clean.split(/\s+/).filter(Boolean);
+  if (allWords.length === 0) return false;
 
   // Nothing but filler words ("okay, yeah, great, thank you")
-  if (list.every(w => FILLER.has(w))) return false;
+  if (list.length === allWords.length && list.every(w => FILLER.has(w))) return false;
+
+  // Other languages: a question mark, or a few words, is enough
+  if (language !== 'en' && (clean.includes('?') || allWords.length >= 3)) return true;
 
   if (list.length <= 5 && list.some(w => FOLLOW_UP_WORDS.has(w))) return true;
   if (clean.includes('?') && list.length >= 2) return true;

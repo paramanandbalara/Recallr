@@ -19,3 +19,16 @@ describe('isLikelyQuestion', () => {
     text => expect(isLikelyQuestion(text)).toBe(false),
   );
 });
+
+describe('isLikelyQuestion in other languages', () => {
+  it.each([
+    ['apne experience ke baare mein batao', 'hi'],
+    ['अपने बारे में बताइए', 'hi'],
+    ['Kafka kya hai?', 'auto'],
+  ])('answers: %s', (text, language) => expect(isLikelyQuestion(text, language)).toBe(true));
+
+  it.each([['haan ji', 'hi'], ['achha theek hai', 'hi'], ['okay', 'auto']])(
+    'waits on filler: %s',
+    (text, language) => expect(isLikelyQuestion(text, language)).toBe(false),
+  );
+});

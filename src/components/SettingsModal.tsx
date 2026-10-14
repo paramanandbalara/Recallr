@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { X, Save } from 'lucide-react';
-import { createProfile, deleteProfile, loadActiveProfile, loadProfiles, loadSettings, renameProfile, saveSettings, setActiveProfile, type Settings } from '../services/storage';
+import { createProfile, deleteProfile, LANGUAGES, loadActiveProfile, loadProfiles, loadSettings, renameProfile, saveSettings, setActiveProfile, type AnswerLanguage, type Settings } from '../services/storage';
 import { useKeyTests } from '../hooks/useKeyTests';
 import { ApiKeysForm } from './ApiKeysForm';
 import { ResumeInput } from './ResumeInput';
 import { AnswerBankEditor } from './AnswerBankEditor';
 import { ProfileBar } from './ProfileBar';
-import { Button, IconButton, Label, TextArea, TextInput } from './ui';
+import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
   onClose: () => void;
@@ -121,6 +121,26 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
                 placeholder="Products, mission and values, recent news, team, tech stack..."
                 className="h-28 text-xs"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label hint="What the interviewer speaks.">Interview language</Label>
+                <Select value={settings.language} onChange={e => patch({ language: e.target.value })} className="text-xs">
+                  {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label hint="Hindi answers come as Hinglish.">Answer in</Label>
+                <Select
+                  value={settings.answerLanguage}
+                  onChange={e => patch({ answerLanguage: e.target.value as AnswerLanguage })}
+                  disabled={settings.language === 'en'}
+                  className="text-xs disabled:opacity-50"
+                >
+                  <option value="same">Same as the question</option>
+                  <option value="english">Always English</option>
+                </Select>
+              </div>
             </div>
           </>
         )}

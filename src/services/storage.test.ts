@@ -49,6 +49,13 @@ describe('profiles', () => {
     expect(loadProfiles()).toHaveLength(1);
   });
 
+  it('defaults to English and copies the language settings into a new profile', () => {
+    expect(loadSettings()).toMatchObject({ language: 'en', answerLanguage: 'same' });
+    saveSettings({ ...loadSettings(), language: 'hi', answerLanguage: 'english' });
+    const copy = createProfile('Hindi role', loadActiveProfile());
+    expect(copy).toMatchObject({ language: 'hi', answerLanguage: 'english' });
+  });
+
   it('shares API keys across profiles', () => {
     saveSettings({ ...loadSettings(), groqKey: 'gsk_shared_key_123' });
     createProfile('Other', loadActiveProfile());

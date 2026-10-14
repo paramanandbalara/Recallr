@@ -248,7 +248,7 @@ function App() {
   }, [answerWithAi]);
 
   const answerFromPrepared = useCallback((turnId: string, question: string) => {
-    if (!isLikelyQuestion(question)) return false;
+    if (!isLikelyQuestion(question, loadSettings().language)) return false;
     const match = matchPreparedAnswer(question, loadSettings().answers);
     if (!match || match.id === lastPreparedIdRef.current) return false;
     lastPreparedIdRef.current = match.id;
@@ -291,7 +291,7 @@ function App() {
       const silentFor = Date.now() - lastSpeechAtRef.current;
       if (silentFor < PAUSE_BEFORE_ANSWER_MS) return;
 
-      if (isLikelyQuestion(open.question)) {
+      if (isLikelyQuestion(open.question, loadSettings().language)) {
         openTurnRef.current = null;
         answerWithAi(open.id, open.question);
       } else if (silentFor >= FILLER_TIMEOUT_MS) {
@@ -308,7 +308,7 @@ function App() {
       stopRecording();
       const open = openTurnRef.current;
       openTurnRef.current = null;
-      if (open && isLikelyQuestion(open.question)) {
+      if (open && isLikelyQuestion(open.question, loadSettings().language)) {
         answerWithAi(open.id, open.question);
       } else if (open) {
         patchTurn(open.id, { status: 'skipped' });

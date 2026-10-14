@@ -55,6 +55,10 @@ export const TextInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = 
   <input {...rest} className={`${fieldClass} ${className}`} />
 );
 
+export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({ className = '', ...rest }) => (
+  <select {...rest} className={`${fieldClass} ${className}`} />
+);
+
 export const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = ({ className = '', ...rest }) => (
   <textarea {...rest} className={`${fieldClass} resize-none leading-relaxed ${className}`} />
 );

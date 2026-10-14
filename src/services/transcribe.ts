@@ -25,7 +25,9 @@ const workingModel: Partial<Record<ProviderId, string>> = {};
 const isModelUnavailable = (error: unknown) =>
   error instanceof OpenAI.APIError && (error.status === 404 || (error.status === 400 && /model/i.test(error.message)));
 
-const transcribeWith = async (provider: ProviderId, apiKey: string, file: File) => {
+type TranscribeSettings = Pick<Settings, 'groqKey' | 'openaiKey'> & Partial<Pick<Settings, 'language'>>;
+
+const transcribeWith = async (provider: ProviderId, apiKey: string, file: File, language: string) => {
   const candidates = workingModel[provider] ? [workingModel[provider]!] : MODELS[provider];
   let lastError: unknown;
   for (const model of candidates) {
@@ -33,8 +35,9 @@ const transcribeWith = async (provider: ProviderId, apiKey: string, file: File) 
       const result = await client(provider, apiKey).audio.transcriptions.create({
         file,
         model,
-        language: 'en',
-        prompt: PROMPT,
+        // The English hint would push other languages towards English; 'auto' lets Whisper detect it
+        ...(language === 'auto' ? {} : { language }),
+        ...(language === 'en' ? { prompt: PROMPT } : {}),
         response_format: 'json',
         ...(provider === 'groq' ? { temperature: 0 } : {}), // Reduces hallucination
       });
@@ -52,7 +55,7 @@ export const canTranscribe = (settings: Pick<Settings, 'groqKey' | 'openaiKey'>)
   settings.groqKey.trim().length > 10 || settings.openaiKey.trim().length > 10;
 
 // Returns the transcribed text, trying Groq first, then OpenAI
-export const transcribeAudio = async (blob: Blob, settings: Pick<Settings, 'groqKey' | 'openaiKey'>): Promise<string> => {
+export const transcribeAudio = async (blob: Blob, settings: TranscribeSettings): Promise<string> => {
   const file = new File([blob], 'audio.webm', { type: 'audio/webm' });
   const order: ProviderId[] = (['groq', 'openai'] as const).filter(p => settings[PROVIDERS[p].keyField].trim().length > 10);
   if (order.length === 0) throw new Error('Speech-to-text needs a Groq or OpenAI key. Add one in Settings → API keys.');
@@ -60,7 +63,7 @@ export const transcribeAudio = async (blob: Blob, settings: Pick<Settings, 'groq
   let lastError: unknown;
   for (const provider of order) {
     try {
-      return await transcribeWith(provider, settings[PROVIDERS[provider].keyField], file);
+      return await transcribeWith(provider, settings[PROVIDERS[provider].keyField], file, settings.language || 'en');
     } catch (error) {
       console.error(`${PROVIDERS[provider].label} transcription error:`, error);
       lastError = error;

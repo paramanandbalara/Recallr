@@ -20,8 +20,35 @@ export interface Settings {
   job: string;
   company: string;
   companyNotes: string; // The user's research on the company: products, values, news
+  language: string; // Interview language for speech-to-text: a code like 'en' or 'hi', or 'auto'
+  answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
 }
+
+// Answer in the language the question was asked in, or always in English
+export type AnswerLanguage = 'same' | 'english';
+
+export const LANGUAGES: { code: string; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'auto', label: 'Detect automatically' },
+  { code: 'bn', label: 'Bengali' },
+  { code: 'gu', label: 'Gujarati' },
+  { code: 'kn', label: 'Kannada' },
+  { code: 'ml', label: 'Malayalam' },
+  { code: 'mr', label: 'Marathi' },
+  { code: 'ta', label: 'Tamil' },
+  { code: 'te', label: 'Telugu' },
+  { code: 'ur', label: 'Urdu' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'es', label: 'Spanish' },
+];
 
 const KEYS = {
   groqKey: 'secondBrain_groq',
@@ -80,6 +107,8 @@ export interface Profile {
   job: string;
   company: string;
   companyNotes: string;
+  language: string;
+  answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
 }
 
@@ -93,6 +122,8 @@ const toProfile = (p: Partial<Profile>): Profile => ({
   job: str(p.job),
   company: str(p.company),
   companyNotes: str(p.companyNotes),
+  language: LANGUAGES.some(l => l.code === p.language) ? p.language! : 'en',
+  answerLanguage: p.answerLanguage === 'english' ? 'english' : 'same',
   answers: Array.isArray(p.answers) ? p.answers : [],
 });
 
@@ -132,7 +163,10 @@ export const setActiveProfile = (id: string) => write(KEYS.activeProfile, id);
 
 // A new profile keeps the resume and prepared answers of `base`, with the job details left blank
 export const createProfile = (name: string, base: Profile): Profile => {
-  const profile = toProfile({ name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers });
+  const profile = toProfile({
+    name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers,
+    language: base.language, answerLanguage: base.answerLanguage,
+  });
   saveProfiles([...loadProfiles(), profile]);
   setActiveProfile(profile.id);
   return profile;
@@ -161,6 +195,8 @@ export const loadSettings = (): Settings => {
     job: profile.job,
     company: profile.company,
     companyNotes: profile.companyNotes,
+    language: profile.language,
+    answerLanguage: profile.answerLanguage,
     answers: profile.answers,
   };
 };
@@ -170,8 +206,8 @@ export const settingsForProfile = (profileId: string): Settings => {
   const settings = loadSettings();
   const profile = loadProfiles().find(p => p.id === profileId);
   if (!profile) return settings;
-  const { cv, cvFileName, job, company, companyNotes, answers } = profile;
-  return { ...settings, cv, cvFileName, job, company, companyNotes, answers };
+  const { cv, cvFileName, job, company, companyNotes, language, answerLanguage, answers } = profile;
+  return { ...settings, cv, cvFileName, job, company, companyNotes, language, answerLanguage, answers };
 };
 
 // Saves the keys, and the rest into the active profile
@@ -187,6 +223,8 @@ export const saveSettings = (settings: Settings) => {
     job: settings.job.trim(),
     company: settings.company.trim(),
     companyNotes: settings.companyNotes.trim(),
+    language: settings.language,
+    answerLanguage: settings.answerLanguage,
     answers: settings.answers.filter(a => a.question.trim() || a.answer.trim()),
   })));
 };

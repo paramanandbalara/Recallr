@@ -164,6 +164,16 @@ that time"), "one" for "a" ("we had one service for that"), "only" or "itself" f
 starting with "basically what happens is…" or "so what we did is…", or restarting a sentence halfway. Keep the meaning clear and the
 technical words correct. Not every sentence, and never so much that it sounds like a joke.`;
 
+// Which language to answer in, from the profile
+const languageNote = (settings: Settings) => {
+  if (settings.answerLanguage === 'english') {
+    return settings.language === 'en' ? '' : '\nAlways answer in English, even if the question was asked in another language.';
+  }
+  if (settings.language === 'en') return '';
+  return '\nAnswer in the same language the interviewer used. If that is Hindi, write everyday Hinglish in Latin script'
+    + ' (the way people type it on WhatsApp), and keep technical words in English.';
+};
+
 // Ways to redo an answer from the buttons under it
 export type AdjustMode = 'regenerate' | 'shorter' | 'longer' | 'simpler' | 'technical';
 
@@ -204,7 +214,7 @@ export const streamInterviewAnswer = async (
   const text = await streamChat(settings, {
     tier: 'fast',
     system: SYSTEM_PROMPT_BASE + buildContext(settings),
-    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${loadEnglishStyle() === 'broken' ? `\n${BROKEN_ENGLISH}` : ''}\n\nWhat you say:`,
+    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${loadEnglishStyle() === 'broken' ? `\n${BROKEN_ENGLISH}` : ''}${languageNote(settings)}\n\nWhat you say:`,
     temperature: 0.85, // A little more variety, like real speech
     maxTokens: 2000, // Room for long answers (includes the model's brief reasoning)
     signal,
