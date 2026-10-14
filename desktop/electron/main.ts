@@ -136,6 +136,13 @@ ipcMain.on('set-window-size', (_event, width: number, height: number) => {
   saveBounds()
 })
 
+// Glass style: the system blurs what's behind the window (macOS vibrancy, Windows 11 acrylic)
+ipcMain.on('set-material', (_event, glass: boolean) => {
+  if (!win) return
+  if (process.platform === 'darwin') win.setVibrancy(glass ? 'hud' : null)
+  else if (process.platform === 'win32') win.setBackgroundMaterial(glass ? 'acrylic' : 'none')
+})
+
 // The whole app bigger or smaller (Display → App size, or Ctrl/Cmd + and -)
 ipcMain.on('set-zoom', (_event, factor: number) => {
   if (win && Number.isFinite(factor)) win.webContents.setZoomFactor(Math.min(2, Math.max(0.5, factor)))

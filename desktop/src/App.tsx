@@ -146,10 +146,12 @@ function App() {
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = display.theme;
+    root.dataset.layout = display.layout;
     root.style.setProperty('--answer-size', `${display.textSize}px`);
     root.style.setProperty('--bg-opacity', String(display.bgOpacity));
     root.style.setProperty('--text-opacity', String(display.textOpacity));
     sendIpc('set-zoom', display.zoom);
+    sendIpc('set-material', display.layout === 'glass');
     saveDisplay(display);
   }, [display]);
 
@@ -534,7 +536,7 @@ function App() {
             {AUDIO_SOURCES[audioSource].label}
           </button>
           {!isRecording && (
-            <span className="hidden min-[400px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
+            <span className="compact-hide hidden min-[400px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
               <MessageSquareQuote className="w-3.5 h-3.5 text-blue-400 shrink-0" /> Recallr
             </span>
           )}
@@ -589,7 +591,7 @@ function App() {
 
       {/* Feed contains per-turn buttons (regenerate etc.) so mark it interactive too */}
       <div data-interactive className="flex-1 min-h-0 flex flex-col">
-        <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
+        <ConversationFeed turns={turns} layout={display.layout} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
       </div>
 
       {/* Ask form: input + buttons */}
@@ -627,7 +629,7 @@ function App() {
           onClick={startNew}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <SquarePen className="w-3.5 h-3.5" /> New
+          <SquarePen className="w-3.5 h-3.5" /> <span className="compact-hide">New</span>
         </button>
       </form>
 

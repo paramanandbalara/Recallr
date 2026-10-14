@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, ZOOMS, type Display, type EnglishStyle } from '../services/storage';
+import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, WINDOW_SIZES, ZOOMS, type Display, type EnglishStyle, type Layout } from '../services/storage';
 
 interface Props {
   display: Display;
@@ -67,6 +67,24 @@ const PercentSlider: React.FC<{ label: string; min: number; value: number; onCha
   </Row>
 );
 
+const sendWindowSize = ({ width, height }: { width: number; height: number }) => {
+  // @ts-expect-error ipcRenderer is injected by the preload script
+  window.ipcRenderer?.send('set-window-size', width, height);
+};
+
+// Tiny drawings of each style for the buttons
+const line = (w: string, extra = '') => <span className={`block h-[2px] rounded-full bg-slate-400/70 ${extra}`} style={{ width: w }} />;
+const STYLES: { id: Layout; label: string; title: string; preview: React.ReactNode }[] = [
+  { id: 'classic', label: 'Classic', title: 'Every question and answer, with key points and follow-ups',
+    preview: <span className="flex flex-col gap-[2px] p-[3px]">{line('60%')}{line('90%')}{line('80%')}{line('50%')}</span> },
+  { id: 'compact', label: 'Compact', title: 'Just the latest answer, with less around it: for a small window',
+    preview: <span className="flex flex-col gap-[2px] p-[3px] pt-[6px]">{line('90%')}{line('70%')}</span> },
+  { id: 'teleprompter', label: 'Prompter', title: 'The latest answer in large text, to read from at a glance',
+    preview: <span className="flex flex-col gap-[3px] p-[3px] pt-[5px]"><span className="block h-[3px] w-[90%] rounded-full bg-slate-200/80" /><span className="block h-[3px] w-[70%] rounded-full bg-slate-200/80" /></span> },
+  { id: 'glass', label: 'Glass', title: 'See-through, with your screen softly blurred behind it',
+    preview: <span className="flex h-full flex-col gap-[2px] bg-gradient-to-br from-sky-300/30 to-violet-300/20 p-[3px]">{line('70%', '!bg-white/70')}{line('90%', '!bg-white/70')}</span> },
+];
+
 const stepButton = 'p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-30';
 
 // Display options and shortcuts; changes apply right away
@@ -96,6 +114,38 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
 
   return (
     <div ref={ref} className="menu-in absolute right-2 top-11 z-40 w-64 space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl">
+      <div>
+        <div className="mb-1.5 text-[11px] text-slate-400">Style</div>
+        <div className="grid grid-cols-4 gap-1">
+          {STYLES.map(style => (
+            <button
+              key={style.id}
+              onClick={() => patch({ layout: style.id })}
+              title={style.title}
+              className={`rounded-md border px-1 py-1.5 text-[10px] font-medium ${display.layout === style.id ? 'border-blue-500 bg-blue-500/10 text-slate-100' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            >
+              <span className="mx-auto mb-1 block h-5 w-7 overflow-hidden rounded-sm border border-slate-600 bg-slate-800/80">{style.preview}</span>
+              {style.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Row label="Window size">
+        <div className="flex rounded-md border border-slate-700 p-0.5">
+          {(Object.keys(WINDOW_SIZES) as (keyof typeof WINDOW_SIZES)[]).map(size => (
+            <button
+              key={size}
+              onClick={() => sendWindowSize(WINDOW_SIZES[size])}
+              title={`${WINDOW_SIZES[size].width} × ${WINDOW_SIZES[size].height} (drag any edge to fine-tune)`}
+              className="rounded px-2 py-0.5 text-[11px] font-medium capitalize text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+      </Row>
+
       <Row label="Answers as">
         <Segmented
           value={display.keyPoints ? 'points' : 'full'}

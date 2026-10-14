@@ -349,11 +349,20 @@ export interface Display {
   zoom: number;       // The whole app bigger or smaller, 1 = normal
   theme: 'dark' | 'light';
   keyPoints: boolean; // Show answers as a few key points instead of the full text
+  layout: Layout;     // The window's style
 }
+
+// Window styles: Classic (everything), Compact (latest answer, less chrome), Teleprompter (large answer text,
+// extras on hover), Glass (see-through with the system's blur)
+export const LAYOUTS = ['classic', 'compact', 'teleprompter', 'glass'] as const;
+export type Layout = typeof LAYOUTS[number];
+
+// Window size presets (Display menu); the window can still be resized freely from its edges
+export const WINDOW_SIZES = { small: { width: 320, height: 440 }, medium: { width: 400, height: 600 }, large: { width: 520, height: 780 } };
 
 export const TEXT_SIZES = { min: 10, max: 28, default: 14 };
 export const ZOOMS = { min: 0.7, max: 1.6, step: 0.1, default: 1 };
-const DEFAULT_DISPLAY: Display = { bgOpacity: 0.97, textOpacity: 1, textSize: TEXT_SIZES.default, zoom: ZOOMS.default, theme: 'dark', keyPoints: false };
+const DEFAULT_DISPLAY: Display = { bgOpacity: 0.97, textOpacity: 1, textSize: TEXT_SIZES.default, zoom: ZOOMS.default, theme: 'dark', keyPoints: false, layout: 'classic' };
 
 const clamp = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
@@ -368,6 +377,7 @@ export const loadDisplay = (): Display => {
       zoom: clamp(saved.zoom, ZOOMS.min, ZOOMS.max, DEFAULT_DISPLAY.zoom),
       theme: saved.theme === 'light' ? 'light' : 'dark',
       keyPoints: saved.keyPoints === true,
+      layout: (LAYOUTS as readonly string[]).includes(saved.layout) ? saved.layout : 'classic',
     };
   } catch {
     return DEFAULT_DISPLAY;

@@ -3,6 +3,7 @@ import { BookOpen, Copy, Check, Ear, RotateCcw, CornerDownRight, ChevronRight, C
 import type { AdjustMode, FollowUp } from '../services/ai';
 import type { QuestionKind } from '../services/questionDetect';
 import { PROVIDERS, type ProviderId } from '../services/llm';
+import type { Layout } from '../services/storage';
 import { scoreAnswer } from '../services/answerScore';
 import { AnswerText } from './AnswerText';
 
@@ -125,6 +126,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
 
 interface Props {
   turns: Turn[];
+  layout?: Layout; // Compact and Teleprompter show only the latest question
   isRecording: boolean;
   keyPointsView: boolean;
   onAdjust: (turnId: string, mode: AdjustMode) => void;
@@ -132,7 +134,9 @@ interface Props {
   onMock: () => void;  // Open the mock interview
 }
 
-export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust, onCheck, onMock }) => {
+export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', isRecording, keyPointsView, onAdjust, onCheck, onMock }) => {
+  const latestOnly = layout === 'compact' || layout === 'teleprompter';
+  const hidden = latestOnly ? Math.max(0, turns.length - 1) : 0;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const latestRef = useRef<HTMLDivElement>(null); // The newest question and answer
@@ -196,7 +200,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
           </div>
         )}
 
-        {turns.map((turn, index) => {
+        {hidden > 0 && (
+          <p className="text-[10px] text-slate-600">{hidden} earlier {hidden === 1 ? 'question' : 'questions'} in this conversation (Classic style shows them all)</p>
+        )}
+        {turns.slice(hidden).map((turn, shownIndex) => {
+          const index = shownIndex + hidden;
           const isLatest = index === turns.length - 1;
           // Key-points view: the latest answer shows its key points above the full text (so it never
           // collapses while being read); older answers show only their key points until opened.
@@ -249,7 +257,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
                     {turn.status === 'done' && <CopyButton text={turn.answer} />}
                   </span>
                 </div>
-                <div className="text-slate-100 leading-relaxed select-text" style={{ fontSize: 'var(--answer-size)' }}>
+                <div className="answer-text text-slate-100 leading-relaxed select-text" style={{ fontSize: 'var(--answer-size)' }}>
                   {hasPoints && (
                     <div className={`fade-in ${showFull ? 'mb-2 rounded-md bg-slate-800/60 px-2.5 py-2' : ''}`}>
                       <KeyPoints points={turn.keyPoints!} />
@@ -267,11 +275,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
                 )}
                 {turn.error && <p className="mt-1 text-[11px] text-red-300">{turn.error}</p>}
                 {turn.status === 'done' && (
-                  <div className={isLatest ? '' : 'hidden group-hover:block'}>
+                  <div className={`prompter-hover ${isLatest ? '' : 'hidden group-hover:block'}`}>
                     <AnswerControls onAdjust={mode => onAdjust(turn.id, mode)} />
                   </div>
                 )}
-                {turn.status === 'done' && !!turn.followUps?.length && (
+                {turn.status === 'done' && !!turn.followUps?.length && layout !== 'teleprompter' && (
                   <FollowUps items={turn.followUps} startOpen={isLatest} />
                 )}
               </div>
