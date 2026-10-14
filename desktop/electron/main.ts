@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage, shell, desktopCapturer, screen, globalShortcut, dialog, systemPreferences, safeStorage } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
@@ -24,9 +25,35 @@ function setOverlay(on: boolean) {
   win.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: on, skipTransformProcessType: true })
 }
 
+// The window's size and place are remembered between runs, as long as they still fit on a screen
+const MIN_SIZE = { width: 220, height: 120 }
+const windowFile = () => path.join(app.getPath('userData'), 'window.json')
+type Bounds = { x: number; y: number; width: number; height: number }
+
+const loadBounds = (): Bounds | null => {
+  try {
+    const b = JSON.parse(readFileSync(windowFile(), 'utf8')) as Bounds
+    if (![b.x, b.y, b.width, b.height].every(Number.isFinite)) return null
+    const area = screen.getDisplayMatching(b).workArea
+    const visible = b.x < area.x + area.width && b.x + b.width > area.x && b.y < area.y + area.height && b.y + b.height > area.y
+    return visible ? b : null
+  } catch {
+    return null
+  }
+}
+
+let saveBoundsTimer: ReturnType<typeof setTimeout> | null = null
+const saveBounds = () => {
+  if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
+  saveBoundsTimer = setTimeout(() => {
+    if (win && !win.isDestroyed()) fs.writeFile(windowFile(), JSON.stringify(win.getBounds())).catch(() => {})
+  }, 500)
+}
+
 function createWindow() {
   overlayOn = null
   const isMac = process.platform === 'darwin'
+  const saved = loadBounds()
 
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
@@ -37,16 +64,17 @@ function createWindow() {
       nodeIntegration: false,
       webSecurity: false,
     },
-    width: 420,
-    height: 640,
-    minWidth: 360,
-    minHeight: 480,
+    width: saved?.width ?? 420,
+    height: saved?.height ?? 640,
+    minWidth: MIN_SIZE.width,
+    minHeight: MIN_SIZE.height,
+    resizable: true,
     transparent: true,
     frame: false,
     hasShadow: false,
     skipTaskbar: true,
-    x: 0,
-    y: 0,
+    x: saved?.x ?? 0,
+    y: saved?.y ?? 0,
 
     // macOS: panel = non-activating NSPanel.
     ...(isMac ? { type: 'panel' as const } : {}),
@@ -71,6 +99,9 @@ function createWindow() {
   })
 
   win.setContentProtection(true)
+
+  win.on('resized', saveBounds)
+  win.on('moved', saveBounds)
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
@@ -101,7 +132,13 @@ ipcMain.on('set-overlay', (_event, on: boolean) => {
 })
 
 ipcMain.on('set-window-size', (_event, width: number, height: number) => {
-  win?.setSize(Math.round(width), Math.round(height), true)
+  win?.setSize(Math.max(MIN_SIZE.width, Math.round(width)), Math.max(MIN_SIZE.height, Math.round(height)), true)
+  saveBounds()
+})
+
+// The whole app bigger or smaller (Display → App size, or Ctrl/Cmd + and -)
+ipcMain.on('set-zoom', (_event, factor: number) => {
+  if (win && Number.isFinite(factor)) win.webContents.setZoomFactor(Math.min(2, Math.max(0.5, factor)))
 })
 
 // Flip focusable on while a text input has keyboard focus, off when it blurs.
@@ -128,7 +165,10 @@ const stopDrag = () => {
 }
 ipcMain.on('window-drag', (_event, action: 'start' | 'stop') => {
   stopDrag()
-  if (action !== 'start' || !win) return
+  if (action !== 'start' || !win) {
+    saveBounds()
+    return
+  }
   const cursor = screen.getCursorScreenPoint()
   const [winX, winY] = win.getPosition()
   const offset = { x: cursor.x - winX, y: cursor.y - winY }
@@ -139,6 +179,43 @@ ipcMain.on('window-drag', (_event, action: 'start' | 'stop') => {
     win.setPosition(point.x - offset.x, point.y - offset.y)
   }, 8)
 });
+
+// Window resizing from the app's own edges and corners: transparent frameless windows can't always be
+// resized by the OS (not at all on Windows), so the main process follows the cursor like dragging
+type Edge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+let resizeTimer: ReturnType<typeof setInterval> | null = null
+const stopResize = () => {
+  if (resizeTimer) clearInterval(resizeTimer)
+  resizeTimer = null
+}
+ipcMain.on('window-resize', (_event, action: 'start' | 'stop', edge?: Edge) => {
+  stopResize()
+  if (action !== 'start' || !win || !edge) {
+    saveBounds()
+    return
+  }
+  const start = screen.getCursorScreenPoint()
+  const from = win.getBounds()
+  const startedAt = Date.now()
+  resizeTimer = setInterval(() => {
+    if (!win || Date.now() - startedAt > 60000) return stopResize()
+    const point = screen.getCursorScreenPoint()
+    const dx = point.x - start.x
+    const dy = point.y - start.y
+    let { x, y, width, height } = from
+    if (edge.includes('e')) width = Math.max(MIN_SIZE.width, from.width + dx)
+    if (edge.includes('s')) height = Math.max(MIN_SIZE.height, from.height + dy)
+    if (edge.includes('w')) {
+      width = Math.max(MIN_SIZE.width, from.width - dx)
+      x = from.x + from.width - width
+    }
+    if (edge.includes('n')) {
+      height = Math.max(MIN_SIZE.height, from.height - dy)
+      y = from.y + from.height - height
+    }
+    win.setBounds({ x, y, width, height })
+  }, 8)
+})
 
 const SHORTCUT_MODIFIERS = process.platform === 'darwin' ? 'Control+Alt' : 'Control+Alt+Shift'
 const SHORTCUTS: { key: string; action: string; focus?: boolean }[] = [

@@ -6,7 +6,7 @@ import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type Adjus
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
 import { classifyQuestion, isFiller, isLikelyQuestion } from './services/questionDetect';
-import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOnboarded, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOnboarded, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
+import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOnboarded, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOnboarded, saveOverlay, ZOOMS, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
 import { SettingsModal } from './components/SettingsModal';
@@ -143,12 +143,29 @@ function App() {
     root.style.setProperty('--answer-size', `${display.textSize}px`);
     root.style.setProperty('--bg-opacity', String(display.bgOpacity));
     root.style.setProperty('--text-opacity', String(display.textOpacity));
+    sendIpc('set-zoom', display.zoom);
     saveDisplay(display);
   }, [display]);
 
+  // Ctrl/Cmd + and - make the whole app bigger or smaller, 0 resets it
   useEffect(() => {
-    const size = onboarded ? COMPACT_SIZE : SETUP_SIZE;
-    sendIpc('set-window-size', size.width, size.height);
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const step = e.key === '=' || e.key === '+' ? 1 : e.key === '-' ? -1 : e.key === '0' ? 0 : null;
+      if (step === null) return;
+      e.preventDefault();
+      setDisplay(d => ({ ...d, zoom: step === 0 ? ZOOMS.default : Math.min(ZOOMS.max, Math.max(ZOOMS.min, Math.round((d.zoom + step * ZOOMS.step) * 10) / 10)) }));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Setup needs room; after it, the window starts compact once and then keeps whatever size the user gives it
+  const wasOnboarded = useRef(onboarded);
+  useEffect(() => {
+    if (!onboarded) sendIpc('set-window-size', SETUP_SIZE.width, SETUP_SIZE.height);
+    else if (!wasOnboarded.current) sendIpc('set-window-size', COMPACT_SIZE.width, COMPACT_SIZE.height);
+    wasOnboarded.current = onboarded;
   }, [onboarded]);
 
   const toggleAudioSource = () => {

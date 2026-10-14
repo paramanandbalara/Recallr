@@ -68,5 +68,5 @@ export const requireAdmin = (req: Request, _res: Response, next: NextFunction) =
 
 // The AI is only for the desktop app (signed in on a counted device), so one account can't be shared beyond its device limit
 export const requireDevice = (req: Request, _res: Response, next: NextFunction) => {
-  next(req.device ? undefined : new HttpError(403, 'Use the Recallr app for this. Update the app if you see this there.', 'APP_ONLY'));
+  next(req.device ? undefined : new HttpError(403, 'Please sign in again in the Recallr app to keep using it.', 'APP_ONLY'));
 };

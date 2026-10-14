@@ -40,7 +40,6 @@ body {
   margin: 0;
   display: flex;
   place-items: flex-start;
-  min-width: 320px;
   min-height: 100vh;
   background-color: oklch(from var(--color-slate-900) l c h / var(--bg-opacity)); /* Window background, see-through as set in Display */
   color: var(--color-slate-50);

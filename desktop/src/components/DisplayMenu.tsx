@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, type Display, type EnglishStyle } from '../services/storage';
+import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, ZOOMS, type Display, type EnglishStyle } from '../services/storage';
 
 interface Props {
   display: Display;
@@ -111,6 +111,20 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
           </button>
           <span className="w-8 text-center text-[11px] tabular-nums text-slate-300">{display.textSize}px</span>
           <button className={stepButton} title="Larger" disabled={display.textSize >= TEXT_SIZES.max} onClick={() => patch({ textSize: display.textSize + 1 })}>
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+      </Row>
+
+      <Row label="App size">
+        <div className="flex items-center gap-1">
+          <button className={stepButton} title={`Smaller (${isMac ? '⌘' : 'Ctrl'} −)`} disabled={display.zoom <= ZOOMS.min + 0.001} onClick={() => patch({ zoom: Math.round((display.zoom - ZOOMS.step) * 10) / 10 })}>
+            <Minus className="w-3 h-3" />
+          </button>
+          <button className="w-10 text-center text-[11px] tabular-nums text-slate-300 hover:text-slate-100" title="Back to 100%" onClick={() => patch({ zoom: ZOOMS.default })}>
+            {Math.round(display.zoom * 100)}%
+          </button>
+          <button className={stepButton} title={`Larger (${isMac ? '⌘' : 'Ctrl'} +)`} disabled={display.zoom >= ZOOMS.max - 0.001} onClick={() => patch({ zoom: Math.round((display.zoom + ZOOMS.step) * 10) / 10 })}>
             <Plus className="w-3 h-3" />
           </button>
         </div>

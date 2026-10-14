@@ -103,15 +103,20 @@ export const initAccount = async () => {
     if (stored?.available) {
       secure = true;
       token = stored.token ?? '';
-      return;
     }
   } catch (error) {
     console.error('Could not open the secure store; keeping the sign-in in local storage:', error);
   }
-  try {
-    token = localStorage.getItem(TOKEN_KEY) ?? '';
-  } catch {
-    token = '';
+  if (!secure) {
+    try {
+      token = localStorage.getItem(TOKEN_KEY) ?? '';
+    } catch {
+      token = '';
+    }
+  }
+  if (token && !tokenHasDevice(token)) {
+    saveToken('');
+    signedOutNotice = NEEDS_DEVICE_NOTICE;
   }
 };
 
@@ -130,6 +135,27 @@ const saveToken = (value: string) => {
 };
 
 export const isSignedIn = () => !!token;
+
+// AI requests need a sign-in tied to this computer ("did" in the token). A sign-in from before that, or from
+// the website, can't use them, so it's dropped and the user signs in again once.
+const NEEDS_DEVICE_NOTICE = 'Please sign in again. Recallr now links your sign-in to this computer, and this one was made before that.';
+let signedOutNotice = '';
+
+const tokenHasDevice = (value: string) => {
+  try {
+    const payload = JSON.parse(atob(value.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { did?: string };
+    return !!payload.did;
+  } catch {
+    return true; // Not readable here: let the server decide
+  }
+};
+
+// Why the user was signed out, shown once on the sign-in screen
+export const takeSignedOutNotice = () => {
+  const notice = signedOutNotice;
+  signedOutNotice = '';
+  return notice;
+};
 
 // ---------- Requests ----------
 
@@ -150,8 +176,10 @@ export const request = async (path: string, init: RequestInit = {}) => {
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) saveToken('');
-    if ((res.status === 402 || res.status === 401) && typeof window !== 'undefined') window.dispatchEvent(new Event(PLAN_EVENT));
+    const needsDevice = res.status === 403 && data.code === 'APP_ONLY';
+    if (res.status === 401 || needsDevice) saveToken('');
+    if (needsDevice) signedOutNotice = NEEDS_DEVICE_NOTICE;
+    if ((res.status === 402 || res.status === 401 || needsDevice) && typeof window !== 'undefined') window.dispatchEvent(new Event(PLAN_EVENT));
     throw new ApiError(res.status, data.error ?? `Recallr's server had a problem (${res.status}).`, data.code, data);
   }
   return res;

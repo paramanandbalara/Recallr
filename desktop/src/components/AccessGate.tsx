@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { X, Minus, MessageSquareQuote, Loader2, Ban, WifiOff, CreditCard, ExternalLink, Laptop, Download } from 'lucide-react';
-import { ApiError, appVersion, downloadUrl, fetchAccount, fetchVersionInfo, isOlder, isSignedIn, openUrl, openWebsite, PLAN_EVENT, signIn, signOut, type Allowance, type SignedInDevice, type TrialResult, type User, type VersionInfo } from '../services/account';
+import { ApiError, appVersion, downloadUrl, fetchAccount, fetchVersionInfo, isOlder, isSignedIn, openUrl, openWebsite, PLAN_EVENT, signIn, signOut, takeSignedOutNotice, type Allowance, type SignedInDevice, type TrialResult, type User, type VersionInfo } from '../services/account';
 import { AccountContext } from '../hooks/useAccount';
 import { Button, IconButton, Label, TextInput } from './ui';
 
@@ -131,6 +131,8 @@ export const AccessGate: React.FC<{ children: React.ReactNode }> = ({ children }
       return;
     }
     if (!isSignedIn()) {
+      const reason = takeSignedOutNotice();
+      if (reason) setNotice(reason);
       setGate({ state: 'signed-out' });
       return;
     }

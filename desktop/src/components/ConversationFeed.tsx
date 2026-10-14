@@ -73,7 +73,7 @@ const FollowUps: React.FC<{ items: FollowUp[]; startOpen: boolean }> = ({ items,
       {isOpen && (
         <ul className="mt-1 space-y-1.5 select-text">
           {items.map((f, i) => (
-            <li key={i} className="flex gap-1.5 text-[11px] leading-snug">
+            <li key={i} className="flex gap-1.5 leading-snug" style={{ fontSize: 'calc(var(--answer-size) * 0.8)' }}>
               <CornerDownRight className="w-3 h-3 mt-0.5 shrink-0 text-slate-600" />
               <span>
                 <span className="text-slate-300">{f.question}</span>
@@ -188,7 +188,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
           return (
           <div key={turn.id} ref={isLatest ? latestRef : undefined} className={`group ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
             {/* What was heard */}
-            <p className="text-[12px] text-slate-400 leading-relaxed select-text">
+            <p className="text-slate-400 leading-relaxed select-text" style={{ fontSize: 'calc(var(--answer-size) * 0.86)' }}>
               <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? 'Read from your screen' : undefined}>
                 {turn.origin === 'screen' ? 'Screen · ' : 'Q · '}
               </span>
@@ -259,7 +259,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
               </div>
             )}
             {turn.spoken && (
-              <p className="mt-2 pl-3 text-[12px] leading-relaxed text-slate-400 select-text">
+              <p className="mt-2 pl-3 leading-relaxed text-slate-400 select-text" style={{ fontSize: 'calc(var(--answer-size) * 0.86)' }}>
                 <span className="font-semibold text-sky-400">You said · </span>{turn.spoken}
               </p>
             )}
