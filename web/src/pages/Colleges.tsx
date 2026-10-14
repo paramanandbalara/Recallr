@@ -80,7 +80,7 @@ export const Colleges: React.FC = () => {
           </ol>
           <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 text-sm text-slate-400">
             <Users className="mb-2 h-5 w-5 text-blue-400" />
-            Pricing depends on the number of students and how long you need it. Groups from 20 students; seats can be added any time.
+            Pricing depends on the number of students and how long you need it. Seats can be added later.
           </div>
         </Reveal>
 
@@ -90,7 +90,7 @@ export const Colleges: React.FC = () => {
               <div className="py-10 text-center">
                 <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-400" />
                 <h2 className="mt-3 text-xl font-semibold text-white">Thank you</h2>
-                <p className="mt-2 text-sm text-slate-400">We’ll write to {form.email} within one working day.</p>
+                <p className="mt-2 text-sm text-slate-400">We’ll get back to you at {form.email}.</p>
               </div>
             ) : (
               <form onSubmit={submit} className="space-y-3">
