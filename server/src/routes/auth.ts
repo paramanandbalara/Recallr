@@ -83,8 +83,11 @@ authRoutes.get('/me', requireUser, route(async (req, res) => {
 }));
 
 authRoutes.patch('/me', requireUser, route(async (req, res) => {
-  const name = z.string().trim().min(1, 'Enter your name.').max(100).parse(req.body.name);
-  res.json({ user: publicUser(await db.user.update({ where: { id: req.user!.id }, data: { name } })) });
+  const data = z.object({
+    name: z.string().trim().min(1, 'Enter your name.').max(100).optional(),
+    saveAnswers: z.boolean().optional(), // Keep interview questions and answers on the account
+  }).parse(req.body);
+  res.json({ user: publicUser(await db.user.update({ where: { id: req.user!.id }, data })) });
 }));
 
 authRoutes.post('/password', requireUser, limiter, route(async (req, res) => {

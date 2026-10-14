@@ -76,4 +76,15 @@ export const emails = {
   newTicketForAdmin: (to: string, from: string, subject: string, body: string) => build(to, `New support request: ${subject}`, 'there', [
     `${from} wrote:`, body.slice(0, 2000),
   ], ['Answer it', '/admin/support']),
+
+  enquiryForAdmin: (to: string, e: { name: string; email: string; phone: string; organization: string; size: number | null; message: string }) =>
+    build(to, `Plan enquiry: ${e.organization}`, 'there', [
+      `${e.name} (${e.email}${e.phone ? `, ${e.phone}` : ''}) asked about a plan for ${e.organization}${e.size ? `, about ${e.size} students` : ''}.`,
+      ...(e.message ? [e.message.slice(0, 2000)] : []),
+    ], ['See enquiries', '/admin/organizations']),
+
+  joinedOrganization: (u: To, organization: string, days: number) => build(u.email, `You joined ${organization} on Recallr`, first(u.name), [
+    `${organization} gave you a Recallr pack for ${days} days. It's on your account now.`,
+    'Download the app and sign in with this email to start practising. Your coach sees your mock interview scores, never your answers.',
+  ], ['Download Recallr', '/download']),
 };

@@ -15,6 +15,7 @@ CREATE TABLE `users` (
     `referral_code` VARCHAR(191) NULL,
     `referred_by_id` VARCHAR(191) NULL,
     `referral_rewarded_at` DATETIME(3) NULL,
+    `save_answers` BOOLEAN NOT NULL DEFAULT true,
 
     UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_referral_code_key`(`referral_code`),
@@ -91,6 +92,27 @@ CREATE TABLE `payments` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `organizations` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `kind` ENUM('COLLEGE', 'BOOTCAMP', 'COMPANY', 'OTHER') NOT NULL DEFAULT 'COLLEGE',
+    `seats` INTEGER NOT NULL,
+    `member_minutes` INTEGER NULL,
+    `member_tokens` INTEGER NULL,
+    `member_days` INTEGER NOT NULL DEFAULT 90,
+    `invite_code` VARCHAR(191) NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `expires_at` DATETIME(3) NULL,
+    `contact_email` VARCHAR(191) NOT NULL DEFAULT '',
+    `notes` VARCHAR(2000) NOT NULL DEFAULT '',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `organizations_invite_code_key`(`invite_code`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `purchases` (
     `id` VARCHAR(191) NOT NULL,
     `user_id` VARCHAR(191) NOT NULL,
@@ -102,19 +124,21 @@ CREATE TABLE `purchases` (
     `token_limit` INTEGER NULL,
     `used_seconds` DOUBLE NOT NULL DEFAULT 0,
     `used_tokens` INTEGER NOT NULL DEFAULT 0,
-    `source` ENUM('RAZORPAY', 'OFFLINE', 'ADMIN_GRANT', 'TRIAL', 'REFERRAL', 'COUPON') NOT NULL,
+    `source` ENUM('RAZORPAY', 'OFFLINE', 'ADMIN_GRANT', 'TRIAL', 'REFERRAL', 'COUPON', 'ORGANIZATION') NOT NULL,
     `payment_id` VARCHAR(191) NULL,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `notified_ending` BOOLEAN NOT NULL DEFAULT false,
     `notified_low` BOOLEAN NOT NULL DEFAULT false,
+    `organization_id` VARCHAR(191) NULL,
 
     UNIQUE INDEX `purchases_payment_id_key`(`payment_id`),
     INDEX `purchases_user_id_expires_at_idx`(`user_id`, `expires_at`),
     PRIMARY KEY (`id`),
     CONSTRAINT `purchases_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT `purchases_plan_id_fkey` FOREIGN KEY (`plan_id`) REFERENCES `plans`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT `purchases_payment_id_fkey` FOREIGN KEY (`payment_id`) REFERENCES `payments`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT `purchases_payment_id_fkey` FOREIGN KEY (`payment_id`) REFERENCES `payments`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT `purchases_organization_id_fkey` FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
@@ -281,4 +305,96 @@ CREATE TABLE `ticket_messages` (
     PRIMARY KEY (`id`),
     CONSTRAINT `ticket_messages_ticket_id_fkey` FOREIGN KEY (`ticket_id`) REFERENCES `tickets`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT `ticket_messages_author_id_fkey` FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `questions` (
+    `id` VARCHAR(191) NOT NULL,
+    `text` VARCHAR(500) NOT NULL,
+    `text_hash` VARCHAR(191) NOT NULL,
+    `category` ENUM('ABOUT_YOU', 'EXPERIENCE', 'CODING', 'SYSTEM_DESIGN', 'CONCEPT', 'OTHER') NOT NULL DEFAULT 'OTHER',
+    `times_asked` INTEGER NOT NULL DEFAULT 1,
+    `last_asked_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `published` BOOLEAN NOT NULL DEFAULT false,
+    `slug` VARCHAR(191) NULL,
+    `guide` TEXT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `questions_text_hash_key`(`text_hash`),
+    UNIQUE INDEX `questions_slug_key`(`slug`),
+    INDEX `questions_category_published_idx`(`category`, `published`),
+    INDEX `questions_times_asked_idx`(`times_asked`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `saved_answers` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `question_id` VARCHAR(191) NULL,
+    `question_text` VARCHAR(500) NOT NULL,
+    `category` ENUM('ABOUT_YOU', 'EXPERIENCE', 'CODING', 'SYSTEM_DESIGN', 'CONCEPT', 'OTHER') NOT NULL DEFAULT 'OTHER',
+    `answer` TEXT NOT NULL,
+    `source` ENUM('AI', 'PREPARED') NOT NULL DEFAULT 'AI',
+    `provider` VARCHAR(191) NOT NULL DEFAULT '',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `saved_answers_user_id_created_at_idx`(`user_id`, `created_at`),
+    INDEX `saved_answers_user_id_category_idx`(`user_id`, `category`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `saved_answers_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `saved_answers_question_id_fkey` FOREIGN KEY (`question_id`) REFERENCES `questions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `practice_sessions` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `role` VARCHAR(191) NOT NULL DEFAULT '',
+    `question_count` INTEGER NOT NULL,
+    `average_score` DOUBLE NULL,
+    `words_per_minute` DOUBLE NULL,
+    `fillers_per_minute` DOUBLE NULL,
+    `details` JSON NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `practice_sessions_user_id_created_at_idx`(`user_id`, `created_at`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `practice_sessions_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `organization_members` (
+    `id` VARCHAR(191) NOT NULL,
+    `organization_id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `role` ENUM('COACH', 'STUDENT') NOT NULL DEFAULT 'STUDENT',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `organization_members_user_id_idx`(`user_id`),
+    UNIQUE INDEX `organization_members_organization_id_user_id_key`(`organization_id`, `user_id`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `organization_members_organization_id_fkey` FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `organization_members_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `enquiries` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `phone` VARCHAR(191) NOT NULL DEFAULT '',
+    `organization` VARCHAR(191) NOT NULL,
+    `size` INTEGER NULL,
+    `message` VARCHAR(2000) NOT NULL DEFAULT '',
+    `status` ENUM('NEW', 'CONTACTED', 'CLOSED') NOT NULL DEFAULT 'NEW',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `enquiries_status_created_at_idx`(`status`, `created_at`),
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

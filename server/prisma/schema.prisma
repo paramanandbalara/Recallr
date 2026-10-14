@@ -23,24 +23,24 @@ enum UserStatus {
 }
 
 model User {
-  id                 String          @id @default(cuid())
-  email              String          @unique
+  id                 String               @id @default(cuid())
+  email              String               @unique
   name               String
-  passwordHash       String          @map("password_hash")
-  role               Role            @default(USER)
-  status             UserStatus      @default(ACTIVE)
-  createdAt          DateTime        @default(now()) @map("created_at")
-  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at")
-  lastSeenAt         DateTime?       @map("last_seen_at")
+  passwordHash       String               @map("password_hash")
+  role               Role                 @default(USER)
+  status             UserStatus           @default(ACTIVE)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt         DateTime?            @map("last_seen_at")
   // Referrals: everyone gets a code to share; the person who invited this user, and when both got their bonus
-  referralCode       String?         @unique @map("referral_code")
-  referredById       String?         @map("referred_by_id")
-  referralRewardedAt DateTime?       @map("referral_rewarded_at")
-  referredBy         User?           @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals          User[]          @relation("Referrals")
+  referralCode       String?              @unique @map("referral_code")
+  referredById       String?              @map("referred_by_id")
+  referralRewardedAt DateTime?            @map("referral_rewarded_at")
+  referredBy         User?                @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals          User[]               @relation("Referrals")
   purchases          Purchase[]
-  payments           Payment[]       @relation("PaymentUser")
-  recorded           Payment[]       @relation("PaymentRecordedBy")
+  payments           Payment[]            @relation("PaymentUser")
+  recorded           Payment[]            @relation("PaymentRecordedBy")
   usage              UsageEvent[]
   auditLogs          AuditLog[]
   devices            Device[]
@@ -49,6 +49,11 @@ model User {
   backup             Backup?
   tickets            Ticket[]
   ticketMessages     TicketMessage[]
+  // Keep the questions and answers from the app's interviews on the account (the user can turn it off)
+  saveAnswers        Boolean              @default(true) @map("save_answers")
+  savedAnswers       SavedAnswer[]
+  practiceSessions   PracticeSession[]
+  memberships        OrganizationMember[]
 
   @@map("users")
 }
@@ -80,6 +85,7 @@ enum PurchaseSource {
   TRIAL
   REFERRAL
   COUPON
+  ORGANIZATION // A seat from a college or bootcamp
 }
 
 // One bought (or granted) pack, with its own allowance and what's been used of it.
@@ -104,6 +110,8 @@ model Purchase {
   user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan             Plan?          @relation(fields: [planId], references: [id])
   payment          Payment?       @relation(fields: [paymentId], references: [id])
+  organizationId   String?        @map("organization_id") // For a seat from a college or bootcamp
+  organization     Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([userId, expiresAt])
   @@map("purchases")
@@ -374,4 +382,157 @@ model TicketMessage {
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   @@map("ticket_messages")
+}
+
+// ---------- Question bank ----------
+
+// The kind of question, as the app tags it
+enum QuestionCategory {
+  ABOUT_YOU
+  EXPERIENCE
+  CODING
+  SYSTEM_DESIGN
+  CONCEPT
+  OTHER
+}
+
+// Every interview question the app has heard, once each (no user attached), with how often it comes up.
+// Admins can publish one on the website with a general guide on how to answer it.
+model Question {
+  id          String           @id @default(cuid())
+  text        String           @db.VarChar(500)
+  textHash    String           @unique @map("text_hash") // SHA-256 of the text in lower case, without punctuation
+  category    QuestionCategory @default(OTHER)
+  timesAsked  Int              @default(1) @map("times_asked")
+  lastAskedAt DateTime         @default(now()) @map("last_asked_at")
+  published   Boolean          @default(false) // On the website's question pages
+  slug        String?          @unique // Its address on the website
+  guide       String?          @db.Text // How to answer it, for everyone (no one's personal details)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
+  answers     SavedAnswer[]
+
+  @@index([category, published])
+  @@index([timesAsked])
+  @@map("questions")
+}
+
+enum AnswerSource {
+  AI
+  PREPARED
+}
+
+// A user's own answer to a question, kept on their account (private to them)
+model SavedAnswer {
+  id           String           @id @default(cuid())
+  userId       String           @map("user_id")
+  questionId   String?          @map("question_id") // In the bank (the user's copy stays if it's removed there)
+  questionText String           @map("question_text") @db.VarChar(500)
+  category     QuestionCategory @default(OTHER)
+  answer       String           @db.Text
+  source       AnswerSource     @default(AI)
+  provider     String           @default("")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question     Question?        @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, category])
+  @@map("saved_answers")
+}
+
+// ---------- Practice ----------
+
+// One mock interview: scores and speaking feedback (no recordings)
+model PracticeSession {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  role             String   @default("") // The job practised for
+  questionCount    Int      @map("question_count")
+  averageScore     Float?   @map("average_score") // Out of 10
+  wordsPerMinute   Float?   @map("words_per_minute")
+  fillersPerMinute Float?   @map("fillers_per_minute")
+  details          Json? // Per answer: question, score, pace, fillers, length
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("practice_sessions")
+}
+
+// ---------- Colleges and bootcamps ----------
+
+enum OrganizationKind {
+  COLLEGE
+  BOOTCAMP
+  COMPANY
+  OTHER
+}
+
+// A college, bootcamp or company that buys seats for its students. Each student who joins with the
+// invite link gets the member pack; coaches see their students' practice progress.
+model Organization {
+  id            String               @id @default(cuid())
+  name          String
+  kind          OrganizationKind     @default(COLLEGE)
+  seats         Int // Students who can join
+  memberMinutes Int?                 @map("member_minutes") // Listening per student; null = unlimited
+  memberTokens  Int?                 @map("member_tokens")
+  memberDays    Int                  @default(90) @map("member_days") // How long a student's pack lasts
+  inviteCode    String               @unique @map("invite_code")
+  active        Boolean              @default(true)
+  expiresAt     DateTime?            @map("expires_at") // No new students after this
+  contactEmail  String               @default("") @map("contact_email")
+  notes         String               @default("") @db.VarChar(2000)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at")
+  members       OrganizationMember[]
+  purchases     Purchase[]
+
+  @@map("organizations")
+}
+
+enum OrganizationRole {
+  COACH
+  STUDENT
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  role           OrganizationRole @default(STUDENT)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// "Plans for colleges and bootcamps" requests from the website
+model Enquiry {
+  id           String        @id @default(cuid())
+  name         String
+  email        String
+  phone        String        @default("")
+  organization String
+  size         Int? // Number of students
+  message      String        @default("") @db.VarChar(2000)
+  status       EnquiryStatus @default(NEW)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("enquiries")
 }

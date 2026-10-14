@@ -18,6 +18,9 @@ import { backupRoutes } from './routes/backup.js';
 import { contentRoutes } from './routes/content.js';
 import { referralRoutes } from './routes/referrals.js';
 import { supportRoutes } from './routes/support.js';
+import { adminOrganizationRoutes, organizationPublicRoutes, organizationRoutes } from './routes/organizations.js';
+import { practiceRoutes } from './routes/practice.js';
+import { adminQuestionRoutes, publicQuestionRoutes, questionRoutes } from './routes/questions.js';
 import { getSettings } from './settings.js';
 
 // AI and Razorpay use the keys in Admin → Settings; tests pass fakes instead
@@ -43,11 +46,18 @@ export const createApp = (deps: { ai?: AiGateway; razorpay?: RazorpayGateway | n
   app.use('/api/site', siteRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/admin', adminExtraRoutes);
+  app.use('/api/admin', adminQuestionRoutes(ai));
+  app.use('/api/admin', adminOrganizationRoutes);
   app.use('/api/ai', aiRoutes(ai));
   app.use('/api', contentRoutes);
   app.use('/api/backup', backupRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/api/referrals', referralRoutes);
+  app.use('/api/questions', questionRoutes);
+  app.use('/api/public/questions', publicQuestionRoutes);
+  app.use('/api/practice', practiceRoutes);
+  app.use('/api', organizationPublicRoutes); // Before the signed-in routes: invite links work signed out
+  app.use('/api/organizations', organizationRoutes);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found.' }));
 
   // The website: files as they are, and index.html for its own pages (/account, /admin...)
