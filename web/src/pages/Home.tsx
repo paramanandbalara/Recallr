@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, BookOpen, Check, ChevronDown, Clock, CloudUpload, Ear, FileText, Gauge, History, Keyboard, Languages,
-  ListChecks, MessageSquareQuote, MonitorSmartphone, ScanText, ShieldCheck, SlidersHorizontal, Sparkles, Stethoscope, Target, Users,
+  ArrowRight, BookMarked, BookOpen, Briefcase, Check, ChevronDown, Clock, CloudUpload, Ear, GraduationCap, History, Keyboard,
+  Languages, LayoutTemplate, ListChecks, MessageSquareQuote, MonitorSmartphone, Mic, ScanText, ShieldCheck, Smile, Sparkles,
+  Stethoscope, Target, Users, Zap,
 } from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
-import { AppShot, ProductDemo, Reveal, RotatingWord } from '../components/Showcase';
+import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
 import { useAuth } from '../auth';
 
 const QUESTION_KINDS = ['an interview question', 'a coding round', 'a system design question', 'an HR round', 'a follow-up question'];
@@ -13,8 +14,8 @@ const QUESTION_KINDS = ['an interview question', 'a coding round', 'a system des
 const WORKS_WITH = ['Zoom', 'Google Meet', 'Microsoft Teams', 'Webex', 'Skype', 'Slack huddles', 'Phone calls on your computer', 'Any app with sound'];
 
 const HIGHLIGHTS = [
-  { icon: Gauge, value: '≈ 1 s', label: 'to the first words of an answer' },
-  { icon: FileText, value: 'Your resume', label: 'is the only source of your experience' },
+  { icon: Zap, value: '≈ 1 s', label: 'to the first words: the fastest AI answers each time' },
+  { icon: Smile, value: 'Sounds like you', label: 'short sentences and everyday words, scored on every answer' },
   { icon: Languages, value: 'Many languages', label: 'including Hindi with Hinglish answers' },
   { icon: MonitorSmartphone, value: 'Windows & macOS', label: 'one account, your computers' },
 ];
@@ -48,19 +49,17 @@ const SHOWCASE = [
     alt: 'Recallr answering a coding question with an explanation and a highlighted Python function',
     glow: 'violet' as const,
   },
-  {
-    eyebrow: 'Fits your screen',
-    title: 'As big, small or see-through as you like',
-    text: 'Drag it anywhere, resize it from any edge and keep it on top of your call. Change the text size, zoom the whole app, and fade the background so you can see what’s behind it.',
-    points: ['Text size and app size', 'Background and text transparency', 'Dark or light, plus keyboard shortcuts'],
-    image: '/media/app-display.webp',
-    alt: 'Recallr’s display menu with text size, app size, opacity, theme and keyboard shortcuts',
-    glow: 'blue' as const,
-  },
 ];
 
 const FEATURES = [
   { icon: Ear, title: 'Listens to the call', text: 'Hears the interviewer through your computer’s audio and spots each question as it’s asked.' },
+  { icon: Zap, title: 'Fastest AI, every time', text: 'Groq, OpenAI and Claude are timed on every answer, and the quickest one answers. A slow one is never left to keep you waiting.' },
+  { icon: Smile, title: 'Answers that sound human', text: 'Short sentences, everyday words, nothing hard to say. Each answer shows a “Natural” score, and one click makes it simpler.' },
+  { icon: BookMarked, title: 'Story bank', text: 'Your real stories (a hard problem, a conflict, a failure) ready for “Tell me about a time…”, found in your resume.' },
+  { icon: Briefcase, title: 'Prep pack for each job', text: 'The questions this job will likely ask, each with why and a drafted answer. Keep the ones you like.' },
+  { icon: Mic, title: 'Speaking feedback', text: 'In mock interviews: your pace, your filler words and the length of each answer, with what to work on.' },
+  { icon: LayoutTemplate, title: 'Four window styles', text: 'Classic, Compact, Prompter or Glass, in small, medium or large, or any size you drag it to.' },
+  { icon: GraduationCap, title: 'For colleges', text: 'Seats for a whole class with one invite link, and a coach dashboard of everyone’s practice.' },
   { icon: BookOpen, title: 'Your prepared answers', text: 'Add the answers you practised. When the question comes, yours appears instantly.' },
   { icon: ListChecks, title: 'Likely follow-ups', text: 'See the next questions the interviewer is likely to ask, with a hint for each.' },
   { icon: ScanText, title: 'Reads your screen', text: 'Coding problem or question in the chat? One click reads it and answers it.' },
@@ -70,7 +69,6 @@ const FEATURES = [
   { icon: Users, title: 'A profile per job', text: 'Keep a separate resume, job description and notes for each company you interview with.' },
   { icon: CloudUpload, title: 'Cloud backup', text: 'Back up your profiles, answers and history, and restore them on a new computer.' },
   { icon: Keyboard, title: 'Shortcuts everywhere', text: 'Start listening, ask, regenerate or read the screen from any app with a shortcut.' },
-  { icon: SlidersHorizontal, title: 'Your way to read', text: 'Full text or key points, text size, app size, transparency, dark or light.' },
   { icon: ShieldCheck, title: 'You stay in control', text: 'Your resume and conversations stay on your computer. Saved questions and answers are yours alone, and you can delete them.' },
 ];
 
@@ -167,14 +165,42 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* See it: real screens */}
+      {/* Product tour: clips of the real app */}
       <section id="see-it" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-blue-400">See it in action</span>
           <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">A quiet helper beside your call</h2>
-          <p className="mt-3 text-slate-400">These are real screens from the app. The interview is an example.</p>
+          <p className="mt-3 text-slate-400">Short clips of the real app. The interview in them is an example.</p>
         </Reveal>
+        <Reveal delay={100} className="mt-10"><ProductTour /></Reveal>
+      </section>
 
+      {/* Human answers and speed */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="text-sm font-semibold uppercase tracking-wider text-blue-400">Answers you can actually say</span>
+          <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Sounds like a person, not like AI</h2>
+          <p className="mt-3 text-slate-400">
+            Recallr answers the way people talk: short sentences, everyday words, no mouthfuls. Every answer gets a Natural score, and
+            one click turns a stiff one into a simpler one.
+          </p>
+        </Reveal>
+        <div className="mt-10"><NaturalAnswers /></div>
+        <Reveal delay={100} className="mx-auto mt-6 max-w-3xl"><SpeedRace /></Reveal>
+      </section>
+
+      {/* Window styles and sizes */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="text-sm font-semibold uppercase tracking-wider text-blue-400">Your window, your way</span>
+          <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Four styles, any size</h2>
+          <p className="mt-3 text-slate-400">Pick the look that suits your screen and how you like to read.</p>
+        </Reveal>
+        <div className="mt-10"><StyleGallery /></div>
+      </section>
+
+      {/* Real screens, explained */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
         <div className="mt-16 space-y-24">
           {SHOWCASE.map((item, i) => (
             <div key={item.title} className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
@@ -204,9 +230,9 @@ export const Home: React.FC = () => {
           <h2 className="text-3xl font-bold text-white sm:text-4xl">Everything you need, before, during and after</h2>
           <p className="mt-3 text-slate-400">Prepare with mock interviews, get help in the interview, and review it afterwards.</p>
         </Reveal>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, text }, i) => (
-            <Reveal key={title} delay={(i % 4) * 70} className="card-lift rounded-2xl border border-slate-800 bg-slate-900/60 p-5 hover:border-slate-700 hover:bg-slate-900">
+            <Reveal key={title} delay={(i % 3) * 70} className="card-lift rounded-2xl border border-slate-800 bg-slate-900/60 p-5 hover:border-slate-700 hover:bg-slate-900">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
                 <Icon className="h-5 w-5 text-blue-400" />
               </div>

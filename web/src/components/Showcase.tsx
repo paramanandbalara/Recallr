@@ -139,3 +139,182 @@ export const RotatingWord: React.FC<{ words: string[]; className?: string }> = (
     </span>
   );
 };
+
+// A looping clip of the app, playing only while it's on screen (and `active`)
+export const LoopVideo: React.FC<{ name: string; label: string; active?: boolean; className?: string }> = ({ name, label, active = true, className = '' }) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.25 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || prefersReducedMotion()) return;
+    if (active && visible) {
+      el.currentTime = 0;
+      el.play().catch(() => {});
+    } else el.pause();
+  }, [active, visible]);
+  return (
+    <video ref={ref} muted loop playsInline preload="none" poster={`/media/demo-${name}-poster.webp`} width={400} height={600}
+      className={`block h-auto w-full ${className}`} aria-label={label}>
+      <source src={`/media/demo-${name}.webm`} type="video/webm" />
+      <source src={`/media/demo-${name}.mp4`} type="video/mp4" />
+    </video>
+  );
+};
+
+const TOUR = [
+  {
+    id: 'listen', tab: 'Live answers', title: 'Hears the question, answers in about a second',
+    text: 'Start listening and forget about it. When the interviewer asks something, the question appears, gets tagged (experience, coding, design…) and the answer streams in, built from your resume.',
+    points: ['Answers start in about a second', 'Uses the earlier conversation for follow-ups', 'Key points and likely follow-ups after each answer'],
+  },
+  {
+    id: 'screen', tab: 'Read your screen', title: 'A question on screen? One click',
+    text: 'Coding problem in an editor, a question in the meeting chat, a slide that’s being shared: click the screen button and Recallr reads the question from your screen and answers it, with code when it’s needed.',
+    points: ['Reads coding problems with their examples', 'Highlighted code with a copy button', 'Works with any app on your screen'],
+  },
+  {
+    id: 'prep', tab: 'Prep pack', title: 'Know the questions before they’re asked',
+    text: 'Recallr reads the job description, your resume and your stories, adds the questions asked most in real interviews, and predicts what this interview will ask, each with why and a drafted answer.',
+    points: ['Choose which answers to keep', 'They show instantly when the question comes', 'Practise them in a mock interview'],
+  },
+  {
+    id: 'mock', tab: 'Mock interviews', title: 'Practise out loud, get scored',
+    text: 'Questions for your role are read out loud and you answer by voice. Each answer gets a score, what worked, what to improve and a stronger version, plus how you spoke.',
+    points: ['Pace in words per minute', 'Filler words: which ones and how many', 'Your progress over time on the website'],
+  },
+  {
+    id: 'styles', tab: 'Window styles', title: 'Make it look the way you like',
+    text: 'Classic shows everything. Compact keeps just the latest answer in a small window. Prompter puts the answer in large text. Glass lets your screen show through.',
+    points: ['Small, medium or large in one click', 'Resize from any edge, drag anywhere', 'Text size, app size, transparency, dark or light'],
+  },
+];
+
+// Tabs of short clips of the real app, one feature each
+export const ProductTour: React.FC = () => {
+  const [active, setActive] = useState(0);
+  const item = TOUR[active];
+  return (
+    <div>
+      <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-1 rounded-2xl border border-slate-800 bg-slate-900/60 p-1" role="tablist">
+        {TOUR.map((t, i) => (
+          <button key={t.id} role="tab" aria-selected={i === active} onClick={() => setActive(i)}
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${i === active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-slate-200'}`}>
+            {t.tab}
+          </button>
+        ))}
+      </div>
+      <div className="mt-12 grid items-center gap-10 md:grid-cols-2 md:gap-16">
+        <div className="relative mx-auto w-full max-w-[340px]">
+          {TOUR.map((t, i) => (
+            <div key={t.id} className={i === active ? 'tour-in' : 'hidden'}>
+              <AppFrame glow={i % 2 ? 'violet' : 'blue'}>
+                <LoopVideo name={t.id} label={t.title} active={i === active} />
+              </AppFrame>
+            </div>
+          ))}
+        </div>
+        <div key={item.id} className="tour-in">
+          <span className="text-sm font-semibold text-blue-400">{item.tab}</span>
+          <h3 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{item.title}</h3>
+          <p className="mt-3 leading-relaxed text-slate-400">{item.text}</p>
+          <ul className="mt-5 space-y-2.5">
+            {item.points.map(point => (
+              <li key={point} className="flex gap-2.5 text-sm text-slate-300">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" /> {point}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6 flex gap-1.5" aria-hidden>
+            {TOUR.map((t, i) => <span key={t.id} className={`h-1 rounded-full transition-all ${i === active ? 'w-8 bg-blue-500' : 'w-3 bg-slate-700'}`} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const STYLES = [
+  { id: 'classic', name: 'Classic', text: 'Everything: key points, follow-ups and the whole conversation.' },
+  { id: 'compact', name: 'Compact', text: 'Just the latest answer, for a small window in a corner.' },
+  { id: 'teleprompter', name: 'Prompter', text: 'The answer in large text, easy to read at a glance.' },
+  { id: 'glass', name: 'Glass', text: 'See-through, with your screen softly blurred behind.' },
+];
+
+// The four window styles, then the three sizes side by side at their real proportions
+export const StyleGallery: React.FC = () => (
+  <div>
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {STYLES.map((s, i) => (
+        <Reveal key={s.id} delay={i * 90} className="group">
+          <div className="card-lift overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 group-hover:border-slate-600">
+            <img src={`/media/style-${s.id}.webp`} alt={`Recallr in the ${s.name} style`} loading="lazy" className="block h-auto w-full" />
+          </div>
+          <div className="mt-3 font-semibold text-slate-100">{s.name}</div>
+          <p className="mt-0.5 text-sm text-slate-400">{s.text}</p>
+        </Reveal>
+      ))}
+    </div>
+    <Reveal className="mt-14">
+      <div className="flex items-end justify-center gap-4 sm:gap-8">
+        {[['small', 320, 'Small'], ['medium', 400, 'Medium'], ['large', 520, 'Large']].map(([id, width, name]) => (
+          <div key={id as string} className="text-center" style={{ width: `${(width as number) / 5.2}%`, maxWidth: (width as number) * 0.55 }}>
+            <img src={`/media/size-${id}.webp`} alt={`Recallr at the ${name} size`} loading="lazy" className="block h-auto w-full rounded-xl border border-slate-800 shadow-2xl shadow-black/50" />
+            <div className="mt-2 text-sm font-medium text-slate-300">{name as string}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-center text-sm text-slate-500">One click for small, medium or large, or drag any edge to the size you want.</p>
+    </Reveal>
+  </div>
+);
+
+const ROBOTIC = 'Certainly! Implementing a comprehensive caching strategy facilitated a substantial enhancement in performance, thereby ensuring optimal scalability and seamless user experiences across the platform.';
+const NATURAL = 'Our checkout page got really slow at busy times. I found we were loading the same prices on every request, so I cached them for five minutes. Pages went from about a second to under 200 milliseconds.';
+
+// The same answer, AI-sounding and the way Recallr writes it
+export const NaturalAnswers: React.FC = () => (
+  <div className="grid gap-4 md:grid-cols-2">
+    <Reveal className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-red-300">Sounds like AI</span>
+        <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-semibold tabular-nums text-red-300">Simplify 5/10</span>
+      </div>
+      <p className="mt-3 leading-relaxed text-slate-400 line-through decoration-red-400/40">{ROBOTIC}</p>
+      <p className="mt-3 text-xs text-slate-500">Long words, one huge sentence, phrases nobody says out loud.</p>
+    </Reveal>
+    <Reveal delay={150} className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-emerald-300">Sounds like you</span>
+        <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold tabular-nums text-emerald-300">Natural 10/10</span>
+      </div>
+      <p className="mt-3 leading-relaxed text-slate-200">{NATURAL}</p>
+      <p className="mt-3 text-xs text-slate-500">Short sentences, everyday words, your own project. Easy to say without stumbling.</p>
+    </Reveal>
+  </div>
+);
+
+// Speed first, drawn: three AIs start, the first to answer wins and the others stop
+export const SpeedRace: React.FC = () => (
+  <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+    <div className="text-sm font-semibold text-slate-200">Every answer goes to the fastest AI right now</div>
+    <p className="mt-1 text-xs text-slate-500">Recallr times each one on every answer. If the quickest is slow to start, the next is asked too, and the first to answer wins.</p>
+    <div className="mt-5 space-y-3">
+      {[['Groq', 'race-a', 'bg-blue-500'], ['Claude', 'race-b', 'bg-violet-500'], ['OpenAI', 'race-c', 'bg-emerald-500']].map(([name, cls, color]) => (
+        <div key={name} className="flex items-center gap-3">
+          <span className="w-14 text-xs font-medium text-slate-400">{name}</span>
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+            <div className={`race-bar ${cls} h-full rounded-full ${color}`} />
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="mt-4 text-xs text-slate-500">Illustration: which AI is fastest changes with the time of day and the question.</div>
+  </div>
+);

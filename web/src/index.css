@@ -94,3 +94,17 @@ body {
 @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 12px; } }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Product tour and speed race */
+.race-bar { width: 100%; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-in { animation: tour-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .race-bar { transform-origin: left; animation: race 4.5s ease-in-out infinite; }
+  .race-a { animation-name: race-win; }
+  .race-b { animation-duration: 4.5s; animation-name: race-mid; }
+  .race-c { animation-name: race-slow; }
+}
+@keyframes tour-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes race-win { 0% { transform: scaleX(0); } 45%, 85% { transform: scaleX(1); } 100% { transform: scaleX(1); opacity: 0.9; } }
+@keyframes race-mid { 0% { transform: scaleX(0); } 45% { transform: scaleX(0.62); opacity: 1; } 60%, 100% { transform: scaleX(0.62); opacity: 0.25; } }
+@keyframes race-slow { 0% { transform: scaleX(0); } 45% { transform: scaleX(0.4); opacity: 1; } 60%, 100% { transform: scaleX(0.4); opacity: 0.25; } }

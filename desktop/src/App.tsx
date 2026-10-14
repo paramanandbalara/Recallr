@@ -528,15 +528,15 @@ function App() {
             onClick={toggleAudioSource}
             disabled={isRecording}
             title={AUDIO_SOURCES[audioSource].title}
-            className="flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-300 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-300 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {audioSource === 'system' && <Volume2 className="w-3 h-3 text-emerald-400" />}
             {audioSource === 'both' && <Users className="w-3 h-3 text-sky-400" />}
             {audioSource === 'microphone' && <Mic className="w-3 h-3 text-amber-400" />}
-            {AUDIO_SOURCES[audioSource].label}
+            <span className="compact-hide">{AUDIO_SOURCES[audioSource].label}</span>
           </button>
           {!isRecording && (
-            <span className="compact-hide hidden min-[400px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
+            <span className="compact-hide hidden min-[440px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
               <MessageSquareQuote className="w-3.5 h-3.5 text-blue-400 shrink-0" /> Recallr
             </span>
           )}

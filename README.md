@@ -10,7 +10,8 @@ job description and prepared answers. Users create an account on the website, ge
 user's listening time and AI tokens against their plan.
 
 <p align="center">
-  <img src="docs/media/demo-listen.gif" alt="Recallr hears the interviewer's question and streams an answer built from the resume" width="360" />
+  <img src="docs/media/demo-listen.gif" alt="Recallr hears the interviewer's question and streams an answer built from the resume" width="300" />
+  <img src="docs/media/demo-screen.gif" alt="Recallr reads a coding question from the screen and answers it with code" width="300" />
 </p>
 
 The website's product clips and screenshots (`web/public/media`) are the real desktop app with a scripted example
