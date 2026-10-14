@@ -352,6 +352,65 @@ export const draftPreparedAnswer = async (question: string, settings: Settings):
   return cleanAnswer(text);
 };
 
+// ---------- Generated prepared answers ----------
+
+const SPOKEN_ANSWER_RULES = `Each "answer" is what the candidate would say out loud: first person, natural spoken English, plain words, contractions,
+not polished or textbook-like, 60–150 words. Use ONLY facts from the resume: never invent employers, projects, numbers or skills.
+Plain text, no markdown, no lists.
+${NO_AI_STYLE}`;
+
+const parseGeneratedAnswers = (response: string): PreparedAnswer[] => {
+  const parsed = JSON.parse(response || '{}');
+  return (Array.isArray(parsed.items) ? parsed.items : [])
+    .map((item: Partial<PreparedAnswer>) => ({
+      id: newId(),
+      question: asText(item?.question),
+      notes: asText(item?.notes) || undefined,
+      answer: cleanAnswer(asText(item?.answer)),
+    }))
+    .filter((item: PreparedAnswer) => item.question && item.answer);
+};
+
+// The questions this job will most likely bring up, with an answer to each drafted from the resume
+export const answersFromJobDescription = async (settings: Settings): Promise<PreparedAnswer[]> => {
+  const response = await completeChat(settings, {
+    tier: 'quality',
+    json: true,
+    system: `You help a candidate prepare for an interview for the job below. Predict the 8 to 12 questions they are most likely to be asked
+for THIS job: the main skills and responsibilities in the job description, how the resume fits or falls short of them, and the company.
+Mix technical and experience questions, and include one about a gap between the resume and the job if there is one. Skip generic ones like "Tell me about yourself".
+Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
+- "notes": one short tip, e.g. which project to mention or what the interviewer is really checking.
+${SPOKEN_ANSWER_RULES}
+${buildContext({ ...settings, answers: [] })}`,
+    user: 'Write the likely questions and draft answers.',
+    temperature: 0.5,
+    maxTokens: 12000,
+  });
+  return parseGeneratedAnswers(response);
+};
+
+// Real stories from the resume, ready to reuse for behavioural questions
+export const storiesFromResume = async (settings: Settings): Promise<PreparedAnswer[]> => {
+  const response = await completeChat(settings, {
+    tier: 'quality',
+    json: true,
+    system: `Find 5 to 8 real stories in the candidate's resume that they can tell in behavioural interview questions:
+a hard technical problem, a conflict or disagreement, a failure or mistake, leading people or a project, a tight deadline, improving something
+(performance, cost, process), and going beyond the role. Only use what the resume actually supports; skip a type if there's no story for it.
+Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
+- "question": the behavioural question this story answers best, e.g. "Tell me about a time you disagreed with your manager".
+- "notes": a few words naming the story and other questions it also fits, e.g. "Payments outage story. Also fits: pressure, ownership".
+- "answer": the story told as situation, what you did, and the result, but as natural speech, not with those labels.
+${SPOKEN_ANSWER_RULES}
+${buildContext({ ...settings, answers: [] })}`,
+    user: 'Find the stories in my resume.',
+    temperature: 0.5,
+    maxTokens: 12000,
+  });
+  return parseGeneratedAnswers(response);
+};
+
 // Fallback when the AI can't split a document: first line is the question, the rest is the answer
 const fallbackSplit = (text: string): PreparedAnswer[] => {
   const [first, ...rest] = text.trim().split('\n');

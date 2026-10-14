@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Upload, ClipboardPaste, ListPlus, Trash2, Sparkles, ChevronDown, ChevronRight, AlertCircle, BookOpen } from 'lucide-react';
+import { Plus, Upload, ClipboardPaste, ListPlus, Trash2, Sparkles, ChevronDown, ChevronRight, AlertCircle, BookOpen, Briefcase, BookMarked } from 'lucide-react';
 import { ACCEPTED_FILES, extractTextFromFile } from '../services/fileText';
-import { draftPreparedAnswer, structurePreparedAnswers } from '../services/ai';
+import { answersFromJobDescription, draftPreparedAnswer, storiesFromResume, structurePreparedAnswers } from '../services/ai';
 import { describeAiError } from '../services/llm';
 import { hasAnyKey, newId, type PreparedAnswer, type Settings } from '../services/storage';
 import { Button, IconButton, TextArea, TextInput } from './ui';
@@ -34,6 +34,7 @@ export const AnswerBankEditor: React.FC<Props> = ({ answers, onChange, settings 
   const [pasteText, setPasteText] = useState('');
   const [importing, setImporting] = useState(false);
   const [draftingId, setDraftingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<'job' | 'stories' | null>(null);
   const [error, setError] = useState('');
 
   const update = (id: string, patch: Partial<PreparedAnswer>) =>
@@ -53,6 +54,23 @@ export const AnswerBankEditor: React.FC<Props> = ({ answers, onChange, settings 
       .filter(q => !existing.has(q.toLowerCase()))
       .map(question => ({ id: newId(), question, answer: '' }));
     onChange([...answers, ...fresh]);
+  };
+
+  // Add AI-written questions and answers, skipping questions that are already in the list
+  const generate = async (kind: 'job' | 'stories') => {
+    setError('');
+    setGenerating(kind);
+    try {
+      const items = await (kind === 'job' ? answersFromJobDescription(settings) : storiesFromResume(settings));
+      const existing = new Set(answers.map(a => a.question.trim().toLowerCase()));
+      const fresh = items.filter(item => !existing.has(item.question.trim().toLowerCase()));
+      if (fresh.length === 0) setError('Nothing new to add: those questions are already in your list.');
+      onChange([...answers, ...fresh]);
+    } catch (err) {
+      setError(`Could not write them. ${describeAiError(err)}`);
+    } finally {
+      setGenerating(null);
+    }
   };
 
   const importText = async (text: string) => {
@@ -113,6 +131,26 @@ export const AnswerBankEditor: React.FC<Props> = ({ answers, onChange, settings 
         <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={addBlank}>
           Add question
         </Button>
+        <Button
+          size="sm"
+          icon={<Briefcase className="w-3.5 h-3.5" />}
+          onClick={() => generate('job')}
+          loading={generating === 'job'}
+          disabled={!canUseAi || !settings.job.trim() || !!generating}
+          title={settings.job.trim() ? 'Likely questions for this job, with answers drafted from your resume' : 'Add the job description in the Profile tab first'}
+        >
+          From job description
+        </Button>
+        <Button
+          size="sm"
+          icon={<BookMarked className="w-3.5 h-3.5" />}
+          onClick={() => generate('stories')}
+          loading={generating === 'stories'}
+          disabled={!canUseAi || !settings.cv.trim() || !!generating}
+          title={settings.cv.trim() ? 'Real stories from your resume for behavioural questions' : 'Add your resume in the Profile tab first'}
+        >
+          Stories from resume
+        </Button>
       </div>
 
       {pasteOpen && (
@@ -135,6 +173,11 @@ export const AnswerBankEditor: React.FC<Props> = ({ answers, onChange, settings 
       )}
 
       {importing && <div className="text-[11px] text-blue-300 animate-pulse">Reading and organizing your answers...</div>}
+      {generating && (
+        <div className="text-[11px] text-blue-300 animate-pulse">
+          {generating === 'job' ? 'Working out the likely questions and drafting answers...' : 'Finding stories in your resume...'} This can take up to a minute.
+        </div>
+      )}
       {error && (
         <div className="flex items-start gap-1.5 text-[11px] text-red-300">
           <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" /> {error}
