@@ -13,12 +13,13 @@ export const stripPromptEcho = (text: string) => text
   .join(' ')
   .trim();
 
-// `seconds` is how long the recording is
-export const transcribeAudio = async (blob: Blob, language = 'en', seconds = 0): Promise<string> => {
+// `seconds` is how long the recording is; `keepFillers` keeps "um", "uh"... in the text (for speaking feedback)
+export const transcribeAudio = async (blob: Blob, language = 'en', seconds = 0, keepFillers = false): Promise<string> => {
   const form = new FormData();
   form.append('audio', new File([blob], 'audio.webm', { type: 'audio/webm' }));
   form.append('language', language);
   form.append('seconds', String(Math.round(seconds * 10) / 10));
+  if (keepFillers) form.append('fillers', '1');
   try {
     const res = await request('/ai/transcribe', { method: 'POST', body: form });
     const { text } = await res.json() as { text: string };

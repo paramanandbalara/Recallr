@@ -37,7 +37,8 @@ export interface TranscribeResult {
 
 export interface AiGateway {
   streamChat: (req: ChatRequest, onText: (delta: string, provider: ProviderId) => void, signal: AbortSignal) => Promise<ChatResult>;
-  transcribe: (audio: Buffer, language: string) => Promise<TranscribeResult>;
+  // keepFillers: write "um", "uh", "like"... as said (mock interviews count them); otherwise they're left out
+  transcribe: (audio: Buffer, language: string, options?: { keepFillers?: boolean }) => Promise<TranscribeResult>;
 }
 
 const BASE_URLS: Record<OpenAiCompatible, string | undefined> = { groq: 'https://api.groq.com/openai/v1', openai: undefined };
@@ -53,6 +54,8 @@ const TRANSCRIBE_MODELS: Record<OpenAiCompatible, string[]> = {
   openai: ['gpt-4o-mini-transcribe', 'whisper-1'],
 };
 const ENGLISH_HINT = 'This is a corporate job interview. Transcribe accurately.';
+// Whisper copies the style of its prompt, so a prompt with fillers keeps the speaker's fillers in the text
+const FILLER_HINT = 'Umm, so, uh, I think, like, the main thing was... hmm, you know, we basically, uh, fixed it.';
 
 const versionOf = (id: string, suffix: string) => {
   const match = id.match(new RegExp(`^gpt-(\\d+(?:\\.\\d+)*)-${suffix}$`));
@@ -213,7 +216,7 @@ export const createAi = (
       throw lastError;
     },
 
-    transcribe: async (audio, language) => {
+    transcribe: async (audio, language, options = {}) => {
       if (transcribers.length === 0) throw noProvider();
       const file = await toFile(audio, 'audio.webm', { type: 'audio/webm' });
       let lastError: unknown;
@@ -224,7 +227,7 @@ export const createAi = (
             const result = await client(provider).audio.transcriptions.create({
               file, model,
               ...(language === 'auto' ? {} : { language }),
-              ...(language === 'en' ? { prompt: ENGLISH_HINT } : {}),
+              ...(language === 'en' ? { prompt: options.keepFillers ? FILLER_HINT : ENGLISH_HINT } : {}),
               response_format: 'json',
               ...(provider === 'groq' ? { temperature: 0 } : {}),
             });
@@ -272,7 +275,7 @@ export const createAiFromSettings = (getSettings: () => Promise<AiSettings>): Ai
   };
   return {
     streamChat: async (req, onText, signal) => (await gateway()).streamChat(req, onText, signal),
-    transcribe: async (audio, language) => (await gateway()).transcribe(audio, language),
+    transcribe: async (audio, language, options) => (await gateway()).transcribe(audio, language, options),
   };
 };
 

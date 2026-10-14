@@ -38,7 +38,7 @@ export const getMicrophoneStream = () => navigator.mediaDevices.getUserMedia({
   }
 });
 
-type Keys = Partial<Pick<Settings, 'language'>>;
+type Keys = Partial<Pick<Settings, 'language'>> & { keepFillers?: boolean };
 
 // Who said it: the call audio is the interviewer, the microphone is the user
 export type Speaker = 'interviewer' | 'you';
@@ -87,7 +87,7 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
   const transcribe = async (blob: Blob, seconds: number) => {
     onLog('Transcribing...');
     try {
-      const text = await transcribeAudio(blob, keys.language || 'en', seconds);
+      const text = await transcribeAudio(blob, keys.language || 'en', seconds, keys.keepFillers);
       if (text && text.length > 2 && !isHallucination(text)) {
         onLog(`Heard: ${text.substring(0, 30)}...`);
         if (running || flushing) onText(text);

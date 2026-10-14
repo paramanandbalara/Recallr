@@ -61,7 +61,7 @@ export const aiRoutes = (ai: AiGateway) => {
     // Length of the recording, as measured by the app (counted against listening time)
     const seconds = z.coerce.number().min(0).max(600).default(0).parse(req.body.seconds);
     const purchase = await purchaseFor(req.user!.id, 'TRANSCRIBE');
-    const result = await ai.transcribe(req.file.buffer, language);
+    const result = await ai.transcribe(req.file.buffer, language, { keepFillers: req.body.fillers === '1' });
     await recordUsage({
       userId: req.user!.id, purchaseId: purchase.id, kind: 'TRANSCRIBE', provider: result.provider, model: result.model,
       audioSeconds: seconds,

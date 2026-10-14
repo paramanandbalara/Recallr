@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw } from 'lucide-react';
+import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw, Gauge, MessageCircleWarning, Timer, ExternalLink } from 'lucide-react';
 import { mockInterviewQuestions, scoreMockAnswer, type MockFeedback } from '../services/ai';
 import { describeAiError } from '../services/llm';
-import { loadSettings } from '../services/storage';
+import { loadActiveProfile, loadSettings } from '../services/storage';
+import { openWebsite, request } from '../services/account';
+import { analyzeSpeech, formatLength, PACE, type SpeakingFeedback } from '../services/speaking';
 import { pastInterviewQuestions } from '../services/sessions';
 import { useAudioCapture } from '../hooks/useAudioCapture';
 import { Button, IconButton } from './ui';
@@ -17,6 +19,7 @@ interface Result {
   question: string;
   answer: string;
   feedback?: MockFeedback; // Missing when the question was skipped
+  speaking?: SpeakingFeedback;
 }
 
 const COUNTS = [3, 5, 8];
@@ -43,6 +46,40 @@ const speak = (text: string) => new Promise<void>(resolve => {
 
 const scoreColor = (score: number) => (score >= 8 ? 'text-emerald-400' : score >= 5 ? 'text-amber-400' : 'text-red-400');
 
+const paceTone = (wpm: number | null) => (wpm === null ? 'text-slate-300' : wpm < PACE.slow || wpm > PACE.fast ? 'text-amber-300' : 'text-emerald-300');
+
+// Pace, filler words and length of one answer, with what to work on
+const Speaking: React.FC<{ speaking: SpeakingFeedback }> = ({ speaking }) => (
+  <div className="space-y-2 rounded-lg border border-slate-800 p-2.5">
+    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">How you spoke</div>
+    <div className="grid grid-cols-3 gap-2 text-center">
+      <div>
+        <Gauge className="mx-auto h-3.5 w-3.5 text-slate-500" />
+        <div className={`mt-0.5 text-sm font-semibold tabular-nums ${paceTone(speaking.wordsPerMinute)}`}>{speaking.wordsPerMinute ?? '–'}</div>
+        <div className="text-[10px] text-slate-500">words / min</div>
+      </div>
+      <div>
+        <MessageCircleWarning className="mx-auto h-3.5 w-3.5 text-slate-500" />
+        <div className={`mt-0.5 text-sm font-semibold tabular-nums ${speaking.fillers >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{speaking.fillers}</div>
+        <div className="text-[10px] text-slate-500" title={speaking.fillerWords.map(f => `${f.word} ×${f.count}`).join(', ')}>
+          {speaking.fillerWords.length ? speaking.fillerWords.slice(0, 2).map(f => `${f.word} ×${f.count}`).join(', ') : 'filler words'}
+        </div>
+      </div>
+      <div>
+        <Timer className="mx-auto h-3.5 w-3.5 text-slate-500" />
+        <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-200">{formatLength(speaking.seconds)}</div>
+        <div className="text-[10px] text-slate-500">{speaking.words} words</div>
+      </div>
+    </div>
+    {speaking.notes.map(note => <p key={note} className="text-[11px] leading-relaxed text-slate-400">• {note}</p>)}
+  </div>
+);
+
+const average = (values: (number | null | undefined)[]) => {
+  const known = values.filter((v): v is number => typeof v === 'number');
+  return known.length ? known.reduce((a, b) => a + b, 0) / known.length : null;
+};
+
 const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
   <div className="space-y-2.5">
     <div className="flex items-baseline gap-1.5">
@@ -63,6 +100,9 @@ const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
 // Practice: questions are read out loud, you answer by voice, and each answer gets scored
 export const MockInterview: React.FC<Props> = ({ onClose }) => {
   const [settings] = useState(() => loadSettings());
+  const [keys] = useState(() => ({ ...settings, keepFillers: true })); // Keep "um", "uh"... for speaking feedback
+  const answerStartedRef = useRef(0);
+  const [saved, setSaved] = useState<'no' | 'saving' | 'yes' | 'failed'>('no');
   const [phase, setPhase] = useState<Phase>('setup');
   const [count, setCount] = useState(5);
   const [readAloud, setReadAloud] = useState(true);
@@ -79,7 +119,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${text}` : text;
     setTranscript(transcriptRef.current);
   }, []);
-  const { isRecording, startRecording, stopRecording, errorMsg, audioLevel } = useAudioCapture(onText, settings, 'microphone');
+  const { isRecording, startRecording, stopRecording, errorMsg, audioLevel } = useAudioCapture(onText, keys, 'microphone');
 
   // Stop speaking and listening when the panel closes
   const stopRef = useRef(stopRecording);
@@ -99,6 +139,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     if (readAloud) await speak(list[i]);
     if (run !== runRef.current) return;
     setPhase('answering');
+    answerStartedRef.current = performance.now();
     startRecording();
   };
 
@@ -106,6 +147,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     const run = ++runRef.current;
     setError('');
     setResults([]);
+    setSaved('no');
     setPhase('preparing');
     try {
       const list = source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
@@ -122,25 +164,49 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     }
   };
 
+  // The results go to the account (website → Progress, and the coach of a college group): scores and
+  // speaking numbers only, never what was said
+  const resultsRef = useRef(results);
+  useEffect(() => { resultsRef.current = results; }, [results]);
+  const showSummary = () => {
+    setPhase('summary');
+    const done = resultsRef.current.filter(r => r.speaking && r.answer);
+    if (!done.length) return;
+    setSaved('saving');
+    request('/practice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: loadActiveProfile().name,
+        answers: done.map(r => ({
+          question: r.question, score: r.feedback?.score ?? null, wordsPerMinute: r.speaking!.wordsPerMinute,
+          fillers: r.speaking!.fillers, seconds: r.speaking!.seconds,
+        })),
+      }),
+    }).then(() => setSaved('yes'), () => setSaved('failed'));
+  };
+
   const next = () => {
     if (index + 1 < questions.length) ask(questions, index + 1);
-    else setPhase('summary');
+    else showSummary();
   };
 
   const finishAnswer = async () => {
     const run = runRef.current;
     setPhase('scoring');
+    const seconds = (performance.now() - answerStartedRef.current) / 1000; // Until "Done answering"
     await stopRecording(true); // Wait for the last words to be transcribed
     const answer = transcriptRef.current.trim();
+    const speaking = analyzeSpeech(answer, seconds);
     try {
       const feedback = await scoreMockAnswer(questions[index], answer, settings);
       if (run !== runRef.current) return;
-      setResults(prev => [...prev, { question: questions[index], answer, feedback }]);
+      setResults(prev => [...prev, { question: questions[index], answer, feedback, speaking }]);
       setPhase('feedback');
     } catch (err) {
       if (run !== runRef.current) return;
       setError(describeAiError(err));
-      setResults(prev => [...prev, { question: questions[index], answer }]);
+      setResults(prev => [...prev, { question: questions[index], answer, speaking }]);
       setPhase('feedback');
     }
   };
@@ -156,12 +222,17 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     runRef.current++;
     window.speechSynthesis?.cancel();
     await stopRecording();
-    setPhase('summary');
+    showSummary();
   };
 
   const scored = results.filter(r => r.feedback);
-  const average = scored.length ? scored.reduce((sum, r) => sum + r.feedback!.score, 0) / scored.length : 0;
+  const averageScore = average(scored.map(r => r.feedback!.score)) ?? 0;
+  const answered = results.filter(r => r.speaking && r.answer);
+  const averagePace = average(answered.map(r => r.speaking!.wordsPerMinute));
+  const totalFillers = answered.reduce((sum, r) => sum + r.speaking!.fillers, 0);
   const current = results[results.length - 1];
+
+
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
@@ -263,6 +334,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
                   <p className="text-[11px] leading-relaxed text-slate-500 select-text"><span className="font-semibold">You said: </span>{current.answer}</p>
                 )}
                 {current.feedback ? <Feedback feedback={current.feedback} /> : <p className="text-xs text-slate-500">No score for this one.</p>}
+                {current.speaking && current.answer && <Speaking speaking={current.speaking} />}
               </>
             )}
           </>
@@ -272,11 +344,25 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
           <div className="space-y-3">
             {scored.length > 0 ? (
               <div className="flex items-baseline gap-1.5">
-                <span className={`text-3xl font-semibold tabular-nums ${scoreColor(average)}`}>{average.toFixed(1)}</span>
+                <span className={`text-3xl font-semibold tabular-nums ${scoreColor(averageScore)}`}>{averageScore.toFixed(1)}</span>
                 <span className="text-xs text-slate-500">/ 10 average over {scored.length} {scored.length === 1 ? 'answer' : 'answers'}</span>
               </div>
             ) : (
               <p className="text-xs text-slate-400">No answers were scored.</p>
+            )}
+            {answered.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-slate-800/50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Average pace</div>
+                  <div className={`text-sm font-semibold tabular-nums ${paceTone(averagePace === null ? null : Math.round(averagePace))}`}>
+                    {averagePace === null ? '–' : `${Math.round(averagePace)} words / min`}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Filler words</div>
+                  <div className={`text-sm font-semibold tabular-nums ${totalFillers / answered.length >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{totalFillers} in {answered.length} {answered.length === 1 ? 'answer' : 'answers'}</div>
+                </div>
+              </div>
             )}
             <ul className="space-y-1.5">
               {results.map((r, i) => (
@@ -288,9 +374,25 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
                     </span>
                   </div>
                   {r.feedback?.improve && <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{r.feedback.improve}</p>}
+                  {r.speaking && r.answer && (
+                    <p className="mt-1 text-[10px] tabular-nums text-slate-500">
+                      {r.speaking.wordsPerMinute ?? '–'} wpm · {r.speaking.fillers} fillers · {formatLength(r.speaking.seconds)}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
+            {saved !== 'no' && (
+              <p className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
+                {saved === 'saving' && 'Saving to your progress…'}
+                {saved === 'failed' && 'Could not save to your progress.'}
+                {saved === 'yes' && (
+                  <>Saved to your progress.
+                    <button onClick={() => openWebsite('/account/progress')} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300">See it over time <ExternalLink className="h-3 w-3" /></button>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         )}
       </div>
