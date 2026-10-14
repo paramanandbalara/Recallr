@@ -39,30 +39,184 @@ const getMicrophoneStream = () => navigator.mediaDevices.getUserMedia({
 
 type Keys = Pick<Settings, 'groqKey' | 'openaiKey'>;
 
-export const useAudioCapture = (onTranscript: (text: string, isFinal: boolean) => void, keys: Keys, audioSource: AudioSource) => {
+// Who said it: the call audio is the interviewer, the microphone is the user
+export type Speaker = 'interviewer' | 'you';
+
+// Filter Whisper's common silence hallucinations (YouTube dataset)
+const HALLUCINATIONS = [
+  'thanks for watching', 'thank you for watching', 'subscribe', 'like and subscribe',
+  'see you next time', 'bye', 'subtitles', 'transcription', 'youtube', 'channel', 'amen',
+];
+const isHallucination = (text: string) => text.length < 50 && HALLUCINATIONS.some(h => text.toLowerCase().includes(h));
+
+// ---------- Echo: the mic hearing the interviewer through the speakers ----------
+
+const ECHO_WINDOW_MS = 15000;
+const words = (text: string) => text.toLowerCase().match(/[a-z0-9']{3,}/g) ?? [];
+
+// Mic speech whose words mostly match what the call said just before is the speakers' echo, not the user
+const isEcho = (micText: string, recentCall: { text: string; at: number }[]) => {
+  const micWords = words(micText);
+  if (micWords.length === 0) return false;
+  const callWords = new Set(recentCall.filter(c => Date.now() - c.at < ECHO_WINDOW_MS).flatMap(c => words(c.text)));
+  const shared = micWords.filter(w => callWords.has(w)).length;
+  return shared / micWords.length >= 0.6;
+};
+
+// ---------- One audio stream: detect speech, cut it into chunks, transcribe each chunk ----------
+
+interface Pipeline {
+  stop: () => void;
+}
+
+interface PipelineOptions {
+  stream: MediaStream;
+  isSystem: boolean;
+  keys: Keys;
+  onText: (text: string) => void;
+  onLevel: (level: number) => void;
+  onLog: (message: string) => void;
+  onNoSound: (silent: boolean) => void; // System audio delivered pure zeros for a while (or recovered)
+}
+
+const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSound }: PipelineOptions): Pipeline => {
+  let running = true;
+  let transcribing = false;
+  let digitalSilenceMs = 0;
+  let recorder: MediaRecorder | null = null;
+
+  const audioContext = new AudioContext();
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 1024;
+  audioContext.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+
+  // Call audio arrives at its raw level (no auto gain), so it needs a lower threshold than the mic
+  const voiceThreshold = isSystem ? 0.004 : 0.012;
+
+  const transcribe = async (blob: Blob) => {
+    transcribing = true;
+    onLog('Transcribing...');
+    try {
+      const text = await transcribeAudio(blob, keys);
+      if (text && text.length > 2 && !isHallucination(text)) {
+        onLog(`Heard: ${text.substring(0, 30)}...`);
+        if (running) onText(text);
+      } else {
+        onLog(isHallucination(text) ? 'Hallucination blocked.' : 'Audio contained no speech.');
+      }
+    } catch (err) {
+      // Don't stop recording on an isolated network error, just log it
+      onLog(err instanceof Error ? err.message : 'Transcription failed.');
+    } finally {
+      transcribing = false;
+    }
+  };
+
+  // Record one clean, complete chunk
+  const recordChunk = () => {
+    if (!running) return;
+    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    recorder = mediaRecorder;
+    const audioChunks: Blob[] = [];
+    let hasVoice = false;
+    let silenceCount = 0;
+    let recordingTime = 0;
+
+    // Check the volume periodically while recording
+    const checkVolume = setInterval(() => {
+      recordingTime += 100;
+      analyser.getFloatTimeDomainData(samples);
+      let sumSquares = 0;
+      let peak = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sumSquares += samples[i] * samples[i];
+        peak = Math.max(peak, Math.abs(samples[i]));
+      }
+      const rms = Math.sqrt(sumSquares / samples.length);
+      onLevel(Math.min(1, rms * 12));
+
+      // Loudness (RMS) above the threshold counts as speech
+      if (rms > voiceThreshold) {
+        hasVoice = true;
+        silenceCount = 0;
+      } else {
+        silenceCount += 100;
+      }
+
+      // Pure zeros for a while usually means macOS hasn't allowed system audio capture
+      if (peak === 0) {
+        digitalSilenceMs += 100;
+        if (isSystem && digitalSilenceMs === 6000) onNoSound(true);
+      } else {
+        if (digitalSilenceMs >= 6000) onNoSound(false);
+        digitalSilenceMs = 0;
+      }
+
+      // Dynamic endpointing: cut the audio only when the speaker pauses
+      // Cut if: was speaking and paused for 800ms, OR reached 8 seconds (hard limit), OR 3s of pure silence (recycle)
+      const shouldCut = (hasVoice && silenceCount >= 800 && recordingTime >= 1000) || recordingTime >= 8000 || (!hasVoice && silenceCount >= 3000);
+      if (shouldCut) {
+        clearInterval(checkVolume);
+        if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        recordChunk();
+      }
+    }, 100);
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      clearInterval(checkVolume);
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      if (blob.size === 0 || !running) return;
+      // Don't send silence to speech-to-text (prevents hallucinations at the source)
+      if (!hasVoice) {
+        onLog('Waiting for speech...');
+        return;
+      }
+      if (!transcribing) transcribe(blob);
+    };
+
+    mediaRecorder.start();
+  };
+
+  recordChunk();
+
+  return {
+    stop: () => {
+      running = false;
+      if (recorder && recorder.state !== 'inactive') recorder.stop();
+      audioContext.close();
+    },
+  };
+};
+
+// ---------- The hook ----------
+
+const SOURCE_LOG: Record<AudioSource, string> = {
+  system: 'Listening to system audio...',
+  microphone: 'Listening to microphone...',
+  both: 'Listening to the call and your microphone...',
+};
+
+export const useAudioCapture = (onTranscript: (text: string, speaker: Speaker) => void, keys: Keys, audioSource: AudioSource) => {
   const [isRecording, setIsRecording] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugLog, setDebugLog] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState(0); // 0..1, for the level meter
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null); // Audio-only stream that gets recorded
-  const captureStreamRef = useRef<MediaStream | null>(null); // Original capture (may include the tiny video track)
-  const isTranscribingRef = useRef<boolean>(false);
-  const isRecordingRef = useRef<boolean>(false);
-  
-  // VAD (Voice Activity Detection) states
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Float32Array<ArrayBuffer> | null>(null);
-  const digitalSilenceMsRef = useRef(0); // How long the capture has delivered pure zeros
+
+  const pipelinesRef = useRef<Pipeline[]>([]);
+  const capturesRef = useRef<MediaStream[]>([]); // Original captures (may include the tiny video track)
+  const recentCallRef = useRef<{ text: string; at: number }[]>([]); // For spotting echo in the mic
+  const isRecordingRef = useRef(false);
+  const onTranscriptRef = useRef(onTranscript);
+  useEffect(() => { onTranscriptRef.current = onTranscript; });
 
   // Release any running capture when the page reloads or closes (e.g. a dev hot reload)
   useEffect(() => {
-    const release = () => {
-      captureStreamRef.current?.getTracks().forEach(track => track.stop());
-      streamRef.current?.getTracks().forEach(track => track.stop());
-    };
+    const release = () => capturesRef.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
     window.addEventListener('pagehide', release);
     return () => {
       window.removeEventListener('pagehide', release);
@@ -70,52 +224,13 @@ export const useAudioCapture = (onTranscript: (text: string, isFinal: boolean) =
     };
   }, []);
 
-  const transcribe = async (blob: Blob) => {
-    try {
-      const text = await transcribeAudio(blob, keys);
-      
-      // Filter Whisper's common silence hallucinations (YouTube dataset)
-      const hallucinations = [
-        "thanks for watching", "thank you for watching", "subscribe", "like and subscribe",
-        "see you next time", "bye", "subtitles", "transcription", "youtube", "channel", "amen"
-      ];
-      
-      // Check whether the WHOLE text is just a common hallucination
-      const isHallucination = text.length < 50 && hallucinations.some(h => text.toLowerCase().includes(h));
-
-      if (text && text.length > 2 && !isHallucination) {
-        setDebugLog(`Heard: ${text.substring(0, 30)}...`);
-        // Send the text as final
-        onTranscript(text, true);
-      } else {
-        setDebugLog(isHallucination ? 'Hallucination blocked.' : 'Audio contained no speech.');
-      }
-
-    } catch (err) {
-      setDebugLog(err instanceof Error ? err.message : 'Transcription failed.');
-      // Don't stop recording on an isolated network error, just log it
-    } finally {
-      isTranscribingRef.current = false;
-    }
-  };
-
   const stopRecording = useCallback(() => {
     isRecordingRef.current = false;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (captureStreamRef.current) {
-      captureStreamRef.current.getTracks().forEach(track => track.stop());
-      captureStreamRef.current = null;
-    }
+    pipelinesRef.current.forEach(pipeline => pipeline.stop());
+    pipelinesRef.current = [];
+    capturesRef.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
+    capturesRef.current = [];
+    recentCallRef.current = [];
     setDebugLog('Stopped');
     setAudioLevel(0);
     setIsRecording(false);
@@ -126,148 +241,83 @@ export const useAudioCapture = (onTranscript: (text: string, isFinal: boolean) =
       setErrorMsg('Listening needs a Groq or OpenAI key for speech-to-text. Add one in Settings → API keys.');
       return;
     }
+    setErrorMsg(null);
+    const wantsSystem = audioSource !== 'microphone';
+    const wantsMic = audioSource !== 'system';
 
+    let step: 'system' | 'microphone' = 'system';
     try {
-      setErrorMsg(null);
-      
-      const { capture, videoKept } = audioSource === 'system'
-        ? await getSystemAudioStream()
-        : { capture: await getMicrophoneStream(), videoKept: false };
-      captureStreamRef.current = capture;
-      const stream = new MediaStream(capture.getAudioTracks());
-      streamRef.current = stream;
+      let videoKept = false;
+      let systemCapture: MediaStream | null = null;
+      if (wantsSystem) {
+        const result = await getSystemAudioStream();
+        systemCapture = result.capture;
+        videoKept = result.videoKept;
+        capturesRef.current.push(systemCapture);
+      }
+      step = 'microphone';
+      const micCapture = wantsMic ? await getMicrophoneStream() : null;
+      if (micCapture) capturesRef.current.push(micCapture);
 
-      // If the OS or the user ends the capture, stop cleanly instead of recording silence
-      capture.getAudioTracks()[0]?.addEventListener('ended', () => {
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      setDebugLog(videoKept ? `${SOURCE_LOG[audioSource]} (screen video kept paused)` : SOURCE_LOG[audioSource]);
+
+      // The level meter shows whichever source is louder
+      const levels = { system: 0, mic: 0 };
+      const showLevel = () => setAudioLevel(Math.max(levels.system, levels.mic));
+      const prefix = audioSource === 'both' ? { system: 'Call: ', mic: 'You: ' } : { system: '', mic: '' };
+
+      if (systemCapture) {
+        const stream = new MediaStream(systemCapture.getAudioTracks());
+        pipelinesRef.current.push(startPipeline({
+          stream,
+          isSystem: true,
+          keys,
+          onText: text => {
+            recentCallRef.current = [...recentCallRef.current.filter(c => Date.now() - c.at < ECHO_WINDOW_MS), { text, at: Date.now() }];
+            onTranscriptRef.current(text, 'interviewer');
+          },
+          onLevel: level => { levels.system = level; showLevel(); },
+          onLog: message => setDebugLog(prefix.system + message),
+          onNoSound: silent => setErrorMsg(silent
+            ? 'No sound is reaching the app. If the call/video is playing, allow "Electron" (or Recallr) under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart the app.'
+            : null),
+        }));
+      }
+      if (micCapture) {
+        pipelinesRef.current.push(startPipeline({
+          stream: micCapture,
+          isSystem: false,
+          keys,
+          onText: text => {
+            // With both sources, the mic also hears the interviewer through the speakers: skip that echo
+            if (systemCapture && isEcho(text, recentCallRef.current)) {
+              setDebugLog('You: skipped (echo of the call)');
+              return;
+            }
+            onTranscriptRef.current(text, audioSource === 'both' ? 'you' : 'interviewer');
+          },
+          onLevel: level => { levels.mic = level; showLevel(); },
+          onLog: message => setDebugLog(prefix.mic + message),
+          onNoSound: () => {},
+        }));
+      }
+
+      // If the OS or the user ends a capture, stop cleanly instead of recording silence
+      capturesRef.current.forEach(capture => capture.getAudioTracks()[0]?.addEventListener('ended', () => {
         if (isRecordingRef.current) {
           setErrorMsg('Audio capture ended.');
           stopRecording();
         }
-      });
-
-      setDebugLog(audioSource === 'microphone' ? 'Listening to microphone...'
-        : videoKept ? 'Listening to system audio (screen video kept paused)...'
-        : 'Listening to system audio...');
-
-      // Setup VAD (Voice Activity Detection) via Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 1024;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-      dataArrayRef.current = new Float32Array(analyser.fftSize);
-      digitalSilenceMsRef.current = 0;
-
-      // Call audio arrives at its raw level (no auto gain), so it needs a lower threshold than the mic
-      const voiceThreshold = audioSource === 'system' ? 0.004 : 0.012;
-
-      // Record one clean, complete chunk
-      const recordChunk = () => {
-        if (!streamRef.current || !isRecordingRef.current) return;
-        
-        const mediaRecorder = new MediaRecorder(streamRef.current, {
-          mimeType: 'audio/webm;codecs=opus'
-        });
-        mediaRecorderRef.current = mediaRecorder;
-
-        const audioChunks: Blob[] = [];
-        let hasVoice = false;
-        let silenceCount = 0;
-        let recordingTime = 0;
-
-        // Check the volume periodically while recording
-        const checkVolume = setInterval(() => {
-          recordingTime += 100;
-          
-          if (analyserRef.current && dataArrayRef.current) {
-            const samples = dataArrayRef.current;
-            analyserRef.current.getFloatTimeDomainData(samples);
-            let sumSquares = 0;
-            let peak = 0;
-            for (let i = 0; i < samples.length; i++) {
-              sumSquares += samples[i] * samples[i];
-              peak = Math.max(peak, Math.abs(samples[i]));
-            }
-            const rms = Math.sqrt(sumSquares / samples.length);
-            setAudioLevel(Math.min(1, rms * 12));
-
-            // Loudness (RMS) above the threshold counts as speech
-            if (rms > voiceThreshold) {
-              hasVoice = true;
-              silenceCount = 0;
-            } else {
-              silenceCount += 100;
-            }
-
-            // Pure zeros for a while usually means macOS hasn't allowed system audio capture
-            if (peak === 0) {
-              digitalSilenceMsRef.current += 100;
-              if (audioSource === 'system' && digitalSilenceMsRef.current === 6000) {
-                setErrorMsg('No sound is reaching the app. If the call/video is playing, allow "Electron" (or Recallr) under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart the app.');
-              }
-            } else {
-              if (digitalSilenceMsRef.current >= 6000) setErrorMsg(null);
-              digitalSilenceMsRef.current = 0;
-            }
-          }
-
-          // Dynamic endpointing: cut the audio only when the speaker pauses
-          // Cut if: was speaking and paused for 800ms, OR reached 8 seconds (hard limit), OR 3s of pure silence (recycle)
-          const shouldCut = (hasVoice && silenceCount >= 800 && recordingTime >= 1000) || recordingTime >= 8000 || (!hasVoice && silenceCount >= 3000);
-          
-          if (shouldCut) {
-            clearInterval(checkVolume);
-            if (mediaRecorder.state !== 'inactive') {
-              mediaRecorder.stop();
-            }
-            if (isRecordingRef.current) {
-              recordChunk();
-            }
-          }
-        }, 100); // Check every 100ms
-
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            audioChunks.push(e.data);
-          }
-        };
-
-        mediaRecorder.onstop = async () => {
-          clearInterval(checkVolume);
-          
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          if (blob.size > 0 && isRecordingRef.current) {
-            if (!hasVoice) {
-               setDebugLog('Waiting for speech...');
-               return; // Don't send silence to speech-to-text (prevents hallucinations at the source)
-            }
-            
-            if (isTranscribingRef.current) {
-              // Ignore if busy
-            } else {
-              isTranscribingRef.current = true;
-              setDebugLog('Transcribing...');
-              await transcribe(blob);
-            }
-          }
-        };
-
-        mediaRecorder.start();
-      };
-
-      setIsRecording(true);
-      isRecordingRef.current = true;
-      recordChunk();
-
+      }));
     } catch (err) {
       console.error(err);
-      captureStreamRef.current?.getTracks().forEach(track => track.stop());
-      captureStreamRef.current = null;
-      if (audioSource === 'system') {
+      capturesRef.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
+      capturesRef.current = [];
+      if (step === 'system') {
         setErrorMsg(err instanceof Error && err.message === 'NO_SYSTEM_AUDIO'
-          ? 'No system audio available. Try Settings → Audio → Microphone.'
+          ? 'No system audio available. Switch the audio button to Mic.'
           : 'Could not capture system audio. On macOS, allow it in System Settings → Privacy & Security → Screen & System Audio Recording, then restart the app.');
       } else {
         setErrorMsg('Could not start the microphone. Check microphone permission in System Settings.');
@@ -276,7 +326,6 @@ export const useAudioCapture = (onTranscript: (text: string, isFinal: boolean) =
       isRecordingRef.current = false;
     }
   }, [keys, audioSource, stopRecording]);
-
 
   return { isRecording, startRecording, stopRecording, errorMsg, debugLog, audioLevel };
 };

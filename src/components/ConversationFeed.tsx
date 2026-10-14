@@ -18,6 +18,7 @@ export interface Turn {
   followUps?: FollowUp[];
   error?: string;          // Redoing the answer failed (the previous answer is kept)
   origin?: 'screen';       // The question was read from the screen, not heard
+  spoken?: string;         // What the user actually said (heard on the mic in "Call + mic" mode)
 }
 
 const ADJUST_BUTTONS: { mode: Exclude<AdjustMode, 'regenerate'>; label: string }[] = [
@@ -217,6 +218,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
                   <FollowUps items={turn.followUps} startOpen={isLatest} />
                 )}
               </div>
+            )}
+            {turn.spoken && (
+              <p className="mt-2 pl-3 text-[12px] leading-relaxed text-slate-400 select-text">
+                <span className="font-semibold text-sky-400">You said · </span>{turn.spoken}
+              </p>
             )}
           </div>
           );

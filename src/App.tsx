@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Settings, X, Minus, MessageSquareQuote, SendHorizontal, Pin, PinOff, SquarePen, Volume2, SlidersHorizontal, History, ScanText } from 'lucide-react';
-import { useAudioCapture } from './hooks/useAudioCapture';
+import { Mic, MicOff, Settings, X, Minus, MessageSquareQuote, SendHorizontal, Pin, PinOff, SquarePen, Volume2, SlidersHorizontal, History, ScanText, Users } from 'lucide-react';
+import { useAudioCapture, type Speaker } from './hooks/useAudioCapture';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
@@ -42,6 +42,13 @@ const captureScreens = (): Promise<{ images?: string[]; error?: 'permission' | '
 const SCREEN_ERRORS = {
   permission: 'Recallr needs Screen Recording permission to read your screen. Turn it on in System Settings → Privacy & Security → Screen Recording, then restart Recallr.',
   empty: "Couldn't capture the screen.",
+};
+
+// The audio button cycles through these
+const AUDIO_SOURCES: Record<AudioSource, { next: AudioSource; label: string; title: string }> = {
+  system: { next: 'both', label: 'Call audio', title: 'Hearing the call audio: only the other people in the call (click to also hear your microphone)' },
+  both: { next: 'microphone', label: 'Call + mic', title: 'Hearing the call and your microphone separately, so Recallr knows what you actually said (click for microphone only)' },
+  microphone: { next: 'system', label: 'Mic', title: 'Hearing your microphone only (click for the call audio)' },
 };
 
 // An answer being written, and what to put back if it gets cancelled
@@ -142,7 +149,7 @@ function App() {
   }, [hasApiKey]);
 
   const toggleAudioSource = () => {
-    const next = audioSource === 'system' ? 'microphone' : 'system';
+    const next = AUDIO_SOURCES[audioSource].next;
     setAudioSource(next);
     saveAudioSource(next);
   };
@@ -213,7 +220,7 @@ function App() {
     // Everything said before this question, so answers stay consistent with what was already said
     const history = turnsRef.current
       .filter(t => t.id !== turnId && t.status !== 'listening')
-      .map(t => ({ question: t.question, answer: t.status === 'done' ? t.answer : '' }));
+      .map(t => ({ question: t.question, answer: t.spoken || (t.status === 'done' ? t.answer : '') }));
     try {
       const answer = await streamInterviewAnswer(question, history, loadSettings(), text => {
         if (!controller.signal.aborted) patchTurn(turnId, { status: 'answering', answer: text });
@@ -260,8 +267,14 @@ function App() {
     return true;
   }, [answerWithAi]);
 
-  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
-    if (!isFinal) return;
+  const handleTranscript = useCallback((text: string, speaker: Speaker) => {
+    // What the user says is kept with the latest question (it never triggers an answer)
+    if (speaker === 'you') {
+      setTurns(prev => prev.length === 0 ? prev : prev.map((t, i) => (
+        i === prev.length - 1 ? { ...t, spoken: t.spoken ? `${t.spoken} ${text}` : text } : t
+      )));
+      return;
+    }
     lastSpeechAtRef.current = Date.now();
 
     // Keep adding speech to the open question until the interviewer pauses
@@ -434,13 +447,13 @@ function App() {
           <button
             onClick={toggleAudioSource}
             disabled={isRecording}
-            title={audioSource === 'system'
-              ? 'Hearing system audio: only the other people in the call (click to use your microphone)'
-              : 'Hearing your microphone (click to hear only the call audio)'}
+            title={AUDIO_SOURCES[audioSource].title}
             className="flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-300 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {audioSource === 'system' ? <Volume2 className="w-3 h-3 text-emerald-400" /> : <Mic className="w-3 h-3 text-amber-400" />}
-            {audioSource === 'system' ? 'Call audio' : 'Mic'}
+            {audioSource === 'system' && <Volume2 className="w-3 h-3 text-emerald-400" />}
+            {audioSource === 'both' && <Users className="w-3 h-3 text-sky-400" />}
+            {audioSource === 'microphone' && <Mic className="w-3 h-3 text-amber-400" />}
+            {AUDIO_SOURCES[audioSource].label}
           </button>
           {!isRecording && (
             <span className="hidden min-[400px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">

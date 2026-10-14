@@ -75,6 +75,7 @@ WHAT TO SAY
 export interface PastTurn {
   question: string;
   answer: string;
+  spoken?: string; // What the candidate actually said, when the mic was heard too
 }
 
 // Earlier turns as a transcript, keeping the most recent ones that fit the budget
@@ -280,19 +281,23 @@ export interface InterviewReview {
 
 const MAX_TRANSCRIPT_CHARS = 30000;
 
-// A review of a finished interview. The answers are the ones suggested to the candidate,
-// who may have said something different, so it judges the evidence rather than the delivery.
+// A review of a finished interview. Where the mic was heard, it judges what the candidate actually said;
+// elsewhere only the suggested answers are known, so it judges the evidence rather than the delivery.
 export const reviewInterview = async (turns: PastTurn[], settings: Settings): Promise<Omit<InterviewReview, 'createdAt'>> => {
   const transcript = turns
     .filter(t => t.question.trim())
-    .map(t => `Interviewer: ${t.question}${t.answer ? `\nSuggested answer: ${t.answer}` : ''}`)
+    .map(t => [
+      `Interviewer: ${t.question}`,
+      t.answer && `Suggested answer: ${t.answer}`,
+      t.spoken && `Candidate actually said: ${t.spoken}`,
+    ].filter(Boolean).join('\n'))
     .join('\n\n')
     .slice(0, MAX_TRANSCRIPT_CHARS);
 
   const response = await completeChat(settings, {
     tier: 'quality',
     json: true,
-    system: `You review a job interview for the candidate, right after it ended. You get the interviewer's questions and the answers that were suggested to the candidate live (they may have said something different). Return JSON:
+    system: `You review a job interview for the candidate, right after it ended. You get the interviewer's questions, the answers that were suggested to the candidate live, and, where it was recorded, what the candidate actually said. Judge what they actually said whenever you have it (clarity, whether it answered the question, missing evidence); otherwise judge the suggested answer. Return JSON:
 {"summary":"...","topics":["..."],"weakSpots":[{"question":"...","why":"...","fix":"..."}],"prepareNext":["..."],"email":{"subject":"...","body":"..."}}
 - "summary": 2–3 sentences: what the interview focused on and how well the candidate's background fit it.
 - "topics": 3–8 short labels for what was covered.

@@ -39,7 +39,10 @@ export const toMarkdown = (session: Session) => [
   '',
   `*${meta(session)}*`,
   '',
-  ...answered(session).flatMap(t => [`## ${t.question}`, '', t.answer.split('\n').join('\n\n'), '']),
+  ...answered(session).flatMap(t => [
+    `## ${t.question}`, '', t.answer.split('\n').join('\n\n'), '',
+    ...(t.spoken ? [`> **You said:** ${t.spoken}`, ''] : []),
+  ]),
   session.review ? reviewMarkdown(session.review) : '',
 ].join('\n').trim() + '\n';
 
@@ -74,12 +77,13 @@ export const toHtml = (session: Session) => `<!doctype html>
   ul { padding-left: 16pt; margin: 0; }
   li { margin-bottom: 6pt; }
   .topics { color: #475569; }
+  .said { color: #475569; font-size: 10pt; margin-top: 6pt; }
   .email { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6pt; padding: 10pt 12pt; }
 </style></head>
 <body>
   <h1>${escape(session.title)}</h1>
   <div class="meta">${escape(meta(session))}</div>
-  ${answered(session).map(t => `<div class="turn"><p class="q">${escape(t.question)}</p><div class="a">${paragraphs(t.answer)}</div></div>`).join('')}
+  ${answered(session).map(t => `<div class="turn"><p class="q">${escape(t.question)}</p><div class="a">${paragraphs(t.answer)}</div>${t.spoken ? `<p class="said"><strong>You said:</strong> ${escape(t.spoken)}</p>` : ''}</div>`).join('')}
   ${session.review ? reviewHtml(session.review) : ''}
 </body></html>`;
 

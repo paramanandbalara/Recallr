@@ -200,8 +200,12 @@ export const loadOverlay = () => read(KEYS.overlay) !== 'off';
 export const saveOverlay = (on: boolean) => write(KEYS.overlay, on ? 'on' : 'off');
 
 // Listen to system audio (the other people in the call) unless the user picked the microphone
-export type AudioSource = 'system' | 'microphone';
-export const loadAudioSource = (): AudioSource => (read(KEYS.audioSource) === 'microphone' ? 'microphone' : 'system');
+// 'both' hears the call and the user's microphone separately (interviewer and you)
+export type AudioSource = 'system' | 'microphone' | 'both';
+export const loadAudioSource = (): AudioSource => {
+  const saved = read(KEYS.audioSource);
+  return saved === 'microphone' || saved === 'both' ? saved : 'system';
+};
 export const saveAudioSource = (source: AudioSource) => write(KEYS.audioSource, source);
 
 // The conversation is kept across restarts until the user starts a new one

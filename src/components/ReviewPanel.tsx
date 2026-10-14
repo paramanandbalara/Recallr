@@ -50,7 +50,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
     try {
       const turns = target.turns
         .filter(t => t.status !== 'skipped')
-        .map(t => ({ question: t.question, answer: t.status === 'done' ? t.answer : '' }));
+        .map(t => ({ question: t.question, answer: t.status === 'done' ? t.answer : '', spoken: t.spoken }));
       const review = await reviewInterview(turns, settingsForProfile(target.profileId));
       const updated = { ...target, review: { ...review, createdAt: Date.now() } };
       await saveSession(updated);
@@ -115,7 +115,9 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
         {review && !writing && (
           <>
             <p className="text-[11px] leading-relaxed text-slate-500">
-              Based on the questions asked and the answers Recallr suggested; it doesn't know what you actually said.
+              {session?.turns.some(t => t.spoken)
+                ? 'Based on the questions asked and what you actually said (heard on your microphone).'
+                : 'Based on the questions asked and the answers Recallr suggested. Use "Call + mic" next time so the review can judge what you actually said.'}
             </p>
 
             <Section title="Summary">
