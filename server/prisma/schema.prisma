@@ -1,0 +1,335 @@
+// Recallr accounts, plans, payments and usage. MySQL locally, Amazon RDS (MySQL) in production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  lastSeenAt   DateTime?
+  // Referrals: everyone gets a code to share; the person who invited this user, and when both got their bonus
+  referralCode       String?   @unique
+  referredById       String?
+  referralRewardedAt DateTime?
+  referredBy   User?      @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    User[]     @relation("Referrals")
+  purchases    Purchase[]
+  payments     Payment[]  @relation("PaymentUser")
+  recorded     Payment[]  @relation("PaymentRecordedBy")
+  usage        UsageEvent[]
+  auditLogs    AuditLog[]
+  devices      Device[]
+  passwordResets PasswordReset[]
+  emails       EmailLog[]
+  backup       Backup?
+  tickets      Ticket[]
+  ticketMessages TicketMessage[]
+}
+
+// A pack the admin sells: price, how long it lasts, and what it allows
+model Plan {
+  id               String     @id @default(cuid())
+  name             String
+  description      String     @default("") @db.VarChar(1000)
+  pricePaise       Int        // Price in paise (₹1 = 100)
+  durationDays     Int
+  listeningMinutes Int?       // Audio that can be transcribed; null = unlimited
+  tokenLimit       Int?       // AI tokens (in + out); null = unlimited
+  active           Boolean    @default(true) // Shown on the website and can be bought
+  isTrial          Boolean    @default(false) // The free trial: given once to every new account, never sold
+  sortOrder        Int        @default(0)
+  createdAt        DateTime   @default(now())
+  purchases        Purchase[]
+  payments         Payment[]
+}
+
+enum PurchaseSource {
+  RAZORPAY
+  OFFLINE
+  ADMIN_GRANT
+  TRIAL
+  REFERRAL
+  COUPON
+}
+
+// One bought (or granted) pack, with its own allowance and what's been used of it.
+// The plan's limits are copied in, so editing a plan never changes packs already sold.
+model Purchase {
+  id               String         @id @default(cuid())
+  userId           String
+  planId           String?        // Empty for packs not from a plan (referral bonus)
+  planName         String
+  startsAt         DateTime       @default(now())
+  expiresAt        DateTime
+  listeningMinutes Int?
+  tokenLimit       Int?
+  usedSeconds      Float          @default(0)
+  usedTokens       Int            @default(0)
+  source           PurchaseSource
+  paymentId        String?        @unique
+  createdAt        DateTime       @default(now())
+  notifiedEnding   Boolean        @default(false) // "Ends in 2 days" email sent
+  notifiedLow      Boolean        @default(false) // "Listening time almost used" email sent
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             Plan?          @relation(fields: [planId], references: [id])
+  payment          Payment?       @relation(fields: [paymentId], references: [id])
+
+  @@index([userId, expiresAt])
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  OFFLINE
+  COUPON // Free with a 100% coupon
+}
+
+enum PaymentStatus {
+  CREATED   // Razorpay order made, not paid yet
+  PENDING   // Offline payment reported by the user, waiting for the admin
+  PAID
+  FAILED
+  REJECTED  // Offline payment the admin couldn't confirm
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  planId            String
+  amountPaise       Int           // What the user pays, after any coupon
+  discountPaise     Int           @default(0)
+  couponId          String?
+  currency          String        @default("INR")
+  method            PaymentMethod
+  status            PaymentStatus
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  reference         String?       // Offline: UPI / bank reference given by the user or admin
+  note              String?       @db.Text
+  recordedById      String?       // Admin who confirmed an offline payment
+  createdAt         DateTime      @default(now())
+  paidAt            DateTime?
+  user              User          @relation("PaymentUser", fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan          @relation(fields: [planId], references: [id])
+  recordedBy        User?         @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+  purchase          Purchase?
+
+  @@index([status, createdAt])
+}
+
+enum UsageKind {
+  CHAT
+  TRANSCRIBE
+}
+
+model UsageEvent {
+  id           BigInt    @id @default(autoincrement())
+  userId       String
+  purchaseId   String?
+  kind         UsageKind
+  provider     String
+  model        String
+  inputTokens  Int       @default(0)
+  outputTokens Int       @default(0)
+  audioSeconds Float     @default(0)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Settings the admin changes in the admin panel: AI and Razorpay keys, payment details, website info.
+// Secrets are encrypted (AES-256-GCM) with ENCRYPTION_KEY before they're stored.
+model Setting {
+  key         String   @id
+  value       String   @db.Text
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+// What admins did: approvals, blocks, plan and settings changes
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  actorId   String?
+  action    String   // e.g. "payment.approve", "settings.update"
+  target    String?  // What it was done to, e.g. a user's email or a plan's name
+  details   Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+}
+
+// ---------- Coupons ----------
+
+enum CouponKind {
+  PERCENT // amount = percent off (1–100)
+  FIXED   // amount = paise off
+}
+
+model Coupon {
+  id         String     @id @default(cuid())
+  code       String     @unique // Stored in capitals
+  kind       CouponKind
+  amount     Int
+  maxUses    Int?       // In total; null = no limit
+  usedCount  Int        @default(0)
+  onePerUser Boolean    @default(true)
+  planIds    Json?      // Plans it works for; null = all
+  expiresAt  DateTime?
+  active     Boolean    @default(true)
+  note       String     @default("")
+  createdAt  DateTime   @default(now())
+  payments   Payment[]
+}
+
+// ---------- Devices and trials ----------
+
+// A computer the desktop app is signed in on. Its id is in the app's sign-in token, so removing it signs that computer out.
+model Device {
+  id          String    @id @default(cuid())
+  userId      String
+  fingerprint String    // Hash of the computer's identity, made by the app
+  name        String    // e.g. "Paramanand's MacBook Pro"
+  platform    String
+  appVersion  String    @default("")
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  revokedAt   DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
+}
+
+// Each computer gets one free trial, whatever account signs in on it
+model TrialClaim {
+  fingerprint String   @id
+  userId      String
+  createdAt   DateTime @default(now())
+}
+
+// ---------- Email ----------
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // SHA-256 of the token in the emailed link
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED // Email isn't set up yet
+}
+
+model EmailLog {
+  id        BigInt      @id @default(autoincrement())
+  userId    String?
+  to        String
+  kind      String      // e.g. "welcome", "payment_received"
+  subject   String
+  status    EmailStatus
+  error     String?     @db.Text
+  createdAt DateTime    @default(now())
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+// ---------- Announcements ----------
+
+enum AnnouncementLevel {
+  INFO
+  WARNING
+}
+
+enum Audience {
+  ALL
+  DESKTOP
+  WEBSITE
+}
+
+model Announcement {
+  id        String            @id @default(cuid())
+  title     String
+  body      String            @db.Text
+  level     AnnouncementLevel @default(INFO)
+  audience  Audience          @default(ALL)
+  active    Boolean           @default(true)
+  startsAt  DateTime          @default(now())
+  endsAt    DateTime?
+  createdAt DateTime          @default(now())
+}
+
+// ---------- Cloud backup ----------
+
+// One backup per user: the desktop app's profiles, answers and history, encrypted
+model Backup {
+  userId     String   @id
+  data       String   @db.LongText
+  sizeBytes  Int
+  deviceName String   @default("")
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Support ----------
+
+enum TicketStatus {
+  OPEN     // Waiting for us
+  ANSWERED // Waiting for the user
+  CLOSED
+}
+
+model Ticket {
+  id        String          @id @default(cuid())
+  userId    String
+  subject   String
+  status    TicketStatus    @default(OPEN)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  TicketMessage[]
+
+  @@index([status, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String?
+  fromAdmin Boolean
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}

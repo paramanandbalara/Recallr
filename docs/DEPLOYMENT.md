@@ -1,0 +1,84 @@
+# Deploying Recallr
+
+The server and the website run as **one container**: the API on `/api`, the website on every other path. The desktop
+app is built separately and talks to the same address.
+
+## 1. Database (Amazon RDS for MySQL)
+
+1. Create a MySQL 8 instance (db.t4g.micro is plenty to start). Turn on automated backups.
+2. Create a database and a user:
+   ```sql
+   CREATE DATABASE recallr CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'recallr'@'%' IDENTIFIED BY 'a-long-password';
+   GRANT ALL ON recallr.* TO 'recallr'@'%';
+   ```
+3. Only let the app's security group reach port 3306.
+
+`DATABASE_URL=mysql://recallr:a-long-password@<endpoint>:3306/recallr`
+
+## 2. Server settings
+
+Set these in the host's environment or secret store (never commit them):
+
+| Variable | Value |
+|----------|-------|
+| `NODE_ENV` | `production` (set by the image) |
+| `DATABASE_URL` | from step 1 |
+| `JWT_SECRET` | `openssl rand -hex 32`. Changing it signs everyone out. |
+| `ENCRYPTION_KEY` | `openssl rand -hex 32`. Encrypts the keys saved in Admin → Settings: set it once and never change it. |
+| `WEB_ORIGIN` | `https://your-domain.com` (comma-separated if more than one) |
+| `ADMIN_EMAIL` | your email: registering with it makes you the admin |
+
+AI keys, Razorpay keys, the webhook secret, offline payment details, the support email and download links are
+**not** environment variables any more: after the first start, sign in as the admin and fill them in under
+**Admin → Settings** (each key has a Test button). They're stored encrypted in the database.
+
+## 3. Build and run
+
+```bash
+docker build -t recallr .
+docker run -d -p 4000:4000 --env-file production.env --restart unless-stopped recallr
+```
+
+Migrations run automatically on start (`prisma migrate deploy`). The first time, add the example plans and the free
+trial (then change them in Admin → Plans):
+
+```bash
+docker exec <container> npm run db:seed:prod
+```
+
+Where to run it: AWS App Runner or ECS Fargate (point it at the image, port 4000, health check `/api/health`), or a
+small EC2 / Lightsail instance with Docker behind Nginx or Caddy. Put HTTPS in front either way.
+The health check is `GET /api/health`.
+
+Without Docker: `cd server && npm ci && npm run build`, `cd web && npm ci && NODE_ENV=production npm run build`,
+then start the server with `WEB_DIST=../web/dist npm run start:prod`.
+
+## 4. Razorpay
+
+1. Razorpay needs these pages before it activates live payments, and they already exist on the site:
+   `/terms`, `/privacy`, `/refunds`, `/contact`. **Read them and adjust them for your business first.**
+2. Dashboard → Account & Settings → Webhooks → Add:
+   - URL: `https://your-domain.com/api/billing/webhook`
+   - Events: `payment.captured` and `order.paid`
+   - Secret: any long random string → Admin → Settings → Razorpay → Webhook secret
+3. Test with test keys first: a test payment should add the pack and show up under Admin → Payments.
+
+## 5. Desktop app
+
+```bash
+cd desktop
+printf 'VITE_API_URL=https://your-domain.com\nVITE_WEB_URL=https://your-domain.com\n' > .env
+NODE_ENV=production npm run dist
+```
+
+Build the Windows installer on Windows and the macOS one on a Mac. Upload them (GitHub Releases, S3...) and paste the links
+in Admin → Settings → Website. Unsigned builds show a SmartScreen / Gatekeeper warning; the guide tells users how
+to get past it. Code-signing certificates remove it.
+
+## 6. After launch
+
+- Register with `ADMIN_EMAIL`, then check Admin → Plans (prices and the free trial).
+- Watch Admin → Dashboard for offline payments to approve.
+- Database backups: RDS automated backups, plus a manual snapshot before big changes.
+- Logs: the container writes to stdout (CloudWatch on App Runner / ECS).

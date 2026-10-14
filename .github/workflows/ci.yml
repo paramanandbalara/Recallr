@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [recallr-features, main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: recallr_test
+          MYSQL_USER: recallr
+          MYSQL_PASSWORD: recallr-dev
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: --health-cmd="mysqladmin ping -h localhost" --health-interval=5s --health-retries=20
+    env:
+      TEST_DATABASE_URL: mysql://recallr:recallr-dev@127.0.0.1:3306/recallr_test
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm test
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+        env: { NODE_ENV: production }
+
+  desktop:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm, cache-dependency-path: desktop/package-lock.json }
+      - run: npm ci
+        env: { ELECTRON_SKIP_BINARY_DOWNLOAD: "1" }
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
