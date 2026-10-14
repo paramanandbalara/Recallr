@@ -16,6 +16,7 @@ export interface User {
   email: string;
   name: string;
   role: 'USER' | 'ADMIN';
+  saveAnswers?: boolean; // Questions and answers kept on the account
 }
 
 export interface Pack {

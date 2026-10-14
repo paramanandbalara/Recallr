@@ -40,6 +40,7 @@ export interface User {
   status: 'ACTIVE' | 'BLOCKED';
   createdAt: string;
   lastSeenAt?: string | null;
+  saveAnswers?: boolean; // Interview questions and answers kept on the account
 }
 
 export interface Plan {
@@ -160,3 +161,113 @@ export const answers = (tokenLimit: number | null) =>
   tokenLimit === null ? 'Unlimited AI answers' : `About ${Math.max(1, Math.round(tokenLimit / 2500)).toLocaleString('en-IN')} AI answers`;
 export const days = (n: number) => (n === 1 ? '1 day' : n % 30 === 0 && n >= 30 ? (n === 30 ? '1 month' : `${n / 30} months`) : `${n} days`);
 export const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '–');
+
+// ---------- Question bank ----------
+
+export type QuestionCategory = 'ABOUT_YOU' | 'EXPERIENCE' | 'CODING' | 'SYSTEM_DESIGN' | 'CONCEPT' | 'OTHER';
+
+// Same names and addresses as the server's CATEGORY_PAGES
+export const CATEGORIES: Record<QuestionCategory, { slug: string; label: string }> = {
+  ABOUT_YOU: { slug: 'hr', label: 'HR / about you' },
+  EXPERIENCE: { slug: 'behavioral', label: 'Behavioral' },
+  CODING: { slug: 'coding', label: 'Coding' },
+  SYSTEM_DESIGN: { slug: 'system-design', label: 'System design' },
+  CONCEPT: { slug: 'technical', label: 'Technical' },
+  OTHER: { slug: 'general', label: 'General' },
+};
+export const CATEGORY_IDS = Object.keys(CATEGORIES) as QuestionCategory[];
+
+export interface SavedAnswer {
+  id: string;
+  question: string;
+  category: QuestionCategory;
+  answer: string;
+  source: 'AI' | 'PREPARED';
+  provider: string;
+  createdAt: string;
+}
+
+export interface PublicQuestion {
+  slug: string;
+  text: string;
+  category: QuestionCategory;
+  categorySlug: string;
+  timesAsked: number;
+}
+
+export interface CategoryPage {
+  category: QuestionCategory;
+  slug: string;
+  title: string;
+  text: string;
+  count: number;
+}
+
+// ---------- Practice ----------
+
+export interface PracticeAnswer {
+  question: string;
+  score: number | null;
+  wordsPerMinute: number | null;
+  fillers: number;
+  seconds: number;
+}
+
+export interface PracticeSession {
+  id: string;
+  role: string;
+  questionCount: number;
+  averageScore: number | null;
+  wordsPerMinute: number | null;
+  fillersPerMinute: number | null;
+  details: PracticeAnswer[] | null;
+  createdAt: string;
+}
+
+// ---------- Colleges and bootcamps ----------
+
+export type OrganizationKind = 'COLLEGE' | 'BOOTCAMP' | 'COMPANY' | 'OTHER';
+export const ORGANIZATION_KINDS: Record<OrganizationKind, string> = { COLLEGE: 'College', BOOTCAMP: 'Bootcamp', COMPANY: 'Company', OTHER: 'Other' };
+
+export interface Organization {
+  id: string;
+  name: string;
+  kind: OrganizationKind;
+  seats: number;
+  seatsUsed: number;
+  inviteCode: string;
+  memberMinutes: number | null;
+  memberTokens: number | null;
+  memberDays: number;
+  active: boolean;
+  open: boolean;
+  expiresAt: string | null;
+  contactEmail: string;
+  notes: string;
+  createdAt: string;
+  coaches?: number;
+}
+
+export interface OrganizationStudent {
+  userId: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+  lastSeenAt: string | null;
+  listeningMinutesUsed: number;
+  packEndsAt: string | null;
+  mockInterviews: number;
+  recentScore: number | null;
+  firstScore: number | null;
+  wordsPerMinute: number | null;
+  fillersPerMinute: number | null;
+  lastPracticeAt: string | null;
+}
+
+export interface OrganizationDetail {
+  organization: Organization;
+  coaches: { userId: string; name: string; email: string }[];
+  students: OrganizationStudent[];
+}
+
+export const inviteLink = (code: string) => `${window.location.origin}/join/${code}`;

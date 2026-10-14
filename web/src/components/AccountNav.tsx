@@ -10,9 +10,12 @@ export const AccountPage: React.FC<{ title: string; children: React.ReactNode }>
     <h1 className="text-2xl font-bold text-white">{title}</h1>
     <nav className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-800">
       <NavLink to="/account" end className={tab}>Overview</NavLink>
+      <NavLink to="/account/questions" className={tab}>My questions</NavLink>
+      <NavLink to="/account/progress" className={tab}>Progress</NavLink>
       <NavLink to="/account/buy" className={tab}>Buy a plan</NavLink>
       <NavLink to="/account/devices" className={tab}>Devices</NavLink>
       <NavLink to="/account/invite" className={tab}>Invite friends</NavLink>
+      <NavLink to="/account/organization" className={tab}>College</NavLink>
       <NavLink to="/account/support" className={tab}>Support</NavLink>
       <NavLink to="/account/settings" className={tab}>Settings</NavLink>
     </nav>

@@ -9,6 +9,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-lg px-3 py-1.5 text-sm ${isActive ? 'bg-slate-800 text-white' : 'text-slate-300 hover:text-white'}`;
 
 const PUBLIC_LINKS = [
+  { to: '/interview-questions', label: 'Questions' },
+  { to: '/colleges', label: 'For colleges' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/guide', label: 'How to use' },
   { to: '/download', label: 'Download' },
@@ -73,6 +75,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <Link to="/pricing" className="hover:text-slate-300">Pricing</Link>
             <Link to="/guide" className="hover:text-slate-300">How to use</Link>
             <Link to="/download" className="hover:text-slate-300">Download</Link>
+            <Link to="/interview-questions" className="hover:text-slate-300">Interview questions</Link>
+            <Link to="/colleges" className="hover:text-slate-300">For colleges and bootcamps</Link>
             <Link to="/contact" className="hover:text-slate-300">Contact</Link>
           </div>
           <div className="flex flex-col gap-1.5 text-xs">

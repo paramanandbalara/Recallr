@@ -20,6 +20,16 @@ const AccountSettings = named(() => import('./pages/account/Settings'), 'Account
 const AccountDevices = named(() => import('./pages/account/Devices'), 'AccountDevices');
 const AccountInvite = named(() => import('./pages/account/Invite'), 'AccountInvite');
 const AccountSupport = named(() => import('./pages/account/Support'), 'AccountSupport');
+const AccountQuestions = named(() => import('./pages/account/Questions'), 'AccountQuestions');
+const AccountProgress = named(() => import('./pages/account/Progress'), 'AccountProgress');
+const AccountOrganization = named(() => import('./pages/account/Organization'), 'AccountOrganization');
+const Join = named(() => import('./pages/Join'), 'Join');
+const Colleges = named(() => import('./pages/Colleges'), 'Colleges');
+const QuestionLibrary = named(() => import('./pages/Questions'), 'QuestionLibrary');
+const QuestionPage = named(() => import('./pages/Questions'), 'QuestionPage');
+const AdminQuestions = named(() => import('./pages/admin/Questions'), 'AdminQuestions');
+const AdminOrganizations = named(() => import('./pages/admin/Organizations'), 'AdminOrganizations');
+const AdminOrganizationDetail = named(() => import('./pages/admin/Organizations'), 'AdminOrganizationDetail');
 const AdminReports = named(() => import('./pages/admin/Reports'), 'AdminReports');
 const AdminCoupons = named(() => import('./pages/admin/Coupons'), 'AdminCoupons');
 const AdminAnnouncements = named(() => import('./pages/admin/Announcements'), 'AdminAnnouncements');
@@ -74,6 +84,11 @@ export const App: React.FC = () => (
       <Route path="/privacy" element={<Legal page="privacy" />} />
       <Route path="/refunds" element={<Legal page="refunds" />} />
       <Route path="/contact" element={<Legal page="contact" />} />
+      <Route path="/colleges" element={<Colleges />} />
+      <Route path="/join/:code" element={<Join />} />
+      <Route path="/interview-questions" element={<QuestionLibrary />} />
+      <Route path="/interview-questions/:category" element={<QuestionLibrary />} />
+      <Route path="/interview-questions/:category/:slug" element={<QuestionPage />} />
 
       <Route path="/account" element={<RequireAuth><AccountOverview /></RequireAuth>} />
       <Route path="/account/buy" element={<RequireAuth><Buy /></RequireAuth>} />
@@ -82,6 +97,9 @@ export const App: React.FC = () => (
       <Route path="/account/invite" element={<RequireAuth><AccountInvite /></RequireAuth>} />
       <Route path="/account/support" element={<RequireAuth><AccountSupport /></RequireAuth>} />
       <Route path="/account/support/:id" element={<RequireAuth><AccountSupport /></RequireAuth>} />
+      <Route path="/account/questions" element={<RequireAuth><AccountQuestions /></RequireAuth>} />
+      <Route path="/account/progress" element={<RequireAuth><AccountProgress /></RequireAuth>} />
+      <Route path="/account/organization" element={<RequireAuth><AccountOrganization /></RequireAuth>} />
 
       <Route path="/admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
         <Route index element={<AdminDashboard />} />
@@ -96,6 +114,9 @@ export const App: React.FC = () => (
         <Route path="support/:id" element={<AdminSupport />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="activity" element={<AdminActivity />} />
+        <Route path="questions" element={<AdminQuestions />} />
+        <Route path="organizations" element={<AdminOrganizations />} />
+        <Route path="organizations/:id" element={<AdminOrganizationDetail />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

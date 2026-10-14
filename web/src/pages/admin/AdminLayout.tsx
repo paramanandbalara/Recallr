@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, CreditCard, History, LayoutDashboard, LifeBuoy, Megaphone, Package, Settings, Ticket, Users } from 'lucide-react';
+import { BarChart3, BookOpen, CreditCard, GraduationCap, History, LayoutDashboard, LifeBuoy, Megaphone, Package, Settings, Ticket, Users } from 'lucide-react';
 
 const LINKS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -10,6 +10,8 @@ const LINKS = [
   { to: '/admin/support', label: 'Support', icon: LifeBuoy },
   { to: '/admin/plans', label: 'Plans', icon: Package },
   { to: '/admin/coupons', label: 'Coupons', icon: Ticket },
+  { to: '/admin/questions', label: 'Question bank', icon: BookOpen },
+  { to: '/admin/organizations', label: 'Colleges', icon: GraduationCap },
   { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
   { to: '/admin/activity', label: 'Activity', icon: History },

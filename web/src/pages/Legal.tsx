@@ -40,9 +40,11 @@ const content = (): Record<Page, { title: string; body: React.ReactNode }> => ({
         <h2>What we keep</h2>
         <p>Your name, email, a hash of your password (never the password itself), your plans and payments, and how much listening time and AI you used (amounts and dates, not content).</p>
         <h2>What stays on your computer</h2>
-        <p>Your resume, job details, prepared answers, notes and conversation history are stored only on your own computer.</p>
+        <p>Your resume, job details, prepared answers, notes and full conversation history are stored on your own computer. If you use Cloud backup, an encrypted copy is kept on our server until you delete it.</p>
+        <h2>Interview questions and answers</h2>
+        <p>Each question you’re asked in an interview is added to our question bank without your name, so we can count which questions are asked most and publish general guides on how to answer them. While “Save my questions and answers” is on (it is by default), the question and the answer Recallr gave are also kept on your account so you can see them under My questions. You can turn it off in the app or on the website, and delete them at any time. Only you can see your answers; if you joined through a college or bootcamp, your coach sees your mock interview scores, never your answers.</p>
         <h2>What is processed but not kept</h2>
-        <p>To make an answer, the audio of the question and the text needed for the answer are sent through our server to our AI providers (Groq and OpenAI). We don’t store it. The providers process it under their own policies.</p>
+        <p>To make an answer, the audio of the question and the text needed for the answer are sent through our server to our AI providers (Groq, OpenAI and Anthropic). Apart from what’s described above, we don’t store it. The providers process it under their own policies.</p>
         <h2>Payments</h2>
         <p>Card, UPI and bank details are handled by Razorpay; we never see or store them.</p>
         <h2>Your choices</h2>

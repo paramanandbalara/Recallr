@@ -71,7 +71,7 @@ const FEATURES = [
   { icon: CloudUpload, title: 'Cloud backup', text: 'Back up your profiles, answers and history, and restore them on a new computer.' },
   { icon: Keyboard, title: 'Shortcuts everywhere', text: 'Start listening, ask, regenerate or read the screen from any app with a shortcut.' },
   { icon: SlidersHorizontal, title: 'Your way to read', text: 'Full text or key points, text size, app size, transparency, dark or light.' },
-  { icon: ShieldCheck, title: 'Private by default', text: 'Your resume, answers and conversations stay on your own computer.' },
+  { icon: ShieldCheck, title: 'You stay in control', text: 'Your resume and conversations stay on your computer. Saved questions and answers are yours alone, and you can delete them.' },
 ];
 
 const STEPS = [
@@ -88,7 +88,7 @@ const FAQ = [
   { q: 'Which call apps does it work with?', a: 'Any app that plays sound on your computer: Zoom, Google Meet, Microsoft Teams, Webex, Skype and others. Recallr listens to your computer’s audio, so there’s nothing to install in the call app.' },
   { q: 'Can I pay by UPI or bank transfer?', a: 'Yes. Pay online by card, UPI or netbanking with Razorpay, or pay us directly and enter the reference. Offline payments unlock once we confirm them, usually within a few hours.' },
   { q: 'What happens when my plan runs out?', a: 'The app asks you to buy a plan or top-up. Your resume, answers and history stay on your computer; nothing is lost.' },
-  { q: 'Where is my data kept?', a: 'Your resume, answers and conversations stay on your own computer. Only the audio and text needed for each answer are sent for processing; Recallr doesn’t store them.' },
+  { q: 'Where is my data kept?', a: 'Your resume, prepared answers and conversations stay on your own computer. The questions you’re asked, with Recallr’s answers, are saved to your account so you can review them under My questions; only you can see them, and you can turn this off or delete them at any time.' },
 ];
 
 export const Home: React.FC = () => {

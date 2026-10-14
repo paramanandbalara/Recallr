@@ -8,6 +8,7 @@ import { matchPreparedAnswer } from './services/matchAnswer';
 import { classifyQuestion, isFiller, isLikelyQuestion } from './services/questionDetect';
 import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOnboarded, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOnboarded, saveOverlay, ZOOMS, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
+import { recordAnswered } from './services/questionBank';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
 import { SettingsModal } from './components/SettingsModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
@@ -26,6 +27,9 @@ const FILLER_TIMEOUT_MS = 5000;
 // part of the same question, so the answer restarts with all of it
 const CONTINUE_MS = 2500;
 const SAVE_DELAY_MS = 600;
+
+// An answered question goes to the question bank once it has stayed answered this long (it may still be continuing)
+const RECORD_AFTER_MS = 8000;
 
 const SETUP_SIZE = { width: 440, height: 700 };
 const COMPACT_SIZE = { width: 380, height: 520 };
@@ -186,9 +190,38 @@ function App() {
     setTurns(prev => prev.map(t => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
+  // Questions asked in this run (not ones reopened from History) go to the question bank once answered
+  const liveTurnIdsRef = useRef(new Set<string>());
   const addTurn = useCallback((turn: Turn) => {
+    liveTurnIdsRef.current.add(turn.id);
     setTurns(prev => [...prev, turn]);
   }, []);
+
+  const doneAtRef = useRef(new Map<string, number>());
+  const recordedRef = useRef(new Set<string>());
+  useEffect(() => {
+    const check = () => {
+      const now = Date.now();
+      for (const turn of turnsRef.current) {
+        if (!liveTurnIdsRef.current.has(turn.id) || recordedRef.current.has(turn.id)) continue;
+        if (turn.status !== 'done' || !turn.answer) {
+          doneAtRef.current.delete(turn.id);
+          continue;
+        }
+        const doneAt = doneAtRef.current.get(turn.id) ?? now;
+        doneAtRef.current.set(turn.id, doneAt);
+        if (now - doneAt < RECORD_AFTER_MS) continue;
+        recordedRef.current.add(turn.id);
+        recordAnswered({
+          question: turn.question, answer: turn.answer, kind: turn.kind ?? classifyQuestion(turn.question),
+          source: turn.source === 'prepared' ? 'prepared' : 'ai', provider: turn.provider ?? '',
+        });
+      }
+    };
+    check();
+    const timer = setInterval(check, 2000);
+    return () => clearInterval(timer);
+  }, [turns]);
 
   const stopAnswer = useCallback((id: string) => {
     const running = inFlightRef.current.get(id);
