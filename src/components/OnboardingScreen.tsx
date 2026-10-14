@@ -1,148 +1,150 @@
 import React, { useState } from 'react';
-import { Brain, ExternalLink, ArrowRight, CheckCircle2, Globe } from 'lucide-react';
-import { SUPPORTED_LANGUAGES, getDefaultLanguage, getTranslations } from '../data/i18n';
+import { MessageSquareQuote, ArrowRight, ArrowLeft, Check, KeyRound, FileText, BookOpen } from 'lucide-react';
+import { hasAnyKey, loadSettings, saveSettings, type Settings } from '../services/storage';
+import { useKeyTests } from '../hooks/useKeyTests';
+import { ApiKeysForm } from './ApiKeysForm';
+import { ResumeInput } from './ResumeInput';
+import { AnswerBankEditor } from './AnswerBankEditor';
+import { Button, Label, TextArea, TextInput } from './ui';
 
 interface Props {
   onComplete: () => void;
 }
 
+const STEPS = [
+  { title: 'API keys', icon: KeyRound },
+  { title: 'Resume & job', icon: FileText },
+  { title: 'Answers', icon: BookOpen },
+];
+
 export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
-  const [apiKey, setApiKey] = useState('');
-  const [cvText, setCvText] = useState('');
-  const [jobText, setJobText] = useState('');
-  const [language, setLanguage] = useState(() => getDefaultLanguage());
+  const [step, setStep] = useState(0);
+  const [settings, setSettings] = useState<Settings>(() => loadSettings());
 
-  const ui = getTranslations(language);
+  const [checkingKey, setCheckingKey] = useState(false);
+  const keyTests = useKeyTests();
 
-  const handleSave = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('secondBrain_groq', apiKey.trim());
+  const patch = (changes: Partial<Settings>) => setSettings(prev => ({ ...prev, ...changes }));
+
+  // Verify the keys before moving past the first step; at least one must work
+  const next = async () => {
+    if (step === 0) {
+      setCheckingKey(true);
+      const ok = await keyTests.testAll(settings);
+      setCheckingKey(false);
+      if (!ok) return;
     }
-    if (cvText.trim()) {
-      localStorage.setItem('secondBrain_cv', cvText.trim());
-    }
-    if (jobText.trim()) {
-      localStorage.setItem('secondBrain_job', jobText.trim());
-    }
-    localStorage.setItem('secondBrain_language', language);
+    setStep(step + 1);
+  };
+
+  const keyReady = hasAnyKey(settings);
+  const isLast = step === STEPS.length - 1;
+
+  const finish = () => {
+    saveSettings(settings);
     onComplete();
   };
 
-  const isReady = apiKey.trim().length > 10;
-
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-900 overflow-y-auto select-none">
-      <div className="drag-area p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <Brain className="w-6 h-6 text-blue-500" />
-          <h1 className="text-sm font-bold text-slate-100">{ui.ob_title}</h1>
+    <div className="flex flex-col h-screen w-full select-none">
+      {/* Header (draggable) */}
+      <div className="drag-area flex items-center gap-2.5 px-4 py-3 border-b border-slate-800 bg-slate-900/80 shrink-0">
+        <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+          <MessageSquareQuote className="w-4 h-4 text-blue-400" />
+        </div>
+        <div>
+          <h1 className="text-sm font-semibold text-slate-100 leading-tight">Recallr</h1>
+          <p className="text-[11px] text-slate-500 leading-tight">Setup · step {step + 1} of {STEPS.length}</p>
         </div>
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full p-8 space-y-8">
-        <div className="text-center space-y-3">
-          <h2 className="text-2xl font-bold text-white">{ui.ob_welcome}</h2>
-          <p className="text-slate-400 text-sm">
-            {ui.ob_desc}
-          </p>
-        </div>
+      {/* Stepper */}
+      <div className="flex items-center gap-1.5 px-4 pt-3 shrink-0">
+        {STEPS.map((s, i) => (
+          <div key={s.title} className="flex-1">
+            <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-blue-500' : 'bg-slate-700'}`} />
+            <div className={`mt-1.5 flex items-center gap-1 text-[10px] ${i === step ? 'text-slate-200' : 'text-slate-500'}`}>
+              <s.icon className="w-3 h-3" /> {s.title}
+            </div>
+          </div>
+        ))}
+      </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold shrink-0">1</div>
-            <div className="flex-1 space-y-2">
-              <h3 className="font-semibold text-slate-200">{ui.ob_apiKeyTitle}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {ui.ob_apiKeyDesc1}
-                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1 ml-1">
-                  {ui.ob_apiKeyDesc2} <ExternalLink className="w-3 h-3" />
-                </a>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {step === 0 && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-50">Welcome</h2>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Recallr listens to the conversation and suggests answers based on your resume and the answers you prepared.
               </p>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={ui.ob_apiKeyPlaceholder}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            </div>
+            <ApiKeysForm
+              settings={settings}
+              onChange={patch}
+              results={keyTests.results}
+              onTest={keyTests.test}
+              onKeyEdited={keyTests.reset}
+            />
+            <p className="text-[11px] text-slate-500">Add at least one key. Groq or OpenAI is needed for listening (speech-to-text).</p>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <Label hint="Answers are built only from facts in your resume.">Your resume</Label>
+              <ResumeInput
+                cv={settings.cv}
+                fileName={settings.cvFileName}
+                onChange={(cv, cvFileName) => patch({ cv, cvFileName })}
+              />
+            </div>
+            <div>
+              <Label hint='Fills "[company name]" in your prepared answers.'>Company name</Label>
+              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder="e.g. Shopify" />
+            </div>
+            <div>
+              <Label>Job description</Label>
+              <TextArea
+                value={settings.job}
+                onChange={e => patch({ job: e.target.value })}
+                placeholder="Paste the job description here..."
+                className="h-28 text-xs"
               />
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">2</div>
-            <div className="flex-1 space-y-2">
-              <h3 className="font-semibold text-slate-200">{ui.ob_langTitle}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {ui.ob_langDesc}
-              </p>
-              <div className="relative mt-2">
-                <Globe className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors appearance-none"
-                >
-                  {SUPPORTED_LANGUAGES.map(lang => (
-                    <option key={lang.id} value={lang.id}>{lang.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        {step === 2 && (
+          <div className="space-y-3">
+            <Label hint="Add the answers you've prepared, like “Tell me about yourself”. Optional, you can do this later in Settings.">
+              Prepared answers
+            </Label>
+            <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} />
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold shrink-0">3</div>
-            <div className="flex-1 space-y-2">
-              <h3 className="font-semibold text-slate-200">{ui.ob_cvTitle}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {ui.ob_cvDesc}
-              </p>
-              
-              <div className="space-y-3 mt-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">{ui.ob_cvLabel}</label>
-                  <textarea
-                    value={cvText}
-                    onChange={(e) => setCvText(e.target.value)}
-                    placeholder={ui.ob_cvPlaceholder}
-                    className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none transition-colors"
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">{ui.ob_jobLabel}</label>
-                  <textarea
-                    value={jobText}
-                    onChange={(e) => setJobText(e.target.value)}
-                    placeholder={ui.ob_jobPlaceholder}
-                    className="w-full h-24 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-800 bg-slate-900/80 shrink-0">
+        {step > 0 ? (
+          <Button variant="ghost" icon={<ArrowLeft className="w-4 h-4" />} onClick={() => setStep(step - 1)}>Back</Button>
+        ) : <span />}
 
-        <div className="flex justify-center pt-4 pb-8">
-          <button
-            onClick={handleSave}
-            disabled={!isReady}
-            className={`flex items-center gap-2 px-8 py-3 rounded-lg font-bold text-sm transition-all ${
-              isReady 
-                ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 translate-y-0 hover:-translate-y-0.5' 
-                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            {isReady ? <CheckCircle2 className="w-5 h-5" /> : null}
-            {ui.ob_startButton}
-            {isReady ? <ArrowRight className="w-5 h-5" /> : null}
-          </button>
+        <div className="flex items-center gap-2">
+          {step === 1 && !settings.cv && (
+            <Button variant="ghost" onClick={() => setStep(step + 1)}>Skip</Button>
+          )}
+          {isLast ? (
+            <Button variant="primary" icon={<Check className="w-4 h-4" />} onClick={finish}>Finish setup</Button>
+          ) : (
+            <Button variant="primary" onClick={next} disabled={step === 0 && !keyReady} loading={checkingKey}>
+              {checkingKey ? 'Checking keys...' : 'Next'} {!checkingKey && <ArrowRight className="w-4 h-4" />}
+            </Button>
+          )}
         </div>
-
       </div>
     </div>
   );

@@ -18,4 +18,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
+  // Global keyboard shortcuts; returns a function that stops listening
+  onShortcut(listener: (action: string) => void) {
+    const handler = (_event: Electron.IpcRendererEvent, action: string) => listener(action)
+    ipcRenderer.on('shortcut', handler)
+    return () => { ipcRenderer.off('shortcut', handler) }
+  },
 })

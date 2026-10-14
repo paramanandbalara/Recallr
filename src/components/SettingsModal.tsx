@@ -1,131 +1,149 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Globe } from 'lucide-react';
-import { SUPPORTED_LANGUAGES, getDefaultLanguage, getTranslations } from '../data/i18n';
+import React, { useState } from 'react';
+import { X, Save } from 'lucide-react';
+import { createProfile, deleteProfile, loadActiveProfile, loadProfiles, loadSettings, renameProfile, saveSettings, setActiveProfile, type Settings } from '../services/storage';
+import { useKeyTests } from '../hooks/useKeyTests';
+import { ApiKeysForm } from './ApiKeysForm';
+import { ResumeInput } from './ResumeInput';
+import { AnswerBankEditor } from './AnswerBankEditor';
+import { ProfileBar } from './ProfileBar';
+import { Button, IconButton, Label, TextArea, TextInput } from './ui';
 
 interface Props {
-  isOpen: boolean;
   onClose: () => void;
+  onSaved: () => void;
 }
 
-export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [cvText, setCvText] = useState('');
-  const [jobText, setJobText] = useState('');
-  const [groqKey, setGroqKey] = useState('');
-  const [language, setLanguage] = useState('');
+type Tab = 'profile' | 'answers' | 'api';
 
-  const ui = getTranslations(language || getDefaultLanguage());
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'answers', label: 'Answers' },
+  { id: 'api', label: 'API keys' },
+];
 
-  useEffect(() => {
-    if (isOpen) {
-      // Load saved settings when modal opens
-      const savedCv = localStorage.getItem('secondBrain_cv') || '';
-      const savedJob = localStorage.getItem('secondBrain_job') || '';
-      const savedGroq = localStorage.getItem('secondBrain_groq') || import.meta.env.VITE_GROQ_API_KEY || '';
-      const savedLang = localStorage.getItem('secondBrain_language') || getDefaultLanguage();
-      setCvText(savedCv);
-      setJobText(savedJob);
-      setGroqKey(savedGroq);
-      setLanguage(savedLang);
-    }
-  }, [isOpen]);
+// Mounted only while open, so it always starts from the saved settings
+export const SettingsModal: React.FC<Props> = ({ onClose, onSaved }) => {
+  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [tab, setTab] = useState<Tab>('profile');
+  const keyTests = useKeyTests();
+  const [profiles, setProfiles] = useState(() => loadProfiles());
+  const [activeId, setActiveId] = useState(() => loadActiveProfile().id);
+
+  // Profile changes save the current edits first, so nothing typed is lost
+  const changeProfiles = (change: () => void) => {
+    saveSettings(settings);
+    change();
+    setProfiles(loadProfiles());
+    setActiveId(loadActiveProfile().id);
+    setSettings(loadSettings());
+    onSaved();
+  };
+
+  const removeProfile = () => {
+    const name = profiles.find(p => p.id === activeId)?.name;
+    if (!window.confirm(`Delete the profile "${name}" with its resume, job details and answers? This can't be undone.`)) return;
+    changeProfiles(() => deleteProfile(activeId));
+  };
+
+  const patch = (changes: Partial<Settings>) => setSettings(prev => ({ ...prev, ...changes }));
 
   const handleSave = () => {
-    localStorage.setItem('secondBrain_cv', cvText);
-    localStorage.setItem('secondBrain_job', jobText);
-    localStorage.setItem('secondBrain_groq', groqKey);
-    localStorage.setItem('secondBrain_language', language);
+    saveSettings(settings);
+    onSaved();
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 border border-slate-700 w-full h-full max-w-lg rounded-xl shadow-2xl flex flex-col overflow-hidden">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          <h2 className="text-sm font-bold text-slate-100">{ui.set_title}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded-md text-slate-400">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900">
+      {/* Header */}
+      <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+        <h2 className="text-sm font-semibold text-slate-100">Settings</h2>
+        <IconButton onClick={onClose} title="Close without saving">
+          <X className="w-4 h-4" />
+        </IconButton>
+      </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollable">
-          <div>
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              <Globe className="w-4 h-4" /> {ui.set_langTitle}
-            </label>
-            <p className="text-xs text-slate-500 mb-2">
-              {ui.set_langDesc}
-            </p>
-            <select 
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-blue-500 appearance-none"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              {SUPPORTED_LANGUAGES.map(lang => (
-                <option key={lang.id} value={lang.id}>{lang.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              {ui.set_cvTitle}
-            </label>
-            <p className="text-xs text-slate-500 mb-2">
-              {ui.set_cvDesc}
-            </p>
-            <textarea 
-              className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-blue-500 resize-none"
-              placeholder={ui.set_cvPlaceholder}
-              value={cvText}
-              onChange={(e) => setCvText(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              {ui.set_jobTitle}
-            </label>
-            <p className="text-xs text-slate-500 mb-2">{ui.set_jobDesc}</p>
-            <textarea 
-              className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-blue-500 resize-none"
-              placeholder={ui.set_jobPlaceholder}
-              value={jobText}
-              onChange={(e) => setJobText(e.target.value)}
-            />
-          </div>
-
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              {ui.set_apiTitle}
-            </label>
-            <p className="text-xs text-slate-500 mb-2">{ui.set_apiDesc}</p>
-            <input 
-              type="password"
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
-              placeholder={ui.set_apiPlaceholder}
-              value={groqKey}
-              onChange={(e) => setGroqKey(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end">
-          <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+      {/* Tabs */}
+      <div className="flex gap-1 px-3 pt-2 border-b border-slate-800 shrink-0">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+              tab === t.id ? 'border-blue-500 text-slate-100' : 'border-transparent text-slate-500 hover:text-slate-300'
+            }`}
           >
-            <Save className="w-4 h-4" />
-            {ui.set_saveButton}
+            {t.label}
+            {t.id === 'answers' && settings.answers.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-slate-700 px-1.5 py-px text-[10px] text-slate-300">{settings.answers.length}</span>
+            )}
           </button>
-        </div>
+        ))}
+      </div>
 
+      {tab !== 'api' && (
+        <ProfileBar
+          profiles={profiles}
+          activeId={activeId}
+          onSwitch={id => changeProfiles(() => setActiveProfile(id))}
+          onCreate={name => changeProfiles(() => createProfile(name, loadActiveProfile()))}
+          onRename={name => changeProfiles(() => renameProfile(activeId, name))}
+          onDelete={removeProfile}
+        />
+      )}
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {tab === 'profile' && (
+          <>
+            <div>
+              <Label hint="Answers are built only from facts in your resume.">Resume</Label>
+              <ResumeInput cv={settings.cv} fileName={settings.cvFileName} onChange={(cv, cvFileName) => patch({ cv, cvFileName })} />
+            </div>
+            <div>
+              <Label hint='Fills "[company name]" in your prepared answers.'>Company name</Label>
+              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder="e.g. Shopify" />
+            </div>
+            <div>
+              <Label hint="The job ad or the goal of the meeting.">Job description</Label>
+              <TextArea
+                value={settings.job}
+                onChange={e => patch({ job: e.target.value })}
+                placeholder="Job requirements, responsibilities, tech stack..."
+                className="h-32 text-xs"
+              />
+            </div>
+            <div>
+              <Label hint='Your research on the company, so answers like "Why us?" mention real details.'>Company notes</Label>
+              <TextArea
+                value={settings.companyNotes}
+                onChange={e => patch({ companyNotes: e.target.value })}
+                placeholder="Products, mission and values, recent news, team, tech stack..."
+                className="h-28 text-xs"
+              />
+            </div>
+          </>
+        )}
+
+        {tab === 'answers' && (
+          <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} />
+        )}
+
+        {tab === 'api' && (
+          <ApiKeysForm
+            settings={settings}
+            onChange={patch}
+            results={keyTests.results}
+            onTest={keyTests.test}
+            onKeyEdited={keyTests.reset}
+          />
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex justify-end gap-2 px-4 py-3 border-t border-slate-800 shrink-0">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" icon={<Save className="w-4 h-4" />} onClick={handleSave}>Save</Button>
       </div>
     </div>
   );

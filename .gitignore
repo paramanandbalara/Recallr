@@ -27,4 +27,5 @@ dist-ssr
 dist-installers
 dist-electron
 release
-build
+build/*
+!build/icon.png

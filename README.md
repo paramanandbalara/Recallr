@@ -1,14 +1,12 @@
 <div align="center">
-  <img src="public/icon.png" alt="Second Brain Logo" width="120" />
-  <h1>Second Brain 🧠</h1>
+  <img src="public/icon.png" alt="Recallr Logo" width="120" />
+  <h1>Recallr 💬</h1>
   <p><strong>Your Invisible AI Interview Assistant</strong></p>
-
-  [English](README.md) | [Português](README.pt.md) | [Español](README.es.md) | [Français](README.fr.md) | [Italiano](README.it.md)
 </div>
 
 <br/>
 
-**Second Brain** is a 100% free, invisible desktop assistant built to help professionals worldwide ace their job interviews. It runs quietly in the background, listening to the interview, and generates context-aware, first-person suggestions based on your own resume and the job description.
+**Recallr** is a 100% free, invisible desktop assistant built to help professionals worldwide ace their job interviews. It runs quietly in the background, listening to the interview, and generates context-aware, first-person suggestions based on your own resume and the job description.
 
 Powered by [Groq's](https://groq.com) lightning-fast Llama-3 inference and Whisper-large-v3, the entire process—from voice capture to intelligent suggestion—happens in milliseconds.
 
@@ -16,14 +14,17 @@ Powered by [Groq's](https://groq.com) lightning-fast Llama-3 inference and Whisp
 
 - **Real-Time Voice Transcription**: Uses Whisper-v3 via Groq API to transcribe the interviewer's speech with extremely high accuracy and speed.
 - **Context-Aware Suggestions**: Analyzes the ongoing conversation, your provided resume, and the job description to suggest the best possible answers.
-- **Multi-Language Support**: Fully localized interface and AI prompting for English, Brazilian Portuguese, European Portuguese, Spanish, French, and Italian.
+- **Resume Upload**: Upload your resume as PDF, TXT or Markdown (or paste it) and the text is extracted automatically.
+- **Prepared Answers**: Build a bank of your own answers ("Tell me about yourself", "Why are you leaving?", ...). Import them from a file, start from common questions, or draft them from your resume. When a matching question is asked, your answer appears instantly.
+- **Type a Question**: Ask any question by typing it, which is great for practice.
+- **Answer History**: Step back through previous answers, copy them, and adjust the text size.
 - **Invisible Mode**: Built with Electron, it can be minimized to stay out of the way while you focus on the video call.
 - **Privacy First**: Your resume, job description, and API keys are stored exclusively in your local machine's `localStorage`.
 
 ## 🚀 Quick Start (Download)
 
 1. **Download the Installer:**
-   Get the latest `Second Brain Setup .exe` from our [Releases](../../releases) page.
+   Get the latest `Recallr Setup .exe` from our [Releases](../../releases) page.
    
 2. **Get a Free Groq API Key:**
    Go to [console.groq.com](https://console.groq.com/keys) and generate a free API key. This is required for the ultra-fast AI engine.
@@ -31,9 +32,9 @@ Powered by [Groq's](https://groq.com) lightning-fast Llama-3 inference and Whisp
 3. **Install and Configure:**
    - Open the app.
    - Paste your API Key.
-   - Paste your Resume and the Job Description.
-   - Select your language.
-   - Click **Start Interview** and you're ready to go!
+   - Upload your resume (PDF) and paste the job description.
+   - Optionally add your prepared answers.
+   - Click **Finish setup** and press **Listen**.
 
 ## 🛠️ Development
 
@@ -46,8 +47,7 @@ If you want to build from source or contribute:
 ### Installation
 
 ```bash
-git clone https://github.com/2brain/second-brain.git
-cd second-brain
+cd recallr
 
 # Install dependencies
 npm install
@@ -64,12 +64,6 @@ npm run dist
 ```
 The installer will be generated inside the `dist-installers` folder.
 
-## 🤝 Support the Project
-
-Second Brain is open-source and free for the community. If this tool helped you land a job or nail an interview, consider buying us a coffee!
-
-<a href="https://www.buymeacoffee.com/2brain" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
-
 ## ❓ FAQ
 
 **1. Is it really 100% free?**
@@ -79,16 +73,16 @@ Yes! The application is open-source and entirely free. You only need to create a
 Your privacy is our absolute priority. We do not have a database. Your API key and your resume are saved strictly in your computer's `localStorage`. Nothing is sent to our servers.
 
 **3. What is the best way to fill in the "Resume" and "Job Description" fields?**
-Simply copy and paste the entire raw text of your resume (PDF or LinkedIn) and the job description. Don't worry about formatting; the Second Brain AI will automatically organize your data in its memory to provide highly accurate and contextualized answers.
+Simply copy and paste the entire raw text of your resume (PDF or LinkedIn) and the job description. Don't worry about formatting; Recallr will automatically organize your data in its memory to provide highly accurate and contextualized answers.
 
 **4. How can I test the system without being in a real interview?**
 You can test it right now! Just open the app, click "Listen", and play a YouTube video of a mock interview on your speakers, or simply pretend to be the recruiter and ask a question out loud.
 
 **5. What if the system is not capturing audio? (Headset Warning)**
-Second Brain listens to your system's default microphone. If you use noise-canceling headsets, your microphone might not capture the recruiter's voice coming from the headset speakers. **Always test the system before an interview.** If it's not capturing the recruiter's voice, change your computer's audio output to the speakers or adjust your system's audio routing settings.
+Recallr listens to your system's default microphone. If you use noise-canceling headsets, your microphone might not capture the recruiter's voice coming from the headset speakers. **Always test the system before an interview.** If it's not capturing the recruiter's voice, change your computer's audio output to the speakers or adjust your system's audio routing settings.
 
 **6. Can the recruiter see or hear the AI?**
-No. Second Brain runs as an independent window on your screen. It does not inject audio into your microphone feed and does not share your screen. It is completely invisible to the interviewer.
+No. Recallr runs as an independent window on your screen. It does not inject audio into your microphone feed and does not share your screen. It is completely invisible to the interviewer.
 
 **7. Why is the AI taking a few seconds to answer?**
 The AI waits for the interviewer to finish a complete thought before generating an answer. It listens in 7-second blocks to ensure it understands the full question before giving you the script.
