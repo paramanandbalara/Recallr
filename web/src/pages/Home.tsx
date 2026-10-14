@@ -1,31 +1,91 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Ear, EyeOff, FileText, Gauge, Languages, MonitorSmartphone, ScanText, Sparkles, Target } from 'lucide-react';
+import {
+  ArrowRight, BookOpen, Check, ChevronDown, Clock, CloudUpload, Ear, FileText, Gauge, History, Keyboard, Languages,
+  ListChecks, MessageSquareQuote, MonitorSmartphone, ScanText, ShieldCheck, SlidersHorizontal, Sparkles, Stethoscope, Target, Users,
+} from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
+import { AppShot, ProductDemo, Reveal, RotatingWord } from '../components/Showcase';
 import { useAuth } from '../auth';
 
+const QUESTION_KINDS = ['an interview question', 'a coding round', 'a system design question', 'an HR round', 'a follow-up question'];
+
+const WORKS_WITH = ['Zoom', 'Google Meet', 'Microsoft Teams', 'Webex', 'Skype', 'Slack huddles', 'Phone calls on your computer', 'Any app with sound'];
+
+const HIGHLIGHTS = [
+  { icon: Gauge, value: '≈ 1 s', label: 'to the first words of an answer' },
+  { icon: FileText, value: 'Your resume', label: 'is the only source of your experience' },
+  { icon: Languages, value: 'Many languages', label: 'including Hindi with Hinglish answers' },
+  { icon: MonitorSmartphone, value: 'Windows & macOS', label: 'one account, your computers' },
+];
+
+// Real screens of the app, each with what it shows
+const SHOWCASE = [
+  {
+    eyebrow: 'Answers that sound like you',
+    title: 'Built from your own story, not made up',
+    text: 'Recallr writes every answer from your resume, the job description and your notes. Asked about a time you fixed something? It answers with your project, your numbers and your result.',
+    points: ['Uses only facts you gave it', 'Prepared answers come first, word for word', 'One profile per job, each with its own resume'],
+    image: '/media/app-light.webp',
+    alt: 'Recallr in light mode answering “Tell me about a time you improved the performance of a system” with the candidate’s own project',
+    glow: 'emerald' as const,
+  },
+  {
+    eyebrow: 'Glance, don’t read',
+    title: 'Key points first, full answer below',
+    text: 'In the middle of a conversation you need cues, not paragraphs. Switch to key points and the latest answer opens with four short reminders, then the full text if you need it.',
+    points: ['Three or four cues per answer', 'Older answers fold into their key points', 'Likely follow-up questions, with hints'],
+    image: '/media/app-keypoints.webp',
+    alt: 'Recallr showing four key points above the full answer to a system design question',
+    glow: 'blue' as const,
+  },
+  {
+    eyebrow: 'Technical rounds',
+    title: 'Coding and system design, explained',
+    text: 'Each question is tagged as coding, system design, experience or concept, and answered the way that kind of question needs: an approach you can say out loud, complexity, and clean, highlighted code.',
+    points: ['Syntax-highlighted code with a copy button', 'Read the problem straight from your screen', 'Shorter, longer, simpler or more technical in one click'],
+    image: '/media/app-coding.webp',
+    alt: 'Recallr answering a coding question with an explanation and a highlighted Python function',
+    glow: 'violet' as const,
+  },
+  {
+    eyebrow: 'Fits your screen',
+    title: 'As big, small or see-through as you like',
+    text: 'Drag it anywhere, resize it from any edge and keep it on top of your call. Change the text size, zoom the whole app, and fade the background so you can see what’s behind it.',
+    points: ['Text size and app size', 'Background and text transparency', 'Dark or light, plus keyboard shortcuts'],
+    image: '/media/app-display.webp',
+    alt: 'Recallr’s display menu with text size, app size, opacity, theme and keyboard shortcuts',
+    glow: 'blue' as const,
+  },
+];
+
 const FEATURES = [
-  { icon: Ear, title: 'Listens to the call', text: 'Hears the interviewer through your computer’s audio (Zoom, Meet, Teams, any app) and spots each question.' },
-  { icon: Gauge, title: 'Answers in about a second', text: 'Answers start streaming almost instantly, so you never sit in silence while it thinks.' },
-  { icon: FileText, title: 'Built from your resume', text: 'Every answer uses only facts from your resume, the job description and your notes. No made-up experience.' },
-  { icon: BookOpen, title: 'Your prepared answers', text: 'Add the answers you practised. When the question comes, it shows yours, instantly.' },
-  { icon: ScanText, title: 'Reads your screen', text: 'Coding problem or question in the chat? One click reads it from your screen and answers it.' },
-  { icon: EyeOff, title: 'Stays out of the way', text: 'A small see-through window above your call. Adjust transparency, text size and key-points view.' },
-  { icon: Target, title: 'Mock interviews', text: 'Practise with questions for your role, then get scored feedback on every answer.' },
-  { icon: Languages, title: 'Many languages', text: 'English, Hindi (with Hinglish answers), and many more languages for the interview.' },
+  { icon: Ear, title: 'Listens to the call', text: 'Hears the interviewer through your computer’s audio and spots each question as it’s asked.' },
+  { icon: BookOpen, title: 'Your prepared answers', text: 'Add the answers you practised. When the question comes, yours appears instantly.' },
+  { icon: ListChecks, title: 'Likely follow-ups', text: 'See the next questions the interviewer is likely to ask, with a hint for each.' },
+  { icon: ScanText, title: 'Reads your screen', text: 'Coding problem or question in the chat? One click reads it and answers it.' },
+  { icon: Target, title: 'Mock interviews', text: 'Questions for your role, read out loud. Answer by voice and get a score for each.' },
+  { icon: Stethoscope, title: 'Pre-interview check', text: 'Tests your microphone, call audio, screen reading and speed before it matters.' },
+  { icon: History, title: 'History and review', text: 'Every interview is saved on your computer, with a review of weak spots and a thank-you email.' },
+  { icon: Users, title: 'A profile per job', text: 'Keep a separate resume, job description and notes for each company you interview with.' },
+  { icon: CloudUpload, title: 'Cloud backup', text: 'Back up your profiles, answers and history, and restore them on a new computer.' },
+  { icon: Keyboard, title: 'Shortcuts everywhere', text: 'Start listening, ask, regenerate or read the screen from any app with a shortcut.' },
+  { icon: SlidersHorizontal, title: 'Your way to read', text: 'Full text or key points, text size, app size, transparency, dark or light.' },
+  { icon: ShieldCheck, title: 'Private by default', text: 'Your resume, answers and conversations stay on your own computer.' },
 ];
 
 const STEPS = [
   { title: 'Create a free account', text: 'No card needed. Your free trial starts when you first sign in to the app.' },
   { title: 'Download the app', text: 'Install Recallr on Windows or macOS and sign in with the same account.' },
   { title: 'Add your resume and the job', text: 'Paste or upload them, and add any answers you’ve prepared.' },
-  { title: 'Start listening in your interview', text: 'Click the microphone. Answers appear as the questions are asked.' },
+  { title: 'Start listening', text: 'Click the microphone. Answers appear as the questions are asked.' },
 ];
 
 const FAQ = [
   { q: 'Is there a free trial?', a: 'Yes. Your free trial starts the first time you sign in to the app on your computer, so none of it is wasted before you install. One trial per person and per computer. No card needed.' },
   { q: 'What does “listening time” mean?', a: 'The time Recallr spends turning speech into text. It only counts while someone is speaking, not silence, so an hour-long interview usually uses less than an hour.' },
   { q: 'What are “AI answers”?', a: 'Each suggested answer, key-point summary or feedback uses AI. Plans include plenty for their listening time; the number shown is a typical estimate.' },
+  { q: 'Which call apps does it work with?', a: 'Any app that plays sound on your computer: Zoom, Google Meet, Microsoft Teams, Webex, Skype and others. Recallr listens to your computer’s audio, so there’s nothing to install in the call app.' },
   { q: 'Can I pay by UPI or bank transfer?', a: 'Yes. Pay online by card, UPI or netbanking with Razorpay, or pay us directly and enter the reference. Offline payments unlock once we confirm them, usually within a few hours.' },
   { q: 'What happens when my plan runs out?', a: 'The app asks you to buy a plan or top-up. Your resume, answers and history stay on your computer; nothing is lost.' },
   { q: 'Where is my data kept?', a: 'Your resume, answers and conversations stay on your own computer. Only the audio and text needed for each answer are sent for processing; Recallr doesn’t store them.' },
@@ -33,69 +93,159 @@ const FAQ = [
 
 export const Home: React.FC = () => {
   const { user } = useAuth();
+  const startLink = user ? '/download' : '/register';
+  const startLabel = user ? 'Download the app' : 'Start your free trial';
   return (
     <>
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.18),transparent_60%)]" />
-        <div className="relative mx-auto max-w-4xl px-4 pb-16 pt-20 text-center sm:pt-28">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Free trial included with every account
-          </span>
-          <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-6xl">
-            Never get stuck on an <span className="text-blue-400">interview question</span> again
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-            Recallr listens to your interview and quietly suggests answers built from your own resume and the answers you prepared, in about a second.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link to={user ? '/download' : '/register'} className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-500">
-              {user ? 'Download the app' : 'Start your free trial'}
-            </Link>
-            <Link to="/guide" className="rounded-xl border border-slate-700 px-6 py-3 font-medium text-slate-200 hover:bg-slate-800">See how it works</Link>
+        <div className="hero-grid pointer-events-none absolute inset-0" aria-hidden />
+        <div className="blob pointer-events-none -left-32 -top-24 h-96 w-96 bg-blue-600" aria-hidden />
+        <div className="blob blob-2 pointer-events-none right-0 top-40 h-80 w-80 bg-violet-600" aria-hidden />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-24 pt-16 sm:pt-24 lg:grid-cols-[1.05fr_1fr]">
+          <div className="text-center lg:text-left">
+            <Reveal>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
+                <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Free trial included with every account
+              </span>
+            </Reveal>
+            <Reveal delay={80}>
+              <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-6xl">
+                Never get stuck on<br className="hidden sm:block" />{' '}
+                <RotatingWord words={QUESTION_KINDS} className="gradient-text" /> again
+              </h1>
+            </Reveal>
+            <Reveal delay={160}>
+              <p className="mx-auto mt-5 max-w-xl text-lg text-slate-400 lg:mx-0">
+                Recallr listens to your interview and quietly suggests answers built from your own resume and the answers you
+                prepared, in about a second.
+              </p>
+            </Reveal>
+            <Reveal delay={240}>
+              <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
+                <Link to={startLink} className="group inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white shadow-lg shadow-blue-600/25 hover:bg-blue-500">
+                  {startLabel} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <a href="#see-it" className="rounded-xl border border-slate-700 px-6 py-3 font-medium text-slate-200 hover:bg-slate-800">See it in action</a>
+              </div>
+              <ul className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-slate-400 lg:justify-start">
+                {['No card needed', 'Windows and macOS', 'Set up in five minutes'].map(item => (
+                  <li key={item} className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-400" /> {item}</li>
+                ))}
+              </ul>
+            </Reveal>
           </div>
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-            <MonitorSmartphone className="h-3.5 w-3.5" /> Windows and macOS
-          </p>
+          <Reveal delay={200}>
+            <ProductDemo />
+          </Reveal>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center text-3xl font-bold text-white">Everything you need in the interview</h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(({ icon: Icon, title, text }) => (
-            <div key={title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+      {/* Works with */}
+      <section className="border-y border-slate-800/80 bg-slate-900/30 py-5" aria-label="Works with">
+        <div className="relative mx-auto max-w-6xl overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+          <div className="marquee-track gap-10 pr-10">
+            {[...WORKS_WITH, ...WORKS_WITH].map((name, i) => (
+              <span key={i} aria-hidden={i >= WORKS_WITH.length} className="flex shrink-0 items-center gap-2 text-sm font-medium text-slate-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-400/70" /> {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Highlights */}
+      <section className="mx-auto max-w-6xl px-4 pt-16">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {HIGHLIGHTS.map(({ icon: Icon, value, label }, i) => (
+            <Reveal key={value} delay={i * 80} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
               <Icon className="h-5 w-5 text-blue-400" />
+              <div className="mt-3 text-2xl font-bold text-white">{value}</div>
+              <div className="mt-1 text-sm text-slate-400">{label}</div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* See it: real screens */}
+      <section id="see-it" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="text-sm font-semibold uppercase tracking-wider text-blue-400">See it in action</span>
+          <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">A quiet helper beside your call</h2>
+          <p className="mt-3 text-slate-400">These are real screens from the app. The interview is an example.</p>
+        </Reveal>
+
+        <div className="mt-16 space-y-24">
+          {SHOWCASE.map((item, i) => (
+            <div key={item.title} className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
+              <Reveal className={i % 2 ? 'md:order-2' : ''}>
+                <AppShot src={item.image} alt={item.alt} glow={item.glow} className="mx-auto w-full max-w-[340px]" />
+              </Reveal>
+              <Reveal delay={120}>
+                <span className="text-sm font-semibold text-blue-400">{item.eyebrow}</span>
+                <h3 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{item.title}</h3>
+                <p className="mt-3 leading-relaxed text-slate-400">{item.text}</p>
+                <ul className="mt-5 space-y-2.5">
+                  {item.points.map(point => (
+                    <li key={point} className="flex gap-2.5 text-sm text-slate-300">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /> {point}
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Everything else */}
+      <section id="features" className="mx-auto max-w-6xl px-4 py-16">
+        <Reveal className="text-center">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">Everything you need, before, during and after</h2>
+          <p className="mt-3 text-slate-400">Prepare with mock interviews, get help in the interview, and review it afterwards.</p>
+        </Reveal>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.map(({ icon: Icon, title, text }, i) => (
+            <Reveal key={title} delay={(i % 4) * 70} className="card-lift rounded-2xl border border-slate-800 bg-slate-900/60 p-5 hover:border-slate-700 hover:bg-slate-900">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+                <Icon className="h-5 w-5 text-blue-400" />
+              </div>
               <h3 className="mt-3 font-semibold text-slate-100">{title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{text}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* How it works */}
       <section className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center text-3xl font-bold text-white">Ready in five minutes</h2>
-        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal className="text-center">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">Ready in five minutes</h2>
+        </Reveal>
+        <ol className="relative mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="step-line pointer-events-none absolute left-[12%] right-[12%] top-5 hidden h-px bg-gradient-to-r from-blue-500/0 via-blue-500/60 to-blue-500/0 lg:block" aria-hidden />
           {STEPS.map((step, i) => (
-            <li key={step.title} className="rounded-2xl border border-slate-800 p-5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/20 text-sm font-semibold text-blue-300">{i + 1}</span>
-              <h3 className="mt-3 font-semibold text-slate-100">{step.title}</h3>
-              <p className="mt-1.5 text-sm text-slate-400">{step.text}</p>
-            </li>
+            <Reveal as="li" key={step.title} delay={i * 120} className="relative text-center">
+              <span className="relative mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-blue-500/40 bg-slate-950 text-sm font-semibold text-blue-300">
+                {i + 1}
+              </span>
+              <h3 className="mt-4 font-semibold text-slate-100">{step.title}</h3>
+              <p className="mx-auto mt-1.5 max-w-[16rem] text-sm text-slate-400">{step.text}</p>
+            </Reveal>
           ))}
         </ol>
-        <p className="mt-6 text-center text-sm text-slate-400">
+        <p className="mt-8 text-center text-sm text-slate-400">
           Step-by-step instructions are in the <Link to="/guide" className="text-blue-400 hover:text-blue-300">guide</Link>.
         </p>
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-center text-3xl font-bold text-white">Simple prices, no subscription</h2>
-        <p className="mt-2 text-center text-slate-400">Buy a pack when you need it. Top up any time.</p>
-        <div className="mt-10">
+      <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16">
+        <Reveal className="text-center">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">Simple prices, no subscription</h2>
+          <p className="mt-2 text-slate-400">Buy a pack when you need it. Top up any time.</p>
+        </Reveal>
+        <Reveal delay={100} className="mt-10">
           <PlanCards
             action={plan => (
               <Link to={user ? `/account/buy?plan=${plan.id}` : `/register?next=${encodeURIComponent(`/account/buy?plan=${plan.id}`)}`}
@@ -104,20 +254,50 @@ export const Home: React.FC = () => {
               </Link>
             )}
           />
-        </div>
+        </Reveal>
       </section>
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-4 py-16">
-        <h2 className="text-center text-3xl font-bold text-white">Questions</h2>
+        <Reveal className="text-center">
+          <h2 className="text-3xl font-bold text-white sm:text-4xl">Questions</h2>
+        </Reveal>
         <div className="mt-8 space-y-3">
-          {FAQ.map(item => (
-            <details key={item.q} className="group rounded-xl border border-slate-800 bg-slate-900/60 px-5 py-4">
-              <summary className="cursor-pointer list-none font-medium text-slate-100">{item.q}</summary>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{item.a}</p>
-            </details>
+          {FAQ.map((item, i) => (
+            <Reveal key={item.q} delay={i * 40}>
+              <details className="group rounded-xl border border-slate-800 bg-slate-900/60 px-5 py-4 open:border-slate-700">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-slate-100">
+                  {item.q}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 transition-transform duration-300 group-open:rotate-180" />
+                </summary>
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">{item.a}</p>
+              </details>
+            </Reveal>
           ))}
         </div>
+      </section>
+
+      {/* Last call to action */}
+      <section className="px-4 pb-20 pt-8">
+        <Reveal className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-blue-500/30 bg-gradient-to-br from-blue-600/25 via-slate-900 to-violet-600/20 px-6 py-14 text-center">
+          <div className="blob pointer-events-none -right-20 -top-20 h-72 w-72 bg-blue-500" aria-hidden />
+          <div className="relative">
+            <MessageSquareQuote className="mx-auto h-8 w-8 text-blue-300" />
+            <h2 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Walk into your next interview prepared</h2>
+            <p className="mx-auto mt-3 max-w-xl text-slate-300">
+              Practise with mock interviews today, and have Recallr beside you when it counts.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Link to={startLink} className="group inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-medium text-slate-900 hover:bg-slate-100">
+                {startLabel} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link to="/pricing" className="rounded-xl border border-white/20 px-6 py-3 font-medium text-white hover:bg-white/10">See prices</Link>
+            </div>
+            <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+              <Clock className="h-3.5 w-3.5" /> Your free trial starts when you first sign in to the app
+            </p>
+          </div>
+        </Reveal>
       </section>
     </>
   );

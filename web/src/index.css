@@ -10,3 +10,87 @@ body {
   color: var(--color-slate-100);
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 }
+
+/* ---------- Landing page motion (all of it off for people who reduce motion) ---------- */
+
+.reveal { opacity: 1; }
+.app-glow {
+  position: absolute;
+  inset: 8% -6%;
+  border-radius: 9999px;
+  filter: blur(48px);
+  opacity: 0.55;
+}
+.app-glow-blue { background: radial-gradient(circle, rgba(59, 130, 246, 0.55), transparent 70%); }
+.app-glow-violet { background: radial-gradient(circle, rgba(139, 92, 246, 0.5), transparent 70%); }
+.app-glow-emerald { background: radial-gradient(circle, rgba(16, 185, 129, 0.45), transparent 70%); }
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.eq-bar {
+  display: block;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgb(165, 180, 252);
+}
+
+.rotating-word { display: inline-block; }
+.rotating-word-in { display: inline-block; }
+
+.marquee-track { display: flex; width: max-content; }
+
+.gradient-text {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa, #34d399, #60a5fa);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reveal-in { opacity: 1; transform: none; }
+
+  .float-slow { animation: float 7s ease-in-out infinite; }
+  .blob { animation: drift 18s ease-in-out infinite alternate; }
+  .blob-2 { animation-duration: 24s; animation-delay: -6s; }
+  .gradient-text { animation: gradient-pan 8s linear infinite; }
+  .rotating-word-in { animation: word-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .marquee-track { animation: marquee 32s linear infinite; }
+  .speaking { box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.6); animation: speaking 2.4s ease-in-out infinite; }
+  .eq-bar { animation: eq 0.9s ease-in-out infinite; }
+  .eq-bar:nth-child(2) { animation-delay: -0.3s; }
+  .eq-bar:nth-child(3) { animation-delay: -0.6s; }
+  .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+  .card-lift { transition: transform 0.25s ease, border-color 0.25s ease, background-color 0.25s ease; }
+  .card-lift:hover { transform: translateY(-4px); }
+  .step-line { transform-origin: left; animation: grow 1.4s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+}
+
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(60px, 40px) scale(1.15); } }
+@keyframes gradient-pan { to { background-position: 300% 0; } }
+@keyframes word-in { from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@keyframes speaking { 0%, 100% { box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.25); } 50% { box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.75); } }
+@keyframes eq { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }

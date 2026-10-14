@@ -9,6 +9,13 @@ job description and prepared answers. Users create an account on the website, ge
 (Razorpay or offline UPI/bank), and sign in to the desktop app. The AI keys stay on the server, which counts every
 user's listening time and AI tokens against their plan.
 
+<p align="center">
+  <img src="docs/media/demo-listen.gif" alt="Recallr hears the interviewer's question and streams an answer built from the resume" width="360" />
+</p>
+
+The website's product clips and screenshots (`web/public/media`) are the real desktop app with a scripted example
+interview; the GIF above is the same clip.
+
 ## Repository layout
 
 ```text
