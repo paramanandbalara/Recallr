@@ -65,7 +65,7 @@ function App() {
   useTypingFocus();
 
   const [settings, setSettings] = useState(() => loadSettings());
-  const [profileName, setProfileName] = useState(() => loadActiveProfile().name);
+  const [setProfileName] = useState(() => loadActiveProfile().name);
   const reloadSettings = () => {
     setSettings(loadSettings());
     setProfileName(loadActiveProfile().name);
@@ -280,7 +280,7 @@ function App() {
     }
   }, [addTurn, patchTurn, answerFromPrepared]);
 
-  const { isRecording, startRecording, stopRecording, errorMsg, debugLog, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
+  const { isRecording, startRecording, stopRecording, errorMsg, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
 
   useEffect(() => {
     if (!isRecording) return;
