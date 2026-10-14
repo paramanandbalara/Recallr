@@ -416,6 +416,61 @@ ${buildContext({ ...settings, answers: [] })}`,
   return parseGeneratedAnswers(response);
 };
 
+// ---------- Mock interview ----------
+
+// Questions a real interviewer for this job would ask, in a natural order
+export const mockInterviewQuestions = async (settings: Settings, count: number): Promise<string[]> => {
+  const response = await completeChat(settings, {
+    tier: 'quality',
+    json: true,
+    system: `You are the interviewer for the job below. Write the ${count} questions you'd ask this candidate in a real interview, in order:
+start with an easy warm-up, then mostly questions about the job's key skills and the candidate's own experience, with one behavioural question.
+Phrase them the way an interviewer speaks out loud: short, natural, one question each. Return JSON: {"questions":["..."]}
+${buildContext({ ...settings, answers: [] })}`,
+    user: 'Write the interview questions.',
+    temperature: 0.8,
+    maxTokens: 4000,
+  });
+  const parsed = JSON.parse(response || '{}');
+  return (Array.isArray(parsed.questions) ? parsed.questions : []).map(asText).filter(Boolean).slice(0, count);
+};
+
+export interface MockFeedback {
+  score: number;  // 1..10
+  good: string;   // What worked
+  improve: string; // The one or two things that would make it better
+  better: string; // A stronger version of the candidate's answer, in their voice
+}
+
+// Honest feedback on a spoken answer, like a coach after a practice round
+export const scoreMockAnswer = async (question: string, answer: string, settings: Settings): Promise<MockFeedback> => {
+  const response = await completeChat(settings, {
+    tier: 'quality',
+    json: true,
+    system: `You coach a candidate after a practice interview question. They answered out loud; you get the speech-to-text of it
+(so ignore small transcription errors and filler words). Be honest and specific, like a good human coach, not generous by default.
+Return JSON: {"score":7,"good":"...","improve":"...","better":"..."}
+- "score": 1 to 10 for how well it would land in a real interview (relevance, a concrete example or evidence, clarity, length).
+- "good": one or two sentences on what worked. "improve": the one or two changes that would help most.
+- "better": a stronger version of THEIR answer, keeping their story and facts, using only the resume otherwise.
+  Write it as natural speech, the way they'd actually say it: plain words, contractions, not polished. 60–150 words.
+Write everything in plain, simple words.
+${NO_AI_STYLE}
+${buildContext({ ...settings, answers: [] })}`,
+    user: `Question: ${question}\n\nWhat the candidate said: ${answer || '(nothing)'}`,
+    temperature: 0.3,
+    maxTokens: 4000,
+  });
+  const parsed = JSON.parse(response || '{}');
+  const score = Math.round(Number(parsed.score));
+  return {
+    score: Number.isFinite(score) ? Math.min(10, Math.max(1, score)) : 5,
+    good: asText(parsed.good),
+    improve: asText(parsed.improve),
+    better: cleanAnswer(asText(parsed.better)),
+  };
+};
+
 // Fallback when the AI can't split a document: first line is the question, the rest is the answer
 const fallbackSplit = (text: string): PreparedAnswer[] => {
   const [first, ...rest] = text.trim().split('\n');

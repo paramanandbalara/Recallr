@@ -102,9 +102,10 @@ interface Props {
   keyPointsView: boolean;
   onAdjust: (turnId: string, mode: AdjustMode) => void;
   onCheck: () => void; // Open the pre-interview check
+  onMock: () => void;  // Open the mock interview
 }
 
-export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust, onCheck }) => {
+export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust, onCheck, onMock }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -144,9 +145,10 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
               {isRecording ? 'Listening... answers will appear here.' : 'Press the mic to start listening.'}
             </p>
             {!isRecording && (
-              <button onClick={onCheck} className="mt-1 text-[11px] font-medium text-blue-400 hover:text-blue-300">
-                Run the pre-interview check
-              </button>
+              <div className="mt-1 flex gap-3 text-[11px] font-medium">
+                <button onClick={onCheck} className="text-blue-400 hover:text-blue-300">Pre-interview check</button>
+                <button onClick={onMock} className="text-blue-400 hover:text-blue-300">Mock interview</button>
+              </div>
             )}
           </div>
         )}

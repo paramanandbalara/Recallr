@@ -66,7 +66,8 @@ const isEcho = (micText: string, recentCall: { text: string; at: number }[]) => 
 // ---------- One audio stream: detect speech, cut it into chunks, transcribe each chunk ----------
 
 interface Pipeline {
-  stop: () => void;
+  // With `flush`, the speech still being recorded is transcribed first (the promise waits for it)
+  stop: (flush?: boolean) => Promise<void>;
 }
 
 interface PipelineOptions {
@@ -81,7 +82,9 @@ interface PipelineOptions {
 
 const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSound }: PipelineOptions): Pipeline => {
   let running = true;
-  let transcribing = false;
+  let flushing = false;
+  let finishFlush: (() => void) | null = null;
+  let queue = Promise.resolve(); // Chunks are transcribed in order, none dropped
   let digitalSilenceMs = 0;
   let recorder: MediaRecorder | null = null;
 
@@ -95,21 +98,18 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
   const voiceThreshold = isSystem ? 0.004 : 0.012;
 
   const transcribe = async (blob: Blob) => {
-    transcribing = true;
     onLog('Transcribing...');
     try {
       const text = await transcribeAudio(blob, keys);
       if (text && text.length > 2 && !isHallucination(text)) {
         onLog(`Heard: ${text.substring(0, 30)}...`);
-        if (running) onText(text);
+        if (running || flushing) onText(text);
       } else {
         onLog(isHallucination(text) ? 'Hallucination blocked.' : 'Audio contained no speech.');
       }
     } catch (err) {
       // Don't stop recording on an isolated network error, just log it
       onLog(err instanceof Error ? err.message : 'Transcription failed.');
-    } finally {
-      transcribing = false;
     }
   };
 
@@ -170,13 +170,13 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
     mediaRecorder.onstop = () => {
       clearInterval(checkVolume);
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      if (blob.size === 0 || !running) return;
       // Don't send silence to speech-to-text (prevents hallucinations at the source)
-      if (!hasVoice) {
+      if (blob.size > 0 && (running || flushing) && hasVoice) {
+        queue = queue.then(() => transcribe(blob));
+      } else if (running && !hasVoice) {
         onLog('Waiting for speech...');
-        return;
       }
-      if (!transcribing) transcribe(blob);
+      if (finishFlush && recorder === mediaRecorder) queue.then(finishFlush);
     };
 
     mediaRecorder.start();
@@ -185,11 +185,25 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
   recordChunk();
 
   return {
-    stop: () => {
+    stop: (flush = false) => new Promise<void>(resolve => {
       running = false;
-      if (recorder && recorder.state !== 'inactive') recorder.stop();
       audioContext.close();
-    },
+      if (recorder && recorder.state !== 'inactive') {
+        if (flush) {
+          flushing = true;
+          finishFlush = () => {
+            flushing = false;
+            resolve();
+          };
+        }
+        recorder.stop();
+        if (!flush) resolve();
+      } else if (flush) {
+        queue.then(() => resolve());
+      } else {
+        resolve();
+      }
+    }),
   };
 };
 
@@ -224,16 +238,18 @@ export const useAudioCapture = (onTranscript: (text: string, speaker: Speaker) =
     };
   }, []);
 
-  const stopRecording = useCallback(() => {
+  // With `flush`, waits until the last words said before stopping are transcribed and delivered
+  const stopRecording = useCallback(async (flush = false) => {
     isRecordingRef.current = false;
-    pipelinesRef.current.forEach(pipeline => pipeline.stop());
+    const stopping = pipelinesRef.current.map(pipeline => pipeline.stop(flush));
     pipelinesRef.current = [];
     capturesRef.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
     capturesRef.current = [];
     recentCallRef.current = [];
-    setDebugLog('Stopped');
     setAudioLevel(0);
     setIsRecording(false);
+    await Promise.all(stopping);
+    setDebugLog('Stopped');
   }, []);
 
   const startRecording = useCallback(async () => {

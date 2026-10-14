@@ -14,6 +14,7 @@ import { DisplayMenu } from './components/DisplayMenu';
 import { HistoryPanel } from './components/HistoryPanel';
 import { ReviewPanel } from './components/ReviewPanel';
 import { SetupCheck } from './components/SetupCheck';
+import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
 
 // Answer once no new speech has arrived for this long (speech chunks already end on a ~0.8s pause)
@@ -87,6 +88,7 @@ function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null); // Conversation whose review is open
   const [isCheckOpen, setIsCheckOpen] = useState(false);
+  const [isMockOpen, setIsMockOpen] = useState(false);
   const askInputRef = useRef<HTMLInputElement>(null);
   const closeDisplay = useCallback(() => setIsDisplayOpen(false), []);
 
@@ -400,7 +402,10 @@ function App() {
   useEffect(() => {
     shortcutRef.current = action => {
       if (!hasApiKey) return;
-      if (action === 'toggle-listening') toggleRecording();
+      if (action === 'toggle-listening') {
+        // The mock interview and the check use the mic themselves
+        if (!isMockOpen && !isCheckOpen) toggleRecording();
+      }
       else if (action === 'focus-ask') askInputRef.current?.focus();
       else if (action === 'new-conversation') startNew();
       else if (action === 'read-screen') readScreen();
@@ -503,10 +508,11 @@ function App() {
           onChange={setDisplay}
           onClose={closeDisplay}
           onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
+          onMock={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsMockOpen(true); }}
         />
       )}
 
-      <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} />
+      <ConversationFeed turns={turns} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
 
       {/* Ask a question by typing */}
       <form
@@ -564,6 +570,8 @@ function App() {
       {reviewId && <ReviewPanel sessionId={reviewId} onClose={() => setReviewId(null)} />}
 
       {isCheckOpen && <SetupCheck onClose={() => setIsCheckOpen(false)} />}
+
+      {isMockOpen && <MockInterview onClose={() => setIsMockOpen(false)} />}
 
       {isSettingsOpen && (
         <SettingsModal onClose={() => setIsSettingsOpen(false)} onSaved={reloadSettings} />

@@ -7,6 +7,7 @@ interface Props {
   onChange: (display: Display) => void;
   onClose: () => void;
   onCheck?: () => void; // Open the pre-interview check (not while listening)
+  onMock?: () => void;  // Open the mock interview (not while listening)
 }
 
 const isMac = /Mac/i.test(navigator.platform);
@@ -69,7 +70,7 @@ const PercentSlider: React.FC<{ label: string; min: number; value: number; onCha
 const stepButton = 'p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-30';
 
 // Display options and shortcuts; changes apply right away
-export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck }) => {
+export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock }) => {
   const ref = useRef<HTMLDivElement>(null);
   const patch = (changes: Partial<Display>) => onChange({ ...display, ...changes });
 
@@ -134,14 +135,24 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
         />
       </Row>
 
-      <button
-        onClick={onCheck}
-        disabled={!onCheck}
-        title={onCheck ? 'Test keys, speed, microphone, call audio and screen reading' : 'Stop listening first'}
-        className="w-full rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
-      >
-        Run pre-interview check
-      </button>
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          onClick={onCheck}
+          disabled={!onCheck}
+          title={onCheck ? 'Test keys, speed, microphone, call audio and screen reading' : 'Stop listening first'}
+          className="rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
+        >
+          Pre-interview check
+        </button>
+        <button
+          onClick={onMock}
+          disabled={!onMock}
+          title={onMock ? 'Practise: questions read out loud, answer by voice, get a score' : 'Stop listening first'}
+          className="rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
+        >
+          Mock interview
+        </button>
+      </div>
 
       <div className="border-t border-slate-800 pt-2.5">
         <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Shortcuts (work in any app)</div>
