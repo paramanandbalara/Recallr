@@ -1,5 +1,6 @@
 import { cleanAnswer } from './cleanAnswer';
 import type { QuestionKind } from './questionDetect';
+import { relevantNotes } from './knowledge';
 import { completeChat, streamChat, type ProviderId } from './llm';
 import { fillPlaceholders, loadEnglishStyle, newId, type PreparedAnswer, type Settings } from './storage';
 
@@ -101,7 +102,7 @@ WHAT TO SAY
 - Length: real people say less than you think. Most answers are 3 to 6 sentences. A quick question gets one or two.
   Only go longer when they ask for detail, a story, or a design. Never pad.
 - Stay consistent with what you already said earlier in this interview (see the conversation). Don't repeat a story you already told unless asked.
-- Use ONLY employers, projects, numbers and skills found in the context below. Never invent any.
+- Use ONLY employers, projects, numbers and skills found in the context below or in your own notes. Never invent any.
 - If a prepared answer fits, keep its facts and story but say it fresh, in your own spoken words. Never copy its sentences.
 - Follow-ups are about the previous question and your previous answer. Short ones like "Example?", "Why?", "Tell me more", "Code?",
   "And in Java?" or "What about scaling?" mean: continue that same topic. Answer them in that context, building on what you just said,
@@ -147,6 +148,9 @@ Resume/Experience: ${settings.cv.slice(0, MAX_CV_CHARS) || 'Not provided'}
 Target company: ${settings.company || 'Not provided'}
 Company research (use real details from here when asked about the company, e.g. "Why us?"): ${settings.companyNotes.slice(0, MAX_NOTES_CHARS) || 'Not provided'}
 Job description: ${settings.job.slice(0, MAX_JOB_CHARS) || 'Not provided'}
+Interviewer: ${settings.interviewer.slice(0, MAX_NOTES_CHARS) || 'Not provided'}${settings.interviewer.trim()
+  ? '\n(Fit the depth to who is asking: a recruiter or non-technical manager wants plain words and impact, an engineer wants a bit more technical detail.)'
+  : ''}
 
 [PREPARED ANSWERS]
 ${formatBank(settings.answers, settings.company)}
@@ -219,6 +223,8 @@ export const streamInterviewAnswer = async (
   if (!question?.trim()) return '';
 
   const earlier = formatHistory(history);
+  const notes = relevantNotes(settings.knowledge, `${history[history.length - 1]?.question ?? ''} ${question}`);
+  const notesHint = notes ? `Your own notes that may help (use them only if they fit the question):\n${notes}\n\n` : '';
   const preparedHint = prepared
     ? `\n\nYou prepared this answer for this question. Keep its facts and story, but say it fresh, in your own spoken words:\n<<<${fillPlaceholders(prepared.answer, settings.company)}>>>`
     : '';
@@ -229,7 +235,7 @@ export const streamInterviewAnswer = async (
   const text = await streamChat(settings, {
     tier: 'fast',
     system: SYSTEM_PROMPT_BASE + buildContext(settings),
-    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${KIND_SHAPES[kind] ? `${KIND_SHAPES[kind]}\n` : ''}${ANSWER_REMINDER}${englishNote()}${languageNote(settings)}\n\nWhat you say:`,
+    user: `${notesHint}${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${KIND_SHAPES[kind] ? `${KIND_SHAPES[kind]}\n` : ''}${ANSWER_REMINDER}${englishNote()}${languageNote(settings)}\n\nWhat you say:`,
     temperature: 0.85, // A little more variety, like real speech
     maxTokens: 2000, // Room for long answers (includes the model's brief reasoning)
     signal,
@@ -364,8 +370,8 @@ The question can be a coding or SQL problem, a question typed in the meeting cha
 export const draftPreparedAnswer = async (question: string, settings: Settings): Promise<string> => {
   const text = await completeChat(settings, {
     tier: 'quality',
-    system: `You help a candidate prepare for a job interview. Write their answer to the question in the first person, in natural spoken English, 60–120 words, using ONLY facts from their resume. Never invent employers, numbers or projects. Plain text, no markdown. Return only the answer text.\n${NO_AI_STYLE}${englishNote()}\n${buildContext({ ...settings, answers: [] })}`,
-    user: question,
+    system: `You help a candidate prepare for a job interview. Write their answer to the question in the first person, in natural spoken English, 60–120 words, using ONLY facts from their resume and their own notes. Never invent employers, numbers or projects. Plain text, no markdown. Return only the answer text.\n${NO_AI_STYLE}${englishNote()}\n${buildContext({ ...settings, answers: [] })}`,
+    user: `${question}${(n => (n ? `\n\nMy own notes that may help:\n${n}` : ''))(relevantNotes(settings.knowledge, question))}`,
     temperature: 0.5,
     maxTokens: 1200,
   });
@@ -375,7 +381,7 @@ export const draftPreparedAnswer = async (question: string, settings: Settings):
 // ---------- Generated prepared answers ----------
 
 const spokenAnswerRules = () => `Each "answer" is what the candidate would say out loud: first person, natural spoken English, plain words, contractions,
-not polished or textbook-like, 60–150 words. Use ONLY facts from the resume: never invent employers, projects, numbers or skills.
+not polished or textbook-like, 60–150 words. Use ONLY facts from the resume and the candidate's own notes: never invent employers, projects, numbers or skills.
 Plain text, no markdown, no lists.
 ${NO_AI_STYLE}${englishNote()}`;
 
@@ -403,7 +409,7 @@ Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
 - "notes": one short tip, e.g. which project to mention or what the interviewer is really checking.
 ${spokenAnswerRules()}
 ${buildContext({ ...settings, answers: [] })}`,
-    user: 'Write the likely questions and draft answers.',
+    user: `Write the likely questions and draft answers.${(n => (n ? `\n\nMy own notes (use real details from them):\n${n}` : ''))(relevantNotes(settings.knowledge, settings.job, 8))}`,
     temperature: 0.5,
     maxTokens: 12000,
   });
@@ -424,7 +430,7 @@ Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
 - "answer": the story told as situation, what you did, and the result, but as natural speech, not with those labels.
 ${spokenAnswerRules()}
 ${buildContext({ ...settings, answers: [] })}`,
-    user: 'Find the stories in my resume.',
+    user: `Find the stories in my resume.${(n => (n ? `\n\nMy own notes (they can hold more stories):\n${n}` : ''))(relevantNotes(settings.knowledge, 'project problem incident outage conflict disagreement mistake failure deadline led migration improved', 8))}`,
     temperature: 0.5,
     maxTokens: 12000,
   });

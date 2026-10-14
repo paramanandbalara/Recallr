@@ -7,6 +7,7 @@ import { ResumeInput } from './ResumeInput';
 import { AnswerBankEditor } from './AnswerBankEditor';
 import { ProfileBar } from './ProfileBar';
 import { UsagePanel } from './UsagePanel';
+import { KnowledgeEditor } from './KnowledgeEditor';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
@@ -123,6 +124,19 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationI
                 placeholder="Products, mission and values, recent news, team, tech stack..."
                 className="h-28 text-xs"
               />
+            </div>
+            <div>
+              <Label hint="Who's interviewing, so answers fit who's asking (optional).">Interviewer</Label>
+              <TextArea
+                value={settings.interviewer}
+                onChange={e => patch({ interviewer: e.target.value })}
+                placeholder="e.g. Engineering manager, 10 yrs Java, second technical round"
+                className="h-16 text-xs"
+              />
+            </div>
+            <div>
+              <Label hint="Project notes, docs, system design notes... Each question only uses the parts that fit it.">Your notes & documents</Label>
+              <KnowledgeEditor files={settings.knowledge} onChange={knowledge => patch({ knowledge })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

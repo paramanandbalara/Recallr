@@ -1,4 +1,5 @@
 // All user data lives in localStorage on this machine only.
+import type { KnowledgeFile } from './knowledge';
 
 export interface PreparedAnswer {
   id: string;
@@ -20,6 +21,8 @@ export interface Settings {
   job: string;
   company: string;
   companyNotes: string; // The user's research on the company: products, values, news
+  interviewer: string;  // Who's interviewing (role, background), so answers fit who's asking
+  knowledge: KnowledgeFile[]; // The user's own notes and documents
   language: string; // Interview language for speech-to-text: a code like 'en' or 'hi', or 'auto'
   answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
@@ -107,6 +110,8 @@ export interface Profile {
   job: string;
   company: string;
   companyNotes: string;
+  interviewer: string;
+  knowledge: KnowledgeFile[];
   language: string;
   answerLanguage: AnswerLanguage;
   answers: PreparedAnswer[];
@@ -122,6 +127,8 @@ const toProfile = (p: Partial<Profile>): Profile => ({
   job: str(p.job),
   company: str(p.company),
   companyNotes: str(p.companyNotes),
+  interviewer: str(p.interviewer),
+  knowledge: Array.isArray(p.knowledge) ? p.knowledge.filter(f => f && typeof f.text === 'string') : [],
   language: LANGUAGES.some(l => l.code === p.language) ? p.language! : 'en',
   answerLanguage: p.answerLanguage === 'english' ? 'english' : 'same',
   answers: Array.isArray(p.answers) ? p.answers : [],
@@ -164,7 +171,7 @@ export const setActiveProfile = (id: string) => write(KEYS.activeProfile, id);
 // A new profile keeps the resume and prepared answers of `base`, with the job details left blank
 export const createProfile = (name: string, base: Profile): Profile => {
   const profile = toProfile({
-    name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers,
+    name: name.trim(), cv: base.cv, cvFileName: base.cvFileName, answers: base.answers, knowledge: base.knowledge,
     language: base.language, answerLanguage: base.answerLanguage,
   });
   saveProfiles([...loadProfiles(), profile]);
@@ -195,6 +202,8 @@ export const loadSettings = (): Settings => {
     job: profile.job,
     company: profile.company,
     companyNotes: profile.companyNotes,
+    interviewer: profile.interviewer,
+    knowledge: profile.knowledge,
     language: profile.language,
     answerLanguage: profile.answerLanguage,
     answers: profile.answers,
@@ -206,8 +215,8 @@ export const settingsForProfile = (profileId: string): Settings => {
   const settings = loadSettings();
   const profile = loadProfiles().find(p => p.id === profileId);
   if (!profile) return settings;
-  const { cv, cvFileName, job, company, companyNotes, language, answerLanguage, answers } = profile;
-  return { ...settings, cv, cvFileName, job, company, companyNotes, language, answerLanguage, answers };
+  const { cv, cvFileName, job, company, companyNotes, interviewer, knowledge, language, answerLanguage, answers } = profile;
+  return { ...settings, cv, cvFileName, job, company, companyNotes, interviewer, knowledge, language, answerLanguage, answers };
 };
 
 // Saves the keys, and the rest into the active profile
@@ -223,6 +232,8 @@ export const saveSettings = (settings: Settings) => {
     job: settings.job.trim(),
     company: settings.company.trim(),
     companyNotes: settings.companyNotes.trim(),
+    interviewer: settings.interviewer.trim(),
+    knowledge: settings.knowledge,
     language: settings.language,
     answerLanguage: settings.answerLanguage,
     answers: settings.answers.filter(a => a.question.trim() || a.answer.trim()),
