@@ -164,6 +164,9 @@ that time"), "one" for "a" ("we had one service for that"), "only" or "itself" f
 starting with "basically what happens is…" or "so what we did is…", or restarting a sentence halfway. Keep the meaning clear and the
 technical words correct. Not every sentence, and never so much that it sounds like a joke.`;
 
+// The Broken English instruction when that's switched on in the Display menu, for every prompt that writes in the user's voice
+const englishNote = () => (loadEnglishStyle() === 'broken' ? `\n${BROKEN_ENGLISH}` : '');
+
 // Which language to answer in, from the profile
 const languageNote = (settings: Settings) => {
   if (settings.answerLanguage === 'english') {
@@ -214,7 +217,7 @@ export const streamInterviewAnswer = async (
   const text = await streamChat(settings, {
     tier: 'fast',
     system: SYSTEM_PROMPT_BASE + buildContext(settings),
-    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${loadEnglishStyle() === 'broken' ? `\n${BROKEN_ENGLISH}` : ''}${languageNote(settings)}\n\nWhat you say:`,
+    user: `${earlier ? `The interview so far:\n${earlier}\n\n` : ''}The interviewer just said:\n"${question}"${preparedHint}${adjustHint}\n\n${ANSWER_REMINDER}${englishNote()}${languageNote(settings)}\n\nWhat you say:`,
     temperature: 0.85, // A little more variety, like real speech
     maxTokens: 2000, // Room for long answers (includes the model's brief reasoning)
     signal,
@@ -349,7 +352,7 @@ The question can be a coding or SQL problem, a question typed in the meeting cha
 export const draftPreparedAnswer = async (question: string, settings: Settings): Promise<string> => {
   const text = await completeChat(settings, {
     tier: 'quality',
-    system: `You help a candidate prepare for a job interview. Write their answer to the question in the first person, in natural spoken English, 60–120 words, using ONLY facts from their resume. Never invent employers, numbers or projects. Plain text, no markdown. Return only the answer text.\n${NO_AI_STYLE}\n${buildContext({ ...settings, answers: [] })}`,
+    system: `You help a candidate prepare for a job interview. Write their answer to the question in the first person, in natural spoken English, 60–120 words, using ONLY facts from their resume. Never invent employers, numbers or projects. Plain text, no markdown. Return only the answer text.\n${NO_AI_STYLE}${englishNote()}\n${buildContext({ ...settings, answers: [] })}`,
     user: question,
     temperature: 0.5,
     maxTokens: 1200,
@@ -359,10 +362,10 @@ export const draftPreparedAnswer = async (question: string, settings: Settings):
 
 // ---------- Generated prepared answers ----------
 
-const SPOKEN_ANSWER_RULES = `Each "answer" is what the candidate would say out loud: first person, natural spoken English, plain words, contractions,
+const spokenAnswerRules = () => `Each "answer" is what the candidate would say out loud: first person, natural spoken English, plain words, contractions,
 not polished or textbook-like, 60–150 words. Use ONLY facts from the resume: never invent employers, projects, numbers or skills.
 Plain text, no markdown, no lists.
-${NO_AI_STYLE}`;
+${NO_AI_STYLE}${englishNote()}`;
 
 const parseGeneratedAnswers = (response: string): PreparedAnswer[] => {
   const parsed = JSON.parse(response || '{}');
@@ -386,7 +389,7 @@ for THIS job: the main skills and responsibilities in the job description, how t
 Mix technical and experience questions, and include one about a gap between the resume and the job if there is one. Skip generic ones like "Tell me about yourself".
 Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
 - "notes": one short tip, e.g. which project to mention or what the interviewer is really checking.
-${SPOKEN_ANSWER_RULES}
+${spokenAnswerRules()}
 ${buildContext({ ...settings, answers: [] })}`,
     user: 'Write the likely questions and draft answers.',
     temperature: 0.5,
@@ -407,7 +410,7 @@ Return JSON: {"items":[{"question":"...","notes":"...","answer":"..."}]}
 - "question": the behavioural question this story answers best, e.g. "Tell me about a time you disagreed with your manager".
 - "notes": a few words naming the story and other questions it also fits, e.g. "Payments outage story. Also fits: pressure, ownership".
 - "answer": the story told as situation, what you did, and the result, but as natural speech, not with those labels.
-${SPOKEN_ANSWER_RULES}
+${spokenAnswerRules()}
 ${buildContext({ ...settings, answers: [] })}`,
     user: 'Find the stories in my resume.',
     temperature: 0.5,
@@ -453,7 +456,7 @@ Return JSON: {"score":7,"good":"...","improve":"...","better":"..."}
 - "score": 1 to 10 for how well it would land in a real interview (relevance, a concrete example or evidence, clarity, length).
 - "good": one or two sentences on what worked. "improve": the one or two changes that would help most.
 - "better": a stronger version of THEIR answer, keeping their story and facts, using only the resume otherwise.
-  Write it as natural speech, the way they'd actually say it: plain words, contractions, not polished. 60–150 words.
+  Write it as natural speech, the way they'd actually say it: plain words, contractions, not polished. 60–150 words.${englishNote()}
 Write everything in plain, simple words.
 ${NO_AI_STYLE}
 ${buildContext({ ...settings, answers: [] })}`,
