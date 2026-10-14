@@ -162,7 +162,7 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
       const { loudest, anySignal } = await measureLevel(new MediaStream(capture.getAudioTracks()), CALL_TEST_MS);
       capture.getTracks().forEach(track => track.stop());
       if (!anySignal) {
-        set('call', 'fail', 'No sound reaches Recallr. On macOS, allow it in System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart Recallr.');
+        set('call', 'warn', 'Heard only silence. If nothing was playing, play a video and run the check again. If something was playing, allow Recallr (in development: "Electron") under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart it.');
       } else {
         set('call', loudest > 0.002 ? 'ok' : 'warn', loudest > 0.002
           ? 'Call audio is reaching Recallr.'

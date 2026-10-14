@@ -10,6 +10,15 @@ const MODELS: Record<ProviderId, string[]> = {
 
 const PROMPT = 'This is a corporate job interview. Transcribe accurately.';
 
+// On unclear or near-silent audio Whisper sometimes repeats the prompt back ("Transcribe accurately. Transcribe.").
+// Drop sentences that are only that echo (real speech that mentions "transcribe" is kept); '' means there was no speech.
+const PROMPT_ECHO = /^(?:this is a (?:corporate )?job interview|transcribe(?: (?:it|this|that))?(?: accurately| to the question)?)$/i;
+const stripPromptEcho = (text: string) => text
+  .split(/(?<=[.!?])\s+/)
+  .filter(sentence => !PROMPT_ECHO.test(sentence.replace(/[.,!?\s]+$/, '').trim()))
+  .join(' ')
+  .trim();
+
 // Remember which model works per provider, so a retired one is only tried once
 const workingModel: Partial<Record<ProviderId, string>> = {};
 
@@ -30,7 +39,7 @@ const transcribeWith = async (provider: ProviderId, apiKey: string, file: File) 
         ...(provider === 'groq' ? { temperature: 0 } : {}), // Reduces hallucination
       });
       workingModel[provider] = model;
-      return result.text.trim();
+      return stripPromptEcho(result.text);
     } catch (error) {
       lastError = error;
       if (!isModelUnavailable(error)) throw error;

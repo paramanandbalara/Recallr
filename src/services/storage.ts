@@ -151,8 +151,9 @@ export const deleteProfile = (id: string) => {
 export const loadSettings = (): Settings => {
   const profile = loadActiveProfile();
   return {
-    groqKey: read(KEYS.groqKey) || import.meta.env.VITE_GROQ_API_KEY || '',
-    openaiKey: read(KEYS.openaiKey) || import.meta.env.VITE_OPENAI_API_KEY || '',
+    // Keys from .env are a development convenience only: in a release build they'd be readable by anyone
+    groqKey: read(KEYS.groqKey) || (import.meta.env.DEV ? import.meta.env.VITE_GROQ_API_KEY : '') || '',
+    openaiKey: read(KEYS.openaiKey) || (import.meta.env.DEV ? import.meta.env.VITE_OPENAI_API_KEY : '') || '',
     answerProvider: (['groq', 'openai'].includes(read(KEYS.answerProvider)) ? read(KEYS.answerProvider) : 'auto') as AnswerProvider,
     cv: profile.cv,
     cvFileName: profile.cvFileName,

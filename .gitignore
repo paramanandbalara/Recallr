@@ -29,3 +29,8 @@ dist-electron
 release
 build/*
 !build/icon.png
+
+# API keys for development (never commit)
+.env
+.env.*
+!.env.example

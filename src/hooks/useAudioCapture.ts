@@ -228,9 +228,15 @@ export const useAudioCapture = (onTranscript: (text: string, speaker: Speaker) =
   const onTranscriptRef = useRef(onTranscript);
   useEffect(() => { onTranscriptRef.current = onTranscript; });
 
-  // Release any running capture when the page reloads or closes (e.g. a dev hot reload)
+  // Release any running capture when the page reloads or closes (e.g. a dev hot reload), or the component unmounts
   useEffect(() => {
-    const release = () => capturesRef.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
+    const pipelines = pipelinesRef;
+    const captures = capturesRef;
+    const release = () => {
+      pipelines.current.forEach(pipeline => pipeline.stop());
+      pipelines.current = [];
+      captures.current.forEach(capture => capture.getTracks().forEach(track => track.stop()));
+    };
     window.addEventListener('pagehide', release);
     return () => {
       window.removeEventListener('pagehide', release);
@@ -297,7 +303,8 @@ export const useAudioCapture = (onTranscript: (text: string, speaker: Speaker) =
           onLevel: level => { levels.system = level; showLevel(); },
           onLog: message => setDebugLog(prefix.system + message),
           onNoSound: silent => setErrorMsg(silent
-            ? 'No sound is reaching the app. If the call/video is playing, allow "Electron" (or Recallr) under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart the app.'
+            // macOS sends exact silence both when nothing is playing and when recording isn't allowed
+            ? 'No sound from the call yet. If something is playing and this stays, allow Recallr (in development: "Electron") under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart it.'
             : null),
         }));
       }

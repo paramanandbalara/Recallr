@@ -108,7 +108,8 @@ interface Props {
 export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPointsView, onAdjust, onCheck, onMock }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const stickToBottom = useRef(true);
+  const latestRef = useRef<HTMLDivElement>(null); // The newest question and answer
+  const following = useRef(true); // Keep the newest answer in view until the user scrolls away
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set()); // Answers opened in full in key-points view
 
   const toggleExpanded = (id: string) => setExpanded(prev => {
@@ -118,13 +119,28 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
     return next;
   });
 
+  // Where to scroll: the bottom, but never past the start of the newest question, so a long answer
+  // (and the follow-ups added after it) grow below it instead of pushing the answer out of view
+  const followPosition = () => {
+    const scroller = scrollRef.current;
+    if (!scroller) return 0;
+    const bottom = scroller.scrollHeight - scroller.clientHeight;
+    const latest = latestRef.current;
+    return latest ? Math.max(0, Math.min(bottom, latest.offsetTop - 12)) : bottom;
+  };
+
+  // A new question: follow it again
+  useEffect(() => {
+    following.current = true;
+  }, [turns.length]);
+
   // Follow new text as it is typed, unless the user scrolled up to read
   useEffect(() => {
     const scroller = scrollRef.current;
     const content = contentRef.current;
     if (!scroller || !content) return;
     const observer = new ResizeObserver(() => {
-      if (stickToBottom.current) scroller.scrollTop = scroller.scrollHeight;
+      if (following.current) scroller.scrollTop = followPosition();
     });
     observer.observe(content);
     return () => observer.disconnect();
@@ -132,11 +148,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
 
   const onScroll = () => {
     const el = scrollRef.current;
-    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (el) following.current = Math.abs(el.scrollTop - followPosition()) < 40;
   };
 
   return (
-    <div ref={scrollRef} onScroll={onScroll} className="fade-with-text scrollable flex-1 min-h-0 overflow-y-auto px-4 py-3">
+    <div ref={scrollRef} onScroll={onScroll} className="fade-with-text scrollable relative flex-1 min-h-0 overflow-y-auto px-4 py-3">
       <div ref={contentRef} className="space-y-4">
         {turns.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-2 pt-16 text-center">
@@ -160,7 +176,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, isRecording, keyPoint
           const hasPoints = keyPointsView && turn.status === 'done' && !!turn.keyPoints?.length;
           const showFull = !hasPoints || isLatest || expanded.has(turn.id);
           return (
-          <div key={turn.id} className={`group ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
+          <div key={turn.id} ref={isLatest ? latestRef : undefined} className={`group ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
             {/* What was heard */}
             <p className="text-[12px] text-slate-400 leading-relaxed select-text">
               <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? 'Read from your screen' : undefined}>

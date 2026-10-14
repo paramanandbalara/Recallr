@@ -13,6 +13,12 @@ const QUESTION_STARTERS = /^(what|why|how|when|where|which|who|whom|whose|can|co
 
 const ASKING_PHRASES = /\b(tell me|walk me through|talk me through|can you|could you|would you|how would|how do|what would|what is|what's|what are|why did|why do|give me an example|explain|describe|difference between|your experience|have you ever|a time when)\b/;
 
+// Short follow-ups to the previous answer ("Example?", "Why?", "Tell me more", "Code?")
+const FOLLOW_UP_WORDS = new Set([
+  'example', 'examples', 'instance', 'elaborate', 'detail', 'details', 'more', 'why', 'how', 'code', 'snippet',
+  'explain', 'clarify', 'deeper', 'demo', 'show', 'meaning', 'difference', 'pros', 'cons', 'tradeoffs', 'alternative',
+]);
+
 const words = (text: string) => text.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').split(/\s+/).filter(Boolean);
 
 export const isLikelyQuestion = (text: string): boolean => {
@@ -23,6 +29,7 @@ export const isLikelyQuestion = (text: string): boolean => {
   // Nothing but filler words ("okay, yeah, great, thank you")
   if (list.every(w => FILLER.has(w))) return false;
 
+  if (list.length <= 5 && list.some(w => FOLLOW_UP_WORDS.has(w))) return true;
   if (clean.includes('?') && list.length >= 2) return true;
   if (ASKING_PHRASES.test(clean)) return true;
   if (QUESTION_STARTERS.test(clean) && list.length >= 3) return true;

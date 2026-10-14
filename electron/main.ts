@@ -291,7 +291,8 @@ app.whenReady().then(() => {
   registerShortcuts()
 
   const iconPath = path.join(process.env.VITE_PUBLIC, 'icon.png')
-  const trayIcon = nativeImage.createFromPath(iconPath)
+  // Shown at its pixel size, so shrink the 256px app icon to menu bar / system tray size
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: process.platform === 'darwin' ? 18 : 16, quality: 'best' })
   tray = new Tray(trayIcon)
 
   const contextMenu = Menu.buildFromTemplate([

@@ -94,8 +94,10 @@ function App() {
   const inFlightRef = useRef(new Map<string, InFlight>());
   const lastPreparedIdRef = useRef<string | null>(null);
 
+  // Save the conversation to the history, once it has an answer (and not just because it was reopened)
+  const openedTurnsRef = useRef<Turn[] | null>(null);
   const persistSession = useCallback((list: Turn[]) => {
-    if (!hasAnswers(list)) return;
+    if (!hasAnswers(list) || list === openedTurnsRef.current) return;
     const profile = loadActiveProfile();
     saveSession({
       ...sessionRef.current,
@@ -209,7 +211,7 @@ function App() {
     const startedAt = performance.now();
     const history = turnsRef.current
       .filter(t => t.id !== turnId && t.status !== 'listening')
-      .map(t => ({ question: t.question, answer: t.spoken || (t.status === 'done' ? t.answer : '') }));
+      .map(t => ({ question: t.question, answer: t.status === 'done' ? t.answer : '', spoken: t.spoken }));
     try {
       const answer = await streamInterviewAnswer(question, history, loadSettings(), text => {
         if (!controller.signal.aborted) patchTurn(turnId, { status: 'answering', answer: text });
@@ -358,6 +360,7 @@ function App() {
     saveCurrentSession(target);
     openTurnRef.current = null;
     lastPreparedIdRef.current = null;
+    openedTurnsRef.current = next;
     setTurns(next);
   };
 
@@ -499,7 +502,7 @@ function App() {
       <form
         data-interactive
         onSubmit={e => { e.preventDefault(); submitAsk(); }}
-        className="fade-with-text flex items-center gap-1.5 px-2.5 pt-2 border-t border-slate-800 shrink-0"
+        className="fade-with-text flex items-center gap-1.5 px-2.5 pt-2 pb-2.5 border-t border-slate-800 shrink-0"
       >
         <input
           ref={askInputRef}
