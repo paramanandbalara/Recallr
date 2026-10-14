@@ -181,3 +181,45 @@ describe('organizations', () => {
     expect(enquiries).toEqual([expect.objectContaining({ organization: 'City College', size: 300, status: 'NEW' })]);
   });
 });
+
+describe('panels', () => {
+  it('lets users download their data and close their account', async () => {
+    const token = await register('leaving@example.com');
+    const desktop = await appToken('leaving@example.com');
+    await request(app).post('/api/questions/record').set(auth(desktop)).send({ items: [{ question: 'What is a hash map and when do you use it?', answer: 'A key to value store.', kind: 'concept' }] });
+    const data = (await request(app).get('/api/auth/me/export').set(auth(token))).body;
+    expect(data.account.email).toBe('leaving@example.com');
+    expect(data.savedAnswers).toEqual([expect.objectContaining({ answer: 'A key to value store.', category: 'CONCEPT' })]);
+    expect(JSON.stringify(data)).not.toContain('passwordHash');
+
+    expect((await request(app).post('/api/auth/me/delete').set(auth(token)).send({ password: 'wrong' })).status).toBe(400);
+    await request(app).post('/api/auth/me/delete').set(auth(token)).send({ password: 'password123' }).expect(200);
+    expect(await db.user.findUnique({ where: { email: 'leaving@example.com' } })).toBeNull();
+    expect(await db.savedAnswer.count()).toBe(0);
+    expect((await request(app).post('/api/auth/login').send({ email: 'leaving@example.com', password: 'password123' })).status).toBe(401);
+    expect((await request(app).post('/api/auth/me/delete').set(auth(admin)).send({ password: 'password123' })).body.error).toMatch(/only admin/);
+  });
+
+  it('gives admins app versions, a users spreadsheet and AI speed', async () => {
+    await register('sheet@example.com');
+    await appToken('sheet@example.com');
+    const stats = (await request(app).get('/api/admin/stats').set(auth(admin))).body;
+    expect(stats.appVersions).toEqual([{ version: '1.0.0', computers: 1 }]);
+    const csv = await request(app).get('/api/admin/users.csv').set(auth(admin));
+    expect(csv.headers['content-type']).toContain('text/csv');
+    expect(csv.text.split('\n')[0]).toBe('name,email,role,status,joined,last_seen,plan_until,listening_minutes_left');
+    expect(csv.text).toContain('sheet@example.com');
+
+    const user = await db.user.findUniqueOrThrow({ where: { email: 'sheet@example.com' } });
+    await db.usageEvent.createMany({ data: [
+      { userId: user.id, kind: 'CHAT', provider: 'groq', model: 'gpt-oss-20b', latencyMs: 400 },
+      { userId: user.id, kind: 'CHAT', provider: 'groq', model: 'gpt-oss-20b', latencyMs: 600 },
+      { userId: user.id, kind: 'CHAT', provider: 'claude', model: 'claude-haiku-5-5', latencyMs: 700 },
+    ] });
+    const { speed } = (await request(app).get('/api/admin/reports?days=7').set(auth(admin))).body;
+    expect(speed).toEqual([
+      { provider: 'groq', model: 'gpt-oss-20b', answers: 2, averageMs: 500, slowestMs: 600 },
+      { provider: 'claude', model: 'claude-haiku-5-5', answers: 1, averageMs: 700, slowestMs: 700 },
+    ]);
+  });
+});

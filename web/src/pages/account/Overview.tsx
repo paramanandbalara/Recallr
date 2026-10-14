@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Clock, Download, Gift } from 'lucide-react';
-import { api, date, hours, tokens, type Payment } from '../../api';
+import { api, date, hours, tokens, type Payment, type PracticeSession } from '../../api';
 import { useAuth } from '../../auth';
 import { AccountPage } from '../../components/AccountNav';
 import { PaymentTable } from '../../components/PaymentTable';
 import { Badge, Card } from '../../components/ui';
 
-const SOURCE_LABEL = { TRIAL: 'Free trial', RAZORPAY: 'Paid online', OFFLINE: 'Paid offline', ADMIN_GRANT: 'Given by Recallr', REFERRAL: 'Invite bonus', COUPON: 'With a code' } as const;
+const SOURCE_LABEL = { TRIAL: 'Free trial', RAZORPAY: 'Paid online', OFFLINE: 'Paid offline', ADMIN_GRANT: 'Given by Recallr', REFERRAL: 'Invite bonus', COUPON: 'With a code', ORGANIZATION: 'From your college' } as const;
 
 const Stat: React.FC<{ label: string; value: string; hint?: string }> = ({ label, value, hint }) => (
   <Card>
@@ -21,10 +21,15 @@ export const AccountOverview: React.FC = () => {
   const { user, allowance, refresh } = useAuth();
   const [params] = useSearchParams();
   const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [practice, setPractice] = useState<{ saved: number; sessions: PracticeSession[] } | null>(null);
 
   useEffect(() => {
     refresh();
     api<{ payments: Payment[] }>('/billing/payments').then(r => setPayments(r.payments), () => setPayments([]));
+    Promise.all([
+      api<{ byCategory: Record<string, number> }>('/questions/mine'),
+      api<{ sessions: PracticeSession[] }>('/practice'),
+    ]).then(([q, p]) => setPractice({ saved: Object.values(q.byCategory).reduce((a, b) => a + b, 0), sessions: p.sessions }), () => {});
   }, [refresh]);
 
   const pending = payments?.filter(p => p.status === 'PENDING') ?? [];
@@ -60,6 +65,14 @@ export const AccountOverview: React.FC = () => {
             <strong>{pending.length === 1 ? 'Your offline payment is' : `${pending.length} offline payments are`} waiting for confirmation.</strong>{' '}
             We check payments within a few hours; the plan starts as soon as it’s confirmed.
           </div>
+        </div>
+      )}
+
+      {practice && (practice.saved > 0 || practice.sessions.length > 0) && (
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          <Link to="/account/questions"><Stat label="Questions saved" value={String(practice.saved)} hint="From your interviews · My questions" /></Link>
+          <Link to="/account/progress"><Stat label="Mock interviews" value={String(practice.sessions.length)} hint={practice.sessions[0] ? `Last on ${date(practice.sessions[0].createdAt)}` : 'None yet'} /></Link>
+          <Link to="/account/progress"><Stat label="Latest score" value={practice.sessions[0]?.averageScore != null ? `${practice.sessions[0].averageScore} / 10` : '–'} hint="See your progress" /></Link>
         </div>
       )}
 

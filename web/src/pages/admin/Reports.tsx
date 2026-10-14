@@ -9,6 +9,7 @@ interface Report {
   series: { day: string; signups: number; revenuePaise: number; activeUsers: number; aiCostPaise: number }[];
   plans: { planName: string; revenuePaise: number; sold: number; aiCostPaise: number }[];
   usdToInr: number;
+  speed: { provider: string; model: string; answers: number; averageMs: number; slowestMs: number }[];
 }
 
 const RANGES = [7, 30, 90, 365];
@@ -100,6 +101,32 @@ export const AdminReports: React.FC = () => {
             </div>
           )}
 
+          <h2 className="mb-1 mt-8 text-lg font-semibold text-slate-100">Answer speed</h2>
+          <p className="mb-3 text-xs text-slate-500">Time until the first words of an answer appear, per AI. With “Choosing the AI: speed”, the fastest one answers.</p>
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-900 text-xs text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 font-medium">AI</th>
+                  <th className="px-3 py-2 text-right font-medium">Answers</th>
+                  <th className="px-3 py-2 text-right font-medium">Average</th>
+                  <th className="px-3 py-2 text-right font-medium">Slowest</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-300">
+                {report.speed.map(s => (
+                  <tr key={`${s.provider}-${s.model}`}>
+                    <td className="px-3 py-2"><span className="capitalize text-slate-100">{s.provider}</span> <span className="text-xs text-slate-500">· {s.model}</span></td>
+                    <td className="px-3 py-2 text-right tabular-nums">{s.answers.toLocaleString('en-IN')}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{(s.averageMs / 1000).toFixed(2)} s</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-slate-500">{(s.slowestMs / 1000).toFixed(1)} s</td>
+                  </tr>
+                ))}
+                {report.speed.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-500">No timed answers in this period.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
           <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-100">By plan</h2>
           <div className="overflow-x-auto rounded-xl border border-slate-800">
             <table className="w-full min-w-[620px] text-left text-sm">
@@ -130,7 +157,7 @@ export const AdminReports: React.FC = () => {
             </table>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            AI cost is an estimate from list prices (US$1 ≈ ₹{report.usdToInr}); check your Groq and OpenAI bills for exact amounts.
+            AI cost is an estimate from list prices (US$1 ≈ ₹{report.usdToInr}); check your Groq, OpenAI and Anthropic bills for exact amounts.
             Free trials and invite bonuses show cost with no revenue.
           </p>
         </>

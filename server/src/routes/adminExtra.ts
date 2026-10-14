@@ -173,7 +173,7 @@ adminExtraRoutes.get('/reports', route(async (req, res) => {
   since.setUTCHours(0, 0, 0, 0);
 
   // Raw SQL uses the database's snake_case names; the AS aliases give the camelCase names the code reads
-  const [signups, revenue, active, usage, byPlan, planUsage] = await Promise.all([
+  const [signups, revenue, active, usage, byPlan, planUsage, speed] = await Promise.all([
     db.$queryRaw<Row[]>`SELECT DATE(created_at) AS day, COUNT(*) AS n FROM users WHERE created_at >= ${since} GROUP BY day`,
     db.$queryRaw<Row[]>`SELECT DATE(paid_at) AS day, SUM(amount_paise) AS n FROM payments WHERE status = 'PAID' AND paid_at >= ${since} GROUP BY day`,
     db.$queryRaw<Row[]>`SELECT DATE(created_at) AS day, COUNT(DISTINCT user_id) AS n FROM usage_events WHERE created_at >= ${since} GROUP BY day`,
@@ -186,6 +186,10 @@ adminExtraRoutes.get('/reports', route(async (req, res) => {
     db.$queryRaw<(UsageTotals & { planName: string })[]>`
       SELECT pu.plan_name AS planName, u.kind, u.model, SUM(u.input_tokens) AS inputTokens, SUM(u.output_tokens) AS outputTokens, SUM(u.audio_seconds) AS audioSeconds
       FROM usage_events u JOIN purchases pu ON pu.id = u.purchase_id WHERE u.created_at >= ${since} GROUP BY pu.plan_name, u.kind, u.model`,
+    // How fast answers start, per provider and model (only answers that were timed)
+    db.$queryRaw<{ provider: string; model: string; answers: unknown; averageMs: unknown; slowestMs: unknown }[]>`
+      SELECT provider, model, COUNT(*) AS answers, AVG(latency_ms) AS averageMs, MAX(latency_ms) AS slowestMs
+      FROM usage_events WHERE kind = 'CHAT' AND latency_ms IS NOT NULL AND created_at >= ${since} GROUP BY provider, model`,
   ]);
 
   const series = Array.from({ length: days }, (_, i) => ({
@@ -204,5 +208,9 @@ adminExtraRoutes.get('/reports', route(async (req, res) => {
   for (const r of byPlan) Object.assign(plan(r.planName), { revenuePaise: num(r.revenue), sold: num(r.sold) });
   for (const u of planUsage) plan(u.planName).aiCostPaise += costPaise(totals(u));
 
-  res.json({ days, series, plans: [...plans.values()].sort((a, b) => b.revenuePaise - a.revenuePaise), usdToInr: USD_TO_INR });
+  res.json({
+    days, series, plans: [...plans.values()].sort((a, b) => b.revenuePaise - a.revenuePaise), usdToInr: USD_TO_INR,
+    speed: speed.map(s => ({ provider: s.provider, model: s.model, answers: num(s.answers), averageMs: Math.round(num(s.averageMs)), slowestMs: num(s.slowestMs) }))
+      .sort((a, b) => a.averageMs - b.averageMs),
+  });
 }));

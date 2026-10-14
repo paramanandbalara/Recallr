@@ -97,6 +97,55 @@ authRoutes.post('/password', requireUser, limiter, route(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------- The user's own data ----------
+
+// Everything Recallr keeps about the user, as one JSON file (never the password)
+authRoutes.get('/me/export', requireUser, route(async (req, res) => {
+  const id = req.user!.id;
+  const [purchases, payments, savedAnswers, practice, devices, tickets, memberships] = await Promise.all([
+    db.purchase.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' } }),
+    db.payment.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { amountPaise: true, currency: true, method: true, status: true, reference: true, createdAt: true, paidAt: true, plan: { select: { name: true } } } }),
+    db.savedAnswer.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { questionText: true, category: true, answer: true, source: true, createdAt: true } }),
+    db.practiceSession.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' } }),
+    db.device.findMany({ where: { userId: id }, select: { name: true, platform: true, appVersion: true, createdAt: true, lastSeenAt: true, revokedAt: true } }),
+    db.ticket.findMany({ where: { userId: id }, include: { messages: { select: { fromAdmin: true, body: true, createdAt: true } } } }),
+    db.organizationMember.findMany({ where: { userId: id }, include: { organization: { select: { name: true } } } }),
+  ]);
+  res.setHeader('Content-Disposition', `attachment; filename="recallr-my-data-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json({
+    exportedAt: new Date(), account: publicUser(req.user!), purchases, payments, savedAnswers, mockInterviews: practice, devices,
+    supportTickets: tickets, organizations: memberships.map(m => ({ name: m.organization.name, role: m.role, joinedAt: m.createdAt })),
+  });
+}));
+
+// Closing the account: personal data is deleted; payment records are kept (with the name and email removed)
+// because the law requires invoices to be kept
+authRoutes.post('/me/delete', requireUser, limiter, route(async (req, res) => {
+  const password = z.string().min(1, 'Enter your password.').max(200).parse(req.body.password);
+  const user = req.user!;
+  if (!(await checkPassword(password, user.passwordHash))) throw new HttpError(400, 'That password is wrong.');
+  if (user.role === 'ADMIN' && (await db.user.count({ where: { role: 'ADMIN', status: 'ACTIVE' } })) <= 1) {
+    throw new HttpError(400, 'You are the only admin. Make someone else an admin first.');
+  }
+  await db.$transaction([
+    db.savedAnswer.deleteMany({ where: { userId: user.id } }),
+    db.practiceSession.deleteMany({ where: { userId: user.id } }),
+    db.backup.deleteMany({ where: { userId: user.id } }),
+    db.device.deleteMany({ where: { userId: user.id } }),
+    db.organizationMember.deleteMany({ where: { userId: user.id } }),
+    db.passwordReset.deleteMany({ where: { userId: user.id } }),
+    db.ticket.deleteMany({ where: { userId: user.id } }),
+    db.user.update({
+      where: { id: user.id },
+      data: {
+        email: `deleted-${user.id}@deleted.invalid`, name: 'Deleted user', status: 'BLOCKED', referralCode: null, saveAnswers: false,
+        passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
+      },
+    }),
+  ]);
+  res.json({ ok: true });
+}));
+
 // ---------- Forgot password ----------
 
 // Always answers the same, so it can't be used to find out who has an account

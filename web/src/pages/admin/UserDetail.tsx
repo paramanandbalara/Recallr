@@ -49,11 +49,14 @@ interface Detail {
   emails: EmailEntry[];
   referral: { referredBy: { id: string; email: string } | null; invited: number; rewardedAt: string | null };
   backup: { sizeBytes: number; updatedAt: string; deviceName: string } | null;
+  practice: { id: string; role: string; questionCount: number; averageScore: number | null; wordsPerMinute: number | null; fillersPerMinute: number | null; createdAt: string }[];
+  savedAnswers: number;
+  memberships: { role: 'COACH' | 'STUDENT'; organization: { id: string; name: string } }[];
 }
 
 const EMAIL_STATUS = { SENT: 'green', FAILED: 'red', SKIPPED: 'slate' } as const;
 
-const SOURCE = { TRIAL: 'Trial', RAZORPAY: 'Online', OFFLINE: 'Offline', ADMIN_GRANT: 'Given', REFERRAL: 'Invite bonus', COUPON: 'Coupon' } as const;
+const SOURCE = { TRIAL: 'Trial', RAZORPAY: 'Online', OFFLINE: 'Offline', ADMIN_GRANT: 'Given', REFERRAL: 'Invite bonus', COUPON: 'Coupon', ORGANIZATION: 'College' } as const;
 const toDateInput = (iso: string) => iso.slice(0, 10);
 const blankToNull = (value: string) => (value.trim() === '' ? null : Number(value));
 
@@ -294,6 +297,40 @@ export const AdminUserDetail: React.FC = () => {
               </tr>
             ))}
             {detail.emails.length === 0 && <tr><td className="px-3 py-4 text-center text-slate-500">No emails yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-100">Practice and questions</h2>
+      <div className="mb-3 flex flex-wrap gap-2 text-sm text-slate-300">
+        <Badge tone="blue">{detail.savedAnswers} saved answers</Badge>
+        <Badge>{detail.user.saveAnswers === false ? 'Saving turned off' : 'Saving on'}</Badge>
+        {detail.memberships.map(m => (
+          <Link key={m.organization.id} to={`/admin/organizations/${m.organization.id}`}><Badge tone="green">{m.role === 'COACH' ? 'Coach' : 'Student'} · {m.organization.name}</Badge></Link>
+        ))}
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <table className="w-full min-w-[560px] text-left text-xs">
+          <thead className="bg-slate-900 text-slate-400">
+            <tr>
+              <th className="px-3 py-2 font-medium">Mock interview</th>
+              <th className="px-3 py-2 font-medium">Role</th>
+              <th className="px-3 py-2 text-right font-medium">Score</th>
+              <th className="px-3 py-2 text-right font-medium">Pace</th>
+              <th className="px-3 py-2 text-right font-medium">Fillers</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800 text-slate-300">
+            {detail.practice.map(p => (
+              <tr key={p.id}>
+                <td className="whitespace-nowrap px-3 py-1.5">{dateTime(p.createdAt)} · {p.questionCount} questions</td>
+                <td className="px-3 py-1.5">{p.role || '–'}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{p.averageScore ?? '–'}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{p.wordsPerMinute === null ? '–' : `${Math.round(p.wordsPerMinute)} wpm`}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{p.fillersPerMinute ?? '–'}/min</td>
+              </tr>
+            ))}
+            {detail.practice.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">No mock interviews yet.</td></tr>}
           </tbody>
         </table>
       </div>

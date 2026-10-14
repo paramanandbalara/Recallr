@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
-import { api, date, hours, type Allowance, type User } from '../../api';
-import { Badge, ErrorText, Input } from '../../components/ui';
+import { api, date, hours, type Allowance, type User, downloadFile } from '../../api';
+import { Badge, ErrorText, Input, Button } from '../../components/ui';
 import { AdminTitle } from './AdminLayout';
 
 type Row = User & { allowance: Allowance };
@@ -31,6 +31,9 @@ export const AdminUsers: React.FC = () => {
           <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or email" className="pl-8" />
         </div>
+        <Button onClick={() => downloadFile('/admin/users.csv', `recallr-users-${new Date().toISOString().slice(0, 10)}.csv`).catch(e => setError(e.message))}>
+          Download CSV
+        </Button>
       </AdminTitle>
       <ErrorText>{error}</ErrorText>
       <div className="overflow-x-auto rounded-xl border border-slate-800">

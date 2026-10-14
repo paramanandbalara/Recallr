@@ -30,6 +30,16 @@ export const api = async <T>(path: string, options: { method?: string; body?: un
   return data as T;
 };
 
+// Saves a file the server sends (signed in), e.g. the users spreadsheet or "Download my data"
+export const downloadFile = async (path: string, filename: string) => {
+  const token = getToken();
+  const res = await fetch(`${BASE}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).error ?? 'The download failed.');
+  const url = URL.createObjectURL(await res.blob());
+  Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // ---------- Types shared with the server ----------
 
 export interface User {
@@ -57,7 +67,7 @@ export interface Plan {
   _count?: { purchases: number };
 }
 
-export type PurchaseSource = 'RAZORPAY' | 'OFFLINE' | 'ADMIN_GRANT' | 'TRIAL' | 'REFERRAL' | 'COUPON';
+export type PurchaseSource = 'RAZORPAY' | 'OFFLINE' | 'ADMIN_GRANT' | 'TRIAL' | 'REFERRAL' | 'COUPON' | 'ORGANIZATION';
 
 export interface Pack {
   id: string;

@@ -70,7 +70,42 @@ adminRoutes.get('/stats', route(async (_req, res) => {
     revenuePaise30d: revenue._sum.amountPaise ?? 0,
     tokens30d: (usage._sum.inputTokens ?? 0) + (usage._sum.outputTokens ?? 0),
     audioMinutes30d: Math.round((usage._sum.audioSeconds ?? 0) / 60),
+    ...(await engagement(monthAgo, weekAgo)),
   });
+}));
+
+// Which app versions are in use, and how much the newer features are used
+const engagement = async (monthAgo: Date, weekAgo: Date) => {
+  const [versions, mockInterviews7d, questionsInBank, savedAnswers, openEnquiries, students] = await Promise.all([
+    db.device.groupBy({ by: ['appVersion'], where: { revokedAt: null, lastSeenAt: { gte: monthAgo } }, _count: { _all: true } }),
+    db.practiceSession.count({ where: { createdAt: { gte: weekAgo } } }),
+    db.question.count(),
+    db.savedAnswer.count(),
+    db.enquiry.count({ where: { status: 'NEW' } }),
+    db.organizationMember.count({ where: { role: 'STUDENT' } }),
+  ]);
+  return {
+    appVersions: versions.map(v => ({ version: v.appVersion || 'unknown', computers: v._count._all })).sort((a, b) => b.computers - a.computers),
+    mockInterviews7d, questionsInBank, savedAnswers, openEnquiries, students,
+  };
+};
+
+// Every user as a spreadsheet (CSV), for mailing tools or accounting
+adminRoutes.get('/users.csv', route(async (_req, res) => {
+  const users = await db.user.findMany({ orderBy: { createdAt: 'asc' } });
+  const cell = (value: unknown) => {
+    const text = value instanceof Date ? value.toISOString() : String(value ?? '');
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const rows = [['name', 'email', 'role', 'status', 'joined', 'last_seen', 'plan_until', 'listening_minutes_left']];
+  for (const user of users) {
+    const a = await allowance(user.id);
+    rows.push([user.name, user.email, user.role, user.status, user.createdAt, user.lastSeenAt ?? '', a.expiresAt ?? '', a.minutesLeft === null ? 'unlimited' : Math.floor(a.minutesLeft)].map(cell) as string[]);
+  }
+  await audit(_req, 'users.export', `${users.length} users`);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="recallr-users-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send(rows.map(r => r.join(',')).join('\n'));
 }));
 
 // ---------- Users ----------
@@ -89,7 +124,7 @@ adminRoutes.get('/users', route(async (req, res) => {
 adminRoutes.get('/users/:id', route(async (req, res) => {
   const user = await db.user.findUnique({ where: { id: req.params.id } });
   if (!user) throw new HttpError(404, 'User not found.');
-  const [purchases, payments, usage, devices, emailLog, referredBy, referrals, backup] = await Promise.all([
+  const [purchases, payments, usage, devices, emailLog, referredBy, referrals, backup, practice, savedAnswers, memberships] = await Promise.all([
     db.purchase.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
     db.payment.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, include: { plan: { select: { name: true } } } }),
     db.usageEvent.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
@@ -98,6 +133,9 @@ adminRoutes.get('/users/:id', route(async (req, res) => {
     user.referredById ? db.user.findUnique({ where: { id: user.referredById }, select: { id: true, email: true } }) : null,
     db.user.count({ where: { referredById: user.id } }),
     db.backup.findUnique({ where: { userId: user.id }, select: { sizeBytes: true, updatedAt: true, deviceName: true } }),
+    db.practiceSession.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 20 }),
+    db.savedAnswer.count({ where: { userId: user.id } }),
+    db.organizationMember.findMany({ where: { userId: user.id }, include: { organization: { select: { id: true, name: true } } } }),
   ]);
   res.json({
     user: { ...publicUser(user), lastSeenAt: user.lastSeenAt },
@@ -108,6 +146,9 @@ adminRoutes.get('/users/:id', route(async (req, res) => {
     emails: emailLog.map(e => ({ ...e, id: e.id.toString() })),
     referral: { referredBy, invited: referrals, rewardedAt: user.referralRewardedAt },
     backup,
+    practice: practice.map(p => ({ id: p.id, role: p.role, questionCount: p.questionCount, averageScore: p.averageScore, wordsPerMinute: p.wordsPerMinute, fillersPerMinute: p.fillersPerMinute, createdAt: p.createdAt })),
+    savedAnswers,
+    memberships: memberships.map(m => ({ role: m.role, organization: m.organization })),
   });
 }));
 

@@ -16,6 +16,12 @@ interface Stats {
   revenuePaise30d: number;
   tokens30d: number;
   audioMinutes30d: number;
+  appVersions: { version: string; computers: number }[];
+  mockInterviews7d: number;
+  questionsInBank: number;
+  savedAnswers: number;
+  openEnquiries: number;
+  students: number;
 }
 
 const Stat: React.FC<{ label: string; value: string | number; hint?: string; to?: string }> = ({ label, value, hint, to }) => {
@@ -63,7 +69,23 @@ export const AdminDashboard: React.FC = () => {
           <Stat label="Waiting for approval" value={stats.pendingPayments} hint="Offline payments" to="/admin/payments" />
           <Stat label="Listening (30 days)" value={`${stats.audioMinutes30d.toLocaleString('en-IN')} min`} />
           <Stat label="AI tokens (30 days)" value={tokens(stats.tokens30d)} />
+          <Stat label="Mock interviews (7 days)" value={stats.mockInterviews7d} hint={`${stats.savedAnswers.toLocaleString('en-IN')} answers saved by users`} />
+          <Stat label="Question bank" value={stats.questionsInBank} hint="Review and publish" to="/admin/questions" />
+          <Stat label="College students" value={stats.students} hint={stats.openEnquiries ? `${stats.openEnquiries} new ${stats.openEnquiries === 1 ? 'enquiry' : 'enquiries'}` : 'No new enquiries'} to="/admin/organizations" />
         </div>
+      )}
+      {stats && stats.appVersions.length > 0 && (
+        <Card className="mt-4">
+          <div className="text-xs uppercase tracking-wide text-slate-500">App versions in use (computers seen in 30 days)</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {stats.appVersions.map(v => (
+              <span key={v.version} className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-200">
+                {v.version} <span className="tabular-nums text-slate-500">· {v.computers}</span>
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Set “Latest app version” in Settings to offer an update; older apps show an Update / Remind me later popup.</p>
+        </Card>
       )}
 
       <h2 className="mb-3 mt-10 text-lg font-semibold text-slate-100">Offline payments to check</h2>
