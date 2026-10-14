@@ -23,6 +23,12 @@ const FOLLOW_UP_WORDS = new Set([
 
 const words = (text: string) => text.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ').split(/\s+/).filter(Boolean);
 
+// Nothing but filler ("okay", "hmm, right", "achha"): not a question, and not more of one
+export const isFiller = (text: string) => {
+  const list = words(text);
+  return list.length > 0 && list.every(w => FILLER.has(w));
+};
+
 // `language` is the profile's interview language; the phrase rules below only know English
 export const isLikelyQuestion = (text: string, language = 'en'): boolean => {
   const clean = text.trim().toLowerCase();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyQuestion, isLikelyQuestion } from './questionDetect';
+import { classifyQuestion, isFiller, isLikelyQuestion } from './questionDetect';
 
 describe('isLikelyQuestion', () => {
   it.each([
@@ -49,4 +49,9 @@ describe('classifyQuestion', () => {
     ['code?', 'coding'],
     ['Can you show me the code for that?', 'coding'],
   ])('%s → %s', (text, kind) => expect(classifyQuestion(text)).toBe(kind));
+});
+
+describe('isFiller', () => {
+  it.each(['okay', 'hmm, right', 'achha theek hai', 'Thank you.'])('filler: %s', text => expect(isFiller(text)).toBe(true));
+  it.each(['For our payments API', 'okay take your time', 'Example?'])('not filler: %s', text => expect(isFiller(text)).toBe(false));
 });

@@ -3,6 +3,7 @@ import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw } from 'lucide
 import { mockInterviewQuestions, scoreMockAnswer, type MockFeedback } from '../services/ai';
 import { describeAiError } from '../services/llm';
 import { loadSettings } from '../services/storage';
+import { pastInterviewQuestions } from '../services/sessions';
 import { useAudioCapture } from '../hooks/useAudioCapture';
 import { Button, IconButton } from './ui';
 
@@ -65,6 +66,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
   const [phase, setPhase] = useState<Phase>('setup');
   const [count, setCount] = useState(5);
   const [readAloud, setReadAloud] = useState(true);
+  const [source, setSource] = useState<'new' | 'past'>('new'); // New questions, or real ones from History
   const [questions, setQuestions] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [transcript, setTranscript] = useState('');
@@ -106,9 +108,11 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
     setResults([]);
     setPhase('preparing');
     try {
-      const list = await mockInterviewQuestions(settings, count);
+      const list = source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
       if (run !== runRef.current) return;
-      if (list.length === 0) throw new Error('No questions came back. Try again.');
+      if (list.length === 0) {
+        throw new Error(source === 'past' ? 'No past interview questions yet. They come from conversations saved in History.' : 'No questions came back. Try again.');
+      }
       setQuestions(list);
       ask(list, 0);
     } catch (err) {
@@ -177,7 +181,7 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
         {phase === 'setup' && (
           <div className="space-y-4">
             <p className="text-xs leading-relaxed text-slate-400">
-              Questions are based on your resume and the job description. Answer out loud on your microphone, then get a score
+              Answer out loud on your microphone, then get a score
               and a stronger version of your answer.
             </p>
             <div>
@@ -193,6 +197,23 @@ export const MockInterview: React.FC<Props> = ({ onClose }) => {
                   </button>
                 ))}
               </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-xs font-semibold text-slate-300">Questions from</div>
+              <div className="flex gap-1.5">
+                {([['new', 'Resume & job'], ['past', 'My past interviews']] as const).map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setSource(id)}
+                    className={`rounded-md border px-3 py-1 text-xs ${source === id ? 'border-blue-500 bg-blue-500/10 text-slate-100' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {source === 'past' && (
+                <p className="mt-1.5 text-[11px] text-slate-500">Real questions from History, starting with the weak spots from your interview reviews.</p>
+              )}
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-300">
               <input type="checkbox" checked={readAloud} onChange={e => setReadAloud(e.target.checked)} className="accent-blue-500" />

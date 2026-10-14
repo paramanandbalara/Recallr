@@ -37,3 +37,16 @@ export const sessionTitle = (turns: Turn[]) => {
 // Ask where to save, then write the file. Returns false if the user cancelled.
 export const exportFile = async (name: string, kind: 'md' | 'pdf', content: string) =>
   (await invoke<boolean>('export:file', { name, kind, content })) ?? false;
+
+// Real questions from past interviews for practice: weak spots from reviews first, then the rest shuffled
+export const pastInterviewQuestions = async (count: number, recentSessions = 30): Promise<string[]> => {
+  const summaries = (await listSessions()).slice(0, recentSessions);
+  const sessions = (await Promise.all(summaries.map(s => loadSession(s.id)))).filter((s): s is Session => !!s);
+  const weak = sessions.flatMap(s => s.review?.weakSpots.map(w => w.question) ?? []);
+  const asked = sessions
+    .flatMap(s => s.turns.filter(t => t.status === 'done' && t.question.trim().length > 15).map(t => t.question.trim()))
+    .sort(() => Math.random() - 0.5);
+  const seen = new Set<string>();
+  const key = (q: string) => q.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return [...weak, ...asked].filter(q => !seen.has(key(q)) && seen.add(key(q))).slice(0, count);
+};

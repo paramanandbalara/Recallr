@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save } from 'lucide-react';
-import { createProfile, deleteProfile, LANGUAGES, loadActiveProfile, loadProfiles, loadSettings, renameProfile, saveSettings, setActiveProfile, type AnswerLanguage, type Settings } from '../services/storage';
+import { createProfile, deleteProfile, LANGUAGES, loadPreparedMode, savePreparedMode, type PreparedMode, loadActiveProfile, loadProfiles, loadSettings, renameProfile, saveSettings, setActiveProfile, type AnswerLanguage, type Settings } from '../services/storage';
 import { useKeyTests } from '../hooks/useKeyTests';
 import { ApiKeysForm } from './ApiKeysForm';
 import { ResumeInput } from './ResumeInput';
@@ -29,6 +29,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationI
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [tab, setTab] = useState<Tab>('profile');
   const keyTests = useKeyTests();
+  const [preparedMode, setPreparedMode] = useState<PreparedMode>(loadPreparedMode); // Saved right away
   const [profiles, setProfiles] = useState(() => loadProfiles());
   const [activeId, setActiveId] = useState(() => loadActiveProfile().id);
 
@@ -161,6 +162,22 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, conversationI
           </>
         )}
 
+        {tab === 'answers' && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 px-3 py-2">
+            <span className="text-[11px] text-slate-400">When a question matches</span>
+            <div className="flex rounded-md border border-slate-700 p-0.5">
+              {([['instant', 'Show it instantly'], ['retell', 'AI retells it']] as [PreparedMode, string][]).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => { setPreparedMode(mode); savePreparedMode(mode); }}
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium ${preparedMode === mode ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {tab === 'answers' && (
           <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} />
         )}

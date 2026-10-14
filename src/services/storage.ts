@@ -68,6 +68,7 @@ const KEYS = {
   conversation: 'secondBrain_conversation',
   display: 'secondBrain_display',
   english: 'secondBrain_english',
+  preparedMode: 'secondBrain_preparedMode',
   profiles: 'secondBrain_profiles',
   activeProfile: 'secondBrain_activeProfile',
   session: 'secondBrain_session',
@@ -324,6 +325,11 @@ export const saveDisplay = (display: Display) => write(KEYS.display, JSON.string
 export type EnglishStyle = 'normal' | 'broken';
 export const loadEnglishStyle = (): EnglishStyle => (read(KEYS.english) === 'broken' ? 'broken' : 'normal');
 export const saveEnglishStyle = (style: EnglishStyle) => write(KEYS.english, style);
+
+// When a question matches a prepared answer: show it instantly as written, or have the AI retell it
+export type PreparedMode = 'instant' | 'retell';
+export const loadPreparedMode = (): PreparedMode => (read(KEYS.preparedMode) === 'retell' ? 'retell' : 'instant');
+export const savePreparedMode = (mode: PreparedMode) => write(KEYS.preparedMode, mode);
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
 

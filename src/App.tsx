@@ -5,8 +5,8 @@ import { useClickThrough, useTypingFocus } from './hooks/useClickThrough';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
-import { classifyQuestion, isLikelyQuestion } from './services/questionDetect';
-import { hasAnyKey, loadActiveProfile, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
+import { classifyQuestion, isFiller, isLikelyQuestion } from './services/questionDetect';
+import { fillPlaceholders, hasAnyKey, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOverlay, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { setUsageConversation } from './services/usage';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
@@ -21,6 +21,9 @@ import { IconButton } from './components/ui';
 
 const PAUSE_BEFORE_ANSWER_MS = 500;
 const FILLER_TIMEOUT_MS = 5000;
+// A question ending in "?" is answered right away; if the interviewer keeps talking within this time, it was
+// part of the same question, so the answer restarts with all of it
+const CONTINUE_MS = 2500;
 const SAVE_DELAY_MS = 600;
 
 const SETUP_SIZE = { width: 440, height: 700 };
@@ -94,6 +97,7 @@ function App() {
 
   const openTurnRef = useRef<{ id: string; question: string } | null>(null);
   const lastSpeechAtRef = useRef(0);
+  const earlyRef = useRef<{ id: string; question: string; at: number } | null>(null); // Answered early, may still continue
   const inFlightRef = useRef(new Map<string, InFlight>());
   const lastPreparedIdRef = useRef<string | null>(null);
 
@@ -261,9 +265,20 @@ function App() {
     const match = matchPreparedAnswer(question, loadSettings().answers);
     if (!match || match.id === lastPreparedIdRef.current) return false;
     lastPreparedIdRef.current = match.id;
-    answerWithAi(turnId, question, { prepared: match });
+    if (loadPreparedMode() === 'retell') {
+      answerWithAi(turnId, question, { prepared: match });
+      return true;
+    }
+    // Instant: the user's own words, no AI call (Regenerate under it gives an AI retelling)
+    for (const id of [...inFlightRef.current.keys()]) stopAnswer(id);
+    const answer = fillPlaceholders(match.answer, loadSettings().company);
+    patchTurn(turnId, {
+      status: 'done', answer, source: 'prepared', notes: match.notes, preparedId: match.id, kind: classifyQuestion(question),
+      firstTextMs: undefined, provider: undefined, keyPoints: undefined, followUps: undefined, error: undefined,
+    });
+    addExtras(turnId, question, answer);
     return true;
-  }, [answerWithAi]);
+  }, [answerWithAi, stopAnswer, patchTurn, addExtras]);
 
   const handleTranscript = useCallback((text: string, speaker: Speaker) => {
     if (speaker === 'you') {
@@ -275,6 +290,14 @@ function App() {
     lastSpeechAtRef.current = Date.now();
 
     let open = openTurnRef.current;
+    // The interviewer kept talking right after an early answer started: it was more of the same question
+    const early = earlyRef.current;
+    earlyRef.current = null;
+    if (!open && early && Date.now() - early.at < CONTINUE_MS && !isFiller(text)) {
+      stopAnswer(early.id);
+      patchTurn(early.id, { status: 'listening', answer: '' });
+      open = { id: early.id, question: early.question };
+    }
     if (open) {
       open = { id: open.id, question: `${open.question} ${text}` };
       patchTurn(open.id, { question: open.question });
@@ -286,8 +309,16 @@ function App() {
 
     if (answerFromPrepared(open.id, open.question)) {
       openTurnRef.current = null;
+      return;
     }
-  }, [addTurn, patchTurn, answerFromPrepared]);
+
+    // Sounds like a finished question: answer now instead of waiting for the pause
+    if (/\?\s*$/.test(open.question) && isLikelyQuestion(open.question, loadSettings().language)) {
+      openTurnRef.current = null;
+      earlyRef.current = { id: open.id, question: open.question, at: Date.now() };
+      answerWithAi(open.id, open.question);
+    }
+  }, [addTurn, patchTurn, answerFromPrepared, answerWithAi, stopAnswer]);
 
   const { isRecording, startRecording, stopRecording, errorMsg, debugLog, audioLevel } = useAudioCapture(handleTranscript, settings, audioSource);
 
@@ -370,6 +401,7 @@ function App() {
     openTurnRef.current = null;
     lastPreparedIdRef.current = null;
     openedTurnsRef.current = next;
+    earlyRef.current = null;
     setTurns(next);
   };
 

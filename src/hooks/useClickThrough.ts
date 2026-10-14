@@ -7,6 +7,7 @@ import { useEffect } from 'react'
  */
 export function useClickThrough() {
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
     if (!api?.setIgnoreMouse) return
 
@@ -42,6 +43,7 @@ export function useClickThrough() {
  */
 export function useTypingFocus() {
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const api = (window as any).api
     if (!api?.setFocusable) return
 
