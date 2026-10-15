@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
 import { LogoMark } from '../components/Logo';
+import { HeroBadges, NewFeatures, ScrollProgress } from '../components/Modern';
 import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
 import { useAuth } from '../auth';
 
@@ -101,6 +102,7 @@ export const Home: React.FC = () => {
   const startLabel = user ? 'Download the app' : 'Start your free trial';
   return (
     <>
+      <ScrollProgress />
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="hero-grid pointer-events-none absolute inset-0" aria-hidden />
@@ -139,8 +141,9 @@ export const Home: React.FC = () => {
               </ul>
             </Reveal>
           </div>
-          <Reveal delay={200}>
+          <Reveal delay={200} className="relative">
             <ProductDemo />
+            <HeroBadges />
           </Reveal>
         </div>
       </section>
@@ -179,6 +182,16 @@ export const Home: React.FC = () => {
           <p className="mt-3 text-slate-400">Short clips of the real app. The interview in them is an example.</p>
         </Reveal>
         <Reveal delay={100} className="mt-10"><ProductTour /></Reveal>
+      </section>
+
+      {/* Newest features: clips and small live demos */}
+      <section className="relative mx-auto max-w-6xl px-4 py-16">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-violet-300">New in Recallr</span>
+          <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">Ready before, during and after</h2>
+          <p className="mt-3 text-slate-400">Practise on your own resume, never miss a prep day, and use the app in your language.</p>
+        </Reveal>
+        <div className="mt-10"><NewFeatures /></div>
       </section>
 
       {/* Human answers and speed */}

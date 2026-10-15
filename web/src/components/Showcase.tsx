@@ -162,8 +162,8 @@ export const LoopVideo: React.FC<{ name: string; label: string; active?: boolean
   return (
     <video ref={ref} muted loop playsInline preload="none" poster={`/media/demo-${name}-poster.webp`} width={400} height={600}
       className={`block h-auto w-full ${className}`} aria-label={label}>
-      <source src={`/media/demo-${name}.webm`} type="video/webm" />
       <source src={`/media/demo-${name}.mp4`} type="video/mp4" />
+      <source src={`/media/demo-${name}.webm`} type="video/webm" />
     </video>
   );
 };
