@@ -26,6 +26,7 @@ CREATE TABLE `users` (
     `phone` VARCHAR(20) NOT NULL DEFAULT '',
     `whatsapp_reminders` BOOLEAN NOT NULL DEFAULT false,
     `whatsapp_daily` BOOLEAN NOT NULL DEFAULT false,
+    `marketing_emails` BOOLEAN NOT NULL DEFAULT true,
 
     UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_referral_code_key`(`referral_code`),
@@ -163,10 +164,12 @@ CREATE TABLE `usage_events` (
     `output_tokens` INTEGER NOT NULL DEFAULT 0,
     `audio_seconds` DOUBLE NOT NULL DEFAULT 0,
     `latency_ms` INTEGER NULL,
+    `feature` VARCHAR(40) NOT NULL DEFAULT '',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `usage_events_user_id_created_at_idx`(`user_id`, `created_at`),
+    INDEX `usage_events_feature_created_at_idx`(`feature`, `created_at`),
     PRIMARY KEY (`id`),
     CONSTRAINT `usage_events_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -640,5 +643,86 @@ CREATE TABLE `whatsapp_logs` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `whatsapp_logs_created_at_idx`(`created_at`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `interview_experiences` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NULL,
+    `slug` VARCHAR(140) NOT NULL,
+    `company` VARCHAR(200) NOT NULL,
+    `company_key` VARCHAR(200) NOT NULL,
+    `role` VARCHAR(200) NOT NULL,
+    `level` VARCHAR(40) NOT NULL DEFAULT '',
+    `location` VARCHAR(100) NOT NULL DEFAULT '',
+    `interviewed_on` VARCHAR(7) NOT NULL DEFAULT '',
+    `outcome` ENUM('OFFER', 'REJECTED', 'WAITING', 'UNKNOWN') NOT NULL DEFAULT 'UNKNOWN',
+    `difficulty` INTEGER NOT NULL DEFAULT 3,
+    `rounds` MEDIUMTEXT NOT NULL,
+    `tips` VARCHAR(2000) NOT NULL DEFAULT '',
+    `anonymous` BOOLEAN NOT NULL DEFAULT true,
+    `status` ENUM('PENDING', 'PUBLISHED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    `review_note` VARCHAR(1000) NOT NULL DEFAULT '',
+    `published_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `interview_experiences_slug_key`(`slug`),
+    INDEX `interview_experiences_status_published_at_idx`(`status`, `published_at`),
+    INDEX `interview_experiences_company_key_idx`(`company_key`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `interview_experiences_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `salary_data_points` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NULL,
+    `role_key` VARCHAR(120) NOT NULL,
+    `role` VARCHAR(200) NOT NULL,
+    `city` VARCHAR(100) NOT NULL,
+    `level` VARCHAR(40) NOT NULL DEFAULT '',
+    `years` INTEGER NULL,
+    `offer_lakhs` DOUBLE NOT NULL,
+    `fixed_lakhs` DOUBLE NULL,
+    `company` VARCHAR(200) NOT NULL DEFAULT '',
+    `source` VARCHAR(20) NOT NULL DEFAULT 'form',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `salary_data_points_role_key_city_idx`(`role_key`, `city`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `salary_data_points_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `free_tool_uses` (
+    `id` VARCHAR(191) NOT NULL,
+    `tool` VARCHAR(40) NOT NULL,
+    `visitor` VARCHAR(64) NOT NULL,
+    `day` VARCHAR(10) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `free_tool_uses_day_idx`(`day`),
+    UNIQUE INDEX `free_tool_uses_tool_visitor_day_key`(`tool`, `visitor`, `day`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `broadcasts` (
+    `id` VARCHAR(191) NOT NULL,
+    `subject` VARCHAR(200) NOT NULL,
+    `body` MEDIUMTEXT NOT NULL,
+    `segment` VARCHAR(40) NOT NULL,
+    `status` ENUM('DRAFT', 'SENDING', 'SENT') NOT NULL DEFAULT 'DRAFT',
+    `recipients` INTEGER NOT NULL DEFAULT 0,
+    `sent` INTEGER NOT NULL DEFAULT 0,
+    `created_by_id` VARCHAR(191) NULL,
+    `sent_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -23,24 +23,24 @@ enum UserStatus {
 }
 
 model User {
-  id                 String               @id @default(cuid())
-  email              String               @unique
+  id                 String                @id @default(cuid())
+  email              String                @unique
   name               String
-  passwordHash       String               @map("password_hash")
-  role               Role                 @default(USER)
-  status             UserStatus           @default(ACTIVE)
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at")
-  lastSeenAt         DateTime?            @map("last_seen_at")
+  passwordHash       String                @map("password_hash")
+  role               Role                  @default(USER)
+  status             UserStatus            @default(ACTIVE)
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt         DateTime?             @map("last_seen_at")
   // Referrals: everyone gets a code to share; the person who invited this user, and when both got their bonus
-  referralCode       String?              @unique @map("referral_code")
-  referredById       String?              @map("referred_by_id")
-  referralRewardedAt DateTime?            @map("referral_rewarded_at")
-  referredBy         User?                @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals          User[]               @relation("Referrals")
+  referralCode       String?               @unique @map("referral_code")
+  referredById       String?               @map("referred_by_id")
+  referralRewardedAt DateTime?             @map("referral_rewarded_at")
+  referredBy         User?                 @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals          User[]                @relation("Referrals")
   purchases          Purchase[]
-  payments           Payment[]            @relation("PaymentUser")
-  recorded           Payment[]            @relation("PaymentRecordedBy")
+  payments           Payment[]             @relation("PaymentUser")
+  recorded           Payment[]             @relation("PaymentRecordedBy")
   usage              UsageEvent[]
   auditLogs          AuditLog[]
   devices            Device[]
@@ -50,33 +50,37 @@ model User {
   tickets            Ticket[]
   ticketMessages     TicketMessage[]
   // Keep the questions and answers from the app's interviews on the account (the user can turn it off)
-  saveAnswers        Boolean              @default(true) @map("save_answers")
+  saveAnswers        Boolean               @default(true) @map("save_answers")
   // The Monday email with practice progress and one tip (the user can turn it off)
-  weeklyEmail        Boolean              @default(true) @map("weekly_email")
-  lastWeeklyEmailAt  DateTime?            @map("last_weekly_email_at")
+  weeklyEmail        Boolean               @default(true) @map("weekly_email")
+  lastWeeklyEmailAt  DateTime?             @map("last_weekly_email_at")
   savedAnswers       SavedAnswer[]
   practiceSessions   PracticeSession[]
   memberships        OrganizationMember[]
   // Keep a copy of the app's profiles (resume, job, notes, answers) on the account (the user can turn it off)
-  profileSync        Boolean              @default(true) @map("profile_sync")
+  profileSync        Boolean               @default(true) @map("profile_sync")
   profiles           UserProfile[]
   blogPosts          BlogPost[]
   // Billing details for invoices (a GSTIN gets a B2B tax invoice)
-  billingName        String               @default("") @map("billing_name") @db.VarChar(200)
-  billingAddress     String               @default("") @map("billing_address") @db.VarChar(500)
-  billingState       String               @default("") @map("billing_state") @db.VarChar(60) // Indian state, for GST place of supply
-  gstin              String               @default("") @db.VarChar(15)
+  billingName        String                @default("") @map("billing_name") @db.VarChar(200)
+  billingAddress     String                @default("") @map("billing_address") @db.VarChar(500)
+  billingState       String                @default("") @map("billing_state") @db.VarChar(60) // Indian state, for GST place of supply
+  gstin              String                @default("") @db.VarChar(15)
   // WhatsApp: number in international form (+91...), and what the user agreed to receive
-  phone              String               @default("") @db.VarChar(20)
-  whatsappReminders  Boolean              @default(false) @map("whatsapp_reminders")
-  whatsappDaily      Boolean              @default(false) @map("whatsapp_daily")
+  phone              String                @default("") @db.VarChar(20)
+  whatsappReminders  Boolean               @default(false) @map("whatsapp_reminders")
+  whatsappDaily      Boolean               @default(false) @map("whatsapp_daily")
+  // Offers and news by email from the admin (bulk emails); the user can turn it off
+  marketingEmails    Boolean               @default(true) @map("marketing_emails")
+  experiences        InterviewExperience[]
+  salaryPoints       SalaryDataPoint[]
   invoices           Invoice[]
   interviews         UserInterview[]
   dailyAnswers       DailyAnswer[]
   reports            CareerReport[]
   ambassador         Ambassador?
-  hostedRooms        PeerRoom[]           @relation("PeerHost")
-  joinedRooms        PeerRoom[]           @relation("PeerGuest")
+  hostedRooms        PeerRoom[]            @relation("PeerHost")
+  joinedRooms        PeerRoom[]            @relation("PeerGuest")
 
   @@map("users")
 }
@@ -199,11 +203,13 @@ model UsageEvent {
   outputTokens Int       @default(0) @map("output_tokens")
   audioSeconds Float     @default(0) @map("audio_seconds")
   latencyMs    Int?      @map("latency_ms") // Time to the first words of an answer
+  feature      String    @default("") @db.VarChar(40) // What it was for: answer, screen, mock, prep, career, daily... (AI cost per feature)
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([feature, createdAt])
   @@map("usage_events")
 }
 
@@ -833,4 +839,104 @@ model WhatsAppLog {
 
   @@index([createdAt])
   @@map("whatsapp_logs")
+}
+
+// "My interview at X": experiences users share, published after an admin checks them
+model InterviewExperience {
+  id            String            @id @default(cuid())
+  userId        String?           @map("user_id") // Kept when the account closes? No: SetNull, and the post shows as anonymous
+  slug          String            @unique @db.VarChar(140)
+  company       String            @db.VarChar(200)
+  companyKey    String            @map("company_key") @db.VarChar(200) // Normalized, for grouping with company question packs
+  role          String            @db.VarChar(200)
+  level         String            @default("") @db.VarChar(40) // fresher, junior, mid, senior
+  location      String            @default("") @db.VarChar(100)
+  interviewedOn String            @default("") @map("interviewed_on") @db.VarChar(7) // YYYY-MM
+  outcome       ExperienceOutcome @default(UNKNOWN)
+  difficulty    Int               @default(3) // 1 to 5
+  rounds        String            @db.MediumText // JSON: [{name, questions[], notes}]
+  tips          String            @default("") @db.VarChar(2000)
+  anonymous     Boolean           @default(true)
+  status        ExperienceStatus  @default(PENDING)
+  reviewNote    String            @default("") @map("review_note") @db.VarChar(1000)
+  publishedAt   DateTime?         @map("published_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at")
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@index([companyKey])
+  @@map("interview_experiences")
+}
+
+enum ExperienceOutcome {
+  OFFER
+  REJECTED
+  WAITING
+  UNKNOWN
+}
+
+enum ExperienceStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+// Salary offers users chose to share anonymously (from salary practice or a form); shown as ranges only when a
+// role and city have enough of them
+model SalaryDataPoint {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  roleKey    String   @map("role_key") @db.VarChar(120) // Normalized role, e.g. "backend engineer"
+  role       String   @db.VarChar(200)
+  city       String   @db.VarChar(100)
+  level      String   @default("") @db.VarChar(40)
+  years      Int?
+  offerLakhs Float    @map("offer_lakhs") // Total CTC in lakhs per year (India)
+  fixedLakhs Float?   @map("fixed_lakhs")
+  company    String   @default("") @db.VarChar(200) // Never shown on its own
+  source     String   @default("form") @db.VarChar(20) // form, salary_practice
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([roleKey, city])
+  @@map("salary_data_points")
+}
+
+// Free tools on the website for visitors without an account: one use per visitor per day, and a daily total cap
+model FreeToolUse {
+  id        String   @id @default(cuid())
+  tool      String   @db.VarChar(40)
+  visitor   String   @db.VarChar(64) // Hash of the IP address (never the address itself)
+  day       String   @db.VarChar(10) // YYYY-MM-DD, India time
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([tool, visitor, day])
+  @@index([day])
+  @@map("free_tool_uses")
+}
+
+// Bulk emails from the admin to a group of users (offers, news); only to users who allow them
+model Broadcast {
+  id          String          @id @default(cuid())
+  subject     String          @db.VarChar(200)
+  body        String          @db.MediumText // Plain text with simple formatting
+  segment     String          @db.VarChar(40) // all, trial, paid, expired, inactive, college, ...
+  status      BroadcastStatus @default(DRAFT)
+  recipients  Int             @default(0)
+  sent        Int             @default(0)
+  createdById String?         @map("created_by_id")
+  sentAt      DateTime?       @map("sent_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("broadcasts")
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SENDING
+  SENT
 }

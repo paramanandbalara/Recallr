@@ -44,6 +44,8 @@ export const SETTINGS = {
   updateFeedUrl: { label: 'Update files address', group: 'app', public: true, hint: 'e.g. https://downloads.your-domain.com/recallr/. The folder where you upload the installers with latest.yml and latest-mac.yml (made by npm run dist). The app then downloads and installs updates itself. Empty: Update opens the download link.' },
   businessName: { label: 'Business name', group: 'website', public: true, default: 'Recallr' },
   supportEmail: { label: 'Support email', group: 'website', public: true, default: '' },
+  operatorName: { label: 'Operated by (your legal name)', group: 'website', public: true, default: '', hint: 'e.g. your full name if you run Recallr as an individual. Shown in the privacy policy, terms and invoices. Empty: the business name.' },
+  grievanceOfficer: { label: 'Grievance officer', group: 'website', public: true, default: '', hint: 'The person who handles complaints under India’s IT Rules and DPDP Act, usually you. Shown with the support email in the privacy policy.' },
   downloadUrlWindows: { label: 'Windows download link', group: 'website', public: true, default: '' },
   downloadUrlMac: { label: 'macOS download link', group: 'website', public: true, default: '' },
   s3Bucket: { label: 'S3 bucket', group: 'storage', env: 'S3_BUCKET', hint: 'Where profiles and resume files are kept. Empty: they are kept in the database (resume files are then not kept).' },
@@ -67,6 +69,10 @@ export const SETTINGS = {
   whatsappTemplateLanguage: { label: 'Template language', group: 'whatsapp', default: 'en' },
   whatsappTemplateCode: { label: 'Verification code template name', group: 'whatsapp', default: 'verify_code', hint: 'An approved Authentication template with a "Copy code" button. Users get their 6-digit code with it when they add their number.' },
   ambassadorBonusMinutes: { label: 'Ambassador bonus (minutes)', group: 'referrals', number: true, default: '60', hint: 'What an approved college ambassador gets for each friend who pays, instead of the normal bonus.' },
+  freeToolsDailyCap: { label: 'Free tools: uses per day (all visitors)', group: 'website', number: true, default: '200', hint: 'The free resume score and job ad check for visitors without an account cost AI. One use per visitor per day, and at most this many in total per day. 0 turns them off.' },
+  turnstileSiteKey: { label: 'Cloudflare Turnstile site key', group: 'website', public: true, default: '', hint: 'Optional: a free "are you human" check on the free tools (dash.cloudflare.com → Turnstile).' },
+  turnstileSecret: { label: 'Cloudflare Turnstile secret', group: 'website', secret: true, default: '' },
+  salaryMinPoints: { label: 'Salary checker: offers needed', group: 'website', number: true, default: '5', hint: 'A role and city show salary ranges only once this many people have shared an offer.' },
 } satisfies Record<string, Definition>;
 
 export type SettingKey = keyof typeof SETTINGS;
