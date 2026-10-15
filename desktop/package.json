@@ -31,17 +31,27 @@
       "createStartMenuShortcut": true
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "build/icon.png",
       "extendInfo": {
         "LSUIElement": true,
         "NSMicrophoneUsageDescription": "Recallr listens to the conversation to suggest answers.",
         "NSAudioCaptureUsageDescription": "Recallr listens to the call audio (the other participants) to suggest answers."
       }
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://downloads.example.com/recallr/"
+      }
+    ]
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
+    "electron-updater": "^6.8.9",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.21.0",
     "pdfjs-dist": "^5.6.205",

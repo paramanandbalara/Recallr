@@ -83,6 +83,23 @@ Build the Windows installer on Windows and the macOS one on a Mac. Upload them (
 in Admin → Settings → Website. Unsigned builds show a SmartScreen / Gatekeeper warning; the guide tells users how
 to get past it. Code-signing certificates remove it.
 
+### Updates that install inside the app
+
+1. Bump `version` in `desktop/package.json` and build with `npm run dist`. Next to the installers, `dist-installers/`
+   now has `latest.yml` (Windows) and `latest-mac.yml` plus a `.zip` (macOS).
+2. Upload all of them to one folder that is served over HTTPS (S3 + CloudFront, R2, any static host), e.g.
+   `https://downloads.your-domain.com/recallr/`. Upload the installers first and the `.yml` files last.
+3. In Admin → Settings → App versions set **Update files address** to that folder, **Latest app version** to the new
+   version, and **What's new**.
+
+Apps then show the update popup (never while listening). **Update** downloads it inside the app with a progress bar,
+then **Restart now** installs it and opens the new version; **Later** installs it the next time the app quits. The
+download is checked against the checksum in the `.yml` file. Without the address, Update opens the download link as before.
+
+On macOS, in-app updates only work for builds signed with a Developer ID certificate (Apple's rule); unsigned Mac builds
+fall back to "Open download page". The `publish` URL in `desktop/package.json` is only a placeholder: the app uses the
+address from Admin → Settings.
+
 ## 6. After launch
 
 - Register with `ADMIN_EMAIL`, then check Admin → Plans (prices and the free trial).

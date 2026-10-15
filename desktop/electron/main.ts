@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session, Tray, Menu, nativeImage, shell, desktopCapturer, screen, globalShortcut, dialog, systemPreferences, safeStorage } from 'electron'
+import { setupUpdates } from './updater'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
@@ -430,6 +431,8 @@ ipcMain.handle('export:file', async (_event, { name, kind, content }: { name: st
   }
   return true
 })
+
+setupUpdates(() => win)
 
 ipcMain.on('quit-app', () => { app.quit() })
 ipcMain.on('hide-app', () => { win?.hide() })

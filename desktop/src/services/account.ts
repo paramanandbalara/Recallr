@@ -223,6 +223,7 @@ export interface VersionInfo {
   minimum: string | null;
   notes: string;
   downloads: { windows: string; mac: string };
+  feedUrl?: string | null; // Where the app downloads updates itself
 }
 
 export const fetchVersionInfo = () => json<VersionInfo>('/app/version');
@@ -257,6 +258,28 @@ export const updateToOffer = (current: string, info: VersionInfo | null, snooze:
 
 export const downloadUrl = (info: VersionInfo) =>
   (device?.platform === 'darwin' ? info.downloads.mac : info.downloads.windows) || `${WEB_URL}/download`;
+
+// ---------- Updates inside the app ----------
+
+export type UpdateStatus =
+  | { state: 'downloading'; percent: number; version?: string }
+  | { state: 'ready'; version: string }
+  | { state: 'none' }
+  | { state: 'error'; message: string };
+
+interface UpdateBridge {
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
+  onUpdateStatus?: (listener: (status: UpdateStatus) => void) => () => void;
+}
+const updateBridge = () => (window as unknown as { ipcRenderer?: UpdateBridge }).ipcRenderer;
+
+// In the installed app, when the server says where the update files are
+export const canUpdateInApp = (info: VersionInfo | null) => !!info?.feedUrl && !!updateBridge()?.onUpdateStatus;
+// Downloads the update; resolves when it's ready to install (or failed)
+export const startUpdate = (feedUrl: string) => updateBridge()!.invoke('update:start', feedUrl) as Promise<UpdateStatus>;
+// Closes the app, installs the update and opens the new version
+export const installUpdate = () => updateBridge()!.invoke('update:install') as Promise<boolean>;
+export const onUpdateStatus = (listener: (status: UpdateStatus) => void) => updateBridge()?.onUpdateStatus?.(listener) ?? (() => {});
 
 // ---------- Cloud backup ----------
 

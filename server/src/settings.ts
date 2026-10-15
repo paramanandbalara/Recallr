@@ -41,6 +41,7 @@ export const SETTINGS = {
   latestAppVersion: { label: 'Latest app version', group: 'app', public: true, hint: 'e.g. 1.2.0. Older apps offer it in a popup (Update / Remind me later), never while listening.' },
   minimumAppVersion: { label: 'Minimum app version', group: 'app', public: true, hint: 'Older apps must update before they can be used. Leave empty to allow all.' },
   releaseNotes: { label: "What's new", group: 'app', public: true, hint: 'Shown with the update message.' },
+  updateFeedUrl: { label: 'Update files address', group: 'app', public: true, hint: 'e.g. https://downloads.your-domain.com/recallr/. The folder where you upload the installers with latest.yml and latest-mac.yml (made by npm run dist). The app then downloads and installs updates itself. Empty: Update opens the download link.' },
   businessName: { label: 'Business name', group: 'website', public: true, default: 'Recallr' },
   supportEmail: { label: 'Support email', group: 'website', public: true, default: '' },
   downloadUrlWindows: { label: 'Windows download link', group: 'website', public: true, default: '' },

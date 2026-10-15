@@ -10,6 +10,8 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        // Loaded from node_modules at run time (electron-builder packs the dependencies)
+        vite: { build: { rolldownOptions: { external: ['electron-updater'] } } },
       },
       preload: {
         input: 'electron/preload.ts',

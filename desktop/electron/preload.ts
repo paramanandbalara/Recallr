@@ -24,4 +24,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on('shortcut', handler)
     return () => { ipcRenderer.off('shortcut', handler) }
   },
+  // Download progress of an update installing inside the app
+  onUpdateStatus(listener: (status: unknown) => void) {
+    const handler = (_event: Electron.IpcRendererEvent, status: unknown) => listener(status)
+    ipcRenderer.on('update-status', handler)
+    return () => { ipcRenderer.off('update-status', handler) }
+  },
 })

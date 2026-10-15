@@ -29,7 +29,7 @@ contentRoutes.get('/app/version', route(async (_req, res) => {
   const s = await getSettings();
   res.json({
     latest: s.latestAppVersion || null, minimum: s.minimumAppVersion || null, notes: s.releaseNotes,
-    downloads: { windows: s.downloadUrlWindows, mac: s.downloadUrlMac },
+    downloads: { windows: s.downloadUrlWindows, mac: s.downloadUrlMac }, feedUrl: s.updateFeedUrl || null,
   });
 }));
 
