@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw, Gauge, MessageCircleWarning, Timer, ExternalLink } from 'lucide-react';
-import { mockInterviewQuestions, scoreMockAnswer, type MockFeedback } from '../services/ai';
+import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw, Gauge, MessageCircleWarning, Timer, ExternalLink, Sparkles, Keyboard, AlertTriangle, ListChecks } from 'lucide-react';
+import { mockInterviewQuestions, resumeInterviewQuestions, scoreMockAnswer, type MockFeedback } from '../services/ai';
 import { describeAiError } from '../services/llm';
 import { loadActiveProfile, loadSettings } from '../services/storage';
-import { openWebsite, request } from '../services/account';
+import { ApiError, formatMinutes, openWebsite, request } from '../services/account';
 import { analyzeSpeech, formatLength, PACE, type SpeakingFeedback } from '../services/speaking';
 import { pastInterviewQuestions } from '../services/sessions';
+import {
+  estimateListeningMinutes, hasUsableResume, kindLabel, levelHeading, questionsToRetry, RESUME_TEST_QUESTIONS, whatToWorkOn,
+  type ResumeInterview,
+} from '../services/resumeInterview';
+import { speakEnglish } from '../services/voice';
 import { useAudioCapture } from '../hooks/useAudioCapture';
+import { useAccount } from '../hooks/useAccount';
 import { t } from '../i18n';
 import { Button, IconButton } from './ui';
 
@@ -16,39 +22,28 @@ interface Props {
 }
 
 type Phase = 'setup' | 'preparing' | 'asking' | 'answering' | 'scoring' | 'feedback' | 'summary';
+type Source = 'resume' | 'new' | 'past' | 'prep'; // From my resume, resume & job, real ones from History, the prep pack's
 
 interface Result {
   question: string;
   answer: string;
   feedback?: MockFeedback; // Missing when the question was skipped
-  speaking?: SpeakingFeedback;
+  speaking?: SpeakingFeedback; // Missing when skipped or typed
 }
 
 const COUNTS = [3, 5, 8];
 
-// An English system voice, if there is one (voices can load a moment after startup)
-const pickVoice = () => {
-  const voices = window.speechSynthesis?.getVoices() ?? [];
-  return voices.find(v => v.lang === 'en-US' && v.localService) ?? voices.find(v => v.lang.startsWith('en')) ?? null;
-};
-
-// Read text out loud with the system's voice; resolves when done (or right away if speech isn't available)
-const speak = (text: string) => new Promise<void>(resolve => {
-  const synth = window.speechSynthesis;
-  if (!synth) return resolve();
-  synth.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  const voice = pickVoice();
-  if (voice) utterance.voice = voice;
-  utterance.rate = 1;
-  utterance.onend = () => resolve();
-  utterance.onerror = () => resolve();
-  synth.speak(utterance);
-});
-
 const scoreColor = (score: number) => (score >= 8 ? 'text-emerald-400' : score >= 5 ? 'text-amber-400' : 'text-red-400');
 
 const paceTone = (wpm: number | null) => (wpm === null ? 'text-slate-300' : wpm < PACE.slow || wpm > PACE.fast ? 'text-amber-300' : 'text-emerald-300');
+
+const buyMore = () => openWebsite('/account/buy');
+
+const TopUp: React.FC = () => (
+  <button onClick={buyMore} className="inline-flex items-center gap-0.5 font-medium text-blue-400 hover:text-blue-300">
+    {t('Top up')} <ExternalLink className="h-3 w-3" />
+  </button>
+);
 
 // Pace, filler words and length of one answer, with what to work on
 const Speaking: React.FC<{ speaking: SpeakingFeedback }> = ({ speaking }) => (
@@ -99,29 +94,50 @@ const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
   </div>
 );
 
-// Practice: questions are read out loud, you answer by voice, and each answer gets scored
+// Practice: questions are read out loud, you answer by voice (or type), and each answer gets scored.
+// Everything counts against the plan through the normal server calls: the questions and scores as AI tokens
+// (/api/ai/chat), spoken answers as listening time (/api/ai/transcribe, with each recording's real length).
 export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) => {
+  const { allowance } = useAccount();
   const [settings] = useState(() => loadSettings());
   const [keys] = useState(() => ({ ...settings, keepFillers: true })); // Keep "um", "uh"... for speaking feedback
   const answerStartedRef = useRef(0);
+  const answerSecondsRef = useRef(0); // Time already spent answering before a "Repeat question"
   const [saved, setSaved] = useState<'no' | 'saving' | 'yes' | 'failed'>('no');
   const [phase, setPhase] = useState<Phase>('setup');
   const [count, setCount] = useState(5);
   const [readAloud, setReadAloud] = useState(true);
-  const [source, setSource] = useState<'new' | 'past' | 'prep'>(initialQuestions?.length ? 'prep' : 'new'); // New questions, real ones from History, or the prep pack's
+  const readAloudRef = useRef(true);
+  const [source, setSource] = useState<Source>(initialQuestions?.length ? 'prep' : 'new');
   const [questions, setQuestions] = useState<string[]>([]);
+  const [resumePlan, setResumePlan] = useState<ResumeInterview | null>(null); // Level, role and kinds, for "From my resume"
   const [index, setIndex] = useState(0);
   const [transcript, setTranscript] = useState('');
+  const [typing, setTyping] = useState(false); // Typed answers instead of the microphone
+  const typingRef = useRef(false);
+  const [typed, setTyped] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [error, setError] = useState('');
+  const [planEmpty, setPlanEmpty] = useState(false); // The server said the plan ran out (402)
   const transcriptRef = useRef('');
   const runRef = useRef(0); // Bumped when the panel closes or restarts, so late steps don't act
+
+  const hasResume = hasUsableResume(settings.cv);
+  const outOfMinutes = allowance.minutesLeft !== null && allowance.minutesLeft <= 0;
+  const outOfTokens = allowance.tokensLeft !== null && allowance.tokensLeft <= 0;
+  const outOfMinutesRef = useRef(outOfMinutes);
+  useEffect(() => { outOfMinutesRef.current = outOfMinutes; }, [outOfMinutes]);
+  const estimate = estimateListeningMinutes(RESUME_TEST_QUESTIONS);
 
   const onText = useCallback((text: string) => {
     transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${text}` : text;
     setTranscript(transcriptRef.current);
   }, []);
   const { isRecording, startRecording, stopRecording, errorMsg, audioLevel } = useAudioCapture(onText, keys, 'microphone');
+
+  // No microphone (or it stopped), or no listening time left: answers are typed
+  const micDown = phase === 'answering' && !!errorMsg && !isRecording;
+  const typingNow = typing || micDown || outOfMinutes;
 
   // Stop speaking and listening when the panel closes
   const stopRef = useRef(stopRecording);
@@ -132,38 +148,79 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
     stopRef.current();
   }, []);
 
+  const changeReadAloud = (value: boolean) => {
+    readAloudRef.current = value;
+    setReadAloud(value);
+  };
+
+  const showError = (err: unknown) => {
+    setError(describeAiError(err));
+    setPlanEmpty(err instanceof ApiError && err.status === 402);
+  };
+
+  // Start listening for the answer (unless it's typed)
+  const listen = () => {
+    setPhase('answering');
+    answerStartedRef.current = performance.now();
+    if (!typingRef.current && !outOfMinutesRef.current) startRecording();
+  };
+
   const ask = async (list: string[], i: number) => {
     const run = runRef.current;
     setIndex(i);
     setTranscript('');
     transcriptRef.current = '';
+    setTyped('');
+    answerSecondsRef.current = 0;
     setPhase('asking');
-    if (readAloud) await speak(list[i]);
+    if (readAloudRef.current) await speakEnglish(list[i]);
     if (run !== runRef.current) return;
-    setPhase('answering');
-    answerStartedRef.current = performance.now();
-    startRecording();
+    listen();
   };
 
-  const start = async () => {
+  // `given`: practise these exact questions again (keeps the resume's level and role)
+  const begin = async (from: Source, n: number, given?: string[]) => {
     const run = ++runRef.current;
     setError('');
+    setPlanEmpty(false);
     setResults([]);
     setSaved('no');
+    if (!given) setResumePlan(null);
+    if (from === 'resume' && !given && !hasResume) {
+      setPhase('setup');
+      setError(t('There is no resume in this profile yet. Add it in Settings → Profile → Resume, then start the test.'));
+      return;
+    }
     setPhase('preparing');
     try {
-      const list = source === 'prep' ? initialQuestions!.slice(0, count) : source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
+      let list: string[];
+      if (given) list = given;
+      else if (from === 'resume') {
+        const plan = await resumeInterviewQuestions(settings, n);
+        if (run !== runRef.current) return;
+        setResumePlan(plan);
+        list = plan.questions.map(q => q.question);
+      } else if (from === 'prep') list = initialQuestions!.slice(0, n);
+      else if (from === 'past') list = await pastInterviewQuestions(n);
+      else list = await mockInterviewQuestions(settings, n);
       if (run !== runRef.current) return;
       if (list.length === 0) {
-        throw new Error(source === 'past' ? t('No past interview questions yet. They come from conversations saved in History.') : t('No questions came back. Try again.'));
+        throw new Error(from === 'past' ? t('No past interview questions yet. They come from conversations saved in History.') : t('No questions came back. Try again.'));
       }
       setQuestions(list);
       ask(list, 0);
     } catch (err) {
       if (run !== runRef.current) return;
-      setError(describeAiError(err));
+      showError(err);
       setPhase('setup');
     }
+  };
+
+  // The one button: questions from the resume, read out loud, answered by voice
+  const testFromResume = () => {
+    setSource('resume');
+    changeReadAloud(true);
+    begin('resume', RESUME_TEST_QUESTIONS);
   };
 
   // The results go to the account (website → Progress, and the coach of a college group): scores and
@@ -196,10 +253,11 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
   const finishAnswer = async () => {
     const run = runRef.current;
     setPhase('scoring');
-    const seconds = (performance.now() - answerStartedRef.current) / 1000; // Until "Done answering"
+    const seconds = answerSecondsRef.current + (performance.now() - answerStartedRef.current) / 1000; // Until "Done answering"
     await stopRecording(true); // Wait for the last words to be transcribed
-    const answer = transcriptRef.current.trim();
-    const speaking = analyzeSpeech(answer, seconds, t);
+    const spoken = !typingNow;
+    const answer = (spoken ? transcriptRef.current : [transcriptRef.current, typed].filter(Boolean).join(' ')).trim();
+    const speaking = spoken ? analyzeSpeech(answer, seconds, t) : undefined;
     try {
       const feedback = await scoreMockAnswer(questions[index], answer, settings);
       if (run !== runRef.current) return;
@@ -207,10 +265,42 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
       setPhase('feedback');
     } catch (err) {
       if (run !== runRef.current) return;
-      setError(describeAiError(err));
+      showError(err);
       setResults(prev => [...prev, { question: questions[index], answer, speaking }]);
       setPhase('feedback');
     }
+  };
+
+  // Read the question again; while answering, the microphone pauses so it doesn't hear the question
+  const repeatQuestion = async () => {
+    if (phase !== 'answering') {
+      speakEnglish(questions[index]);
+      return;
+    }
+    const run = runRef.current;
+    answerSecondsRef.current += (performance.now() - answerStartedRef.current) / 1000;
+    setPhase('asking');
+    await stopRecording(true); // Keeps what was said so far
+    await speakEnglish(questions[index]);
+    if (run !== runRef.current) return;
+    listen();
+  };
+
+  const typeInstead = async () => {
+    typingRef.current = true;
+    setTyping(true);
+    await stopRecording(true); // What was said so far stays in the answer
+  };
+
+  const speakInstead = () => {
+    typingRef.current = false;
+    setTyping(false);
+    if (typed.trim()) {
+      transcriptRef.current = [transcriptRef.current, typed.trim()].filter(Boolean).join(' ');
+      setTranscript(transcriptRef.current);
+      setTyped('');
+    }
+    if (phase === 'answering' && !outOfMinutes) startRecording();
   };
 
   const skip = async () => {
@@ -233,26 +323,70 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
   const averagePace = average(answered.map(r => r.speaking!.wordsPerMinute));
   const totalFillers = answered.reduce((sum, r) => sum + r.speaking!.fillers, 0);
   const current = results[results.length - 1];
-
-
+  const inQuestion = ['asking', 'answering', 'scoring', 'feedback'].includes(phase);
+  const heading = resumePlan ? levelHeading(resumePlan.level, resumePlan.role, t) : '';
+  const kindOf = (question: string) => resumePlan?.questions.find(q => q.question === question)?.kind;
+  const currentKind = inQuestion ? kindOf(questions[index]) : undefined;
+  const testAnswers = results.map(r => ({
+    question: r.question, answer: r.answer, score: r.feedback?.score, improve: r.feedback?.improve, speaking: r.speaking,
+  }));
+  const workOn = phase === 'summary' ? whatToWorkOn(testAnswers, t) : [];
+  const retry = phase === 'summary' ? questionsToRetry(testAnswers) : [];
 
   return (
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-100">{t('Mock interview')}</h2>
-          {['asking', 'answering', 'scoring', 'feedback'].includes(phase) && (
-            <p className="text-[10px] text-slate-500">{t('Question {n} of {total}', { n: index + 1, total: questions.length })}</p>
+          {inQuestion && (
+            <p className="truncate text-[10px] text-slate-500">
+              {t('Question {n} of {total}', { n: index + 1, total: questions.length })}{heading && ` · ${heading}`}
+            </p>
           )}
         </div>
         <IconButton onClick={onClose} title={t('Close')}><X className="w-4 h-4" /></IconButton>
       </div>
 
       <div className="scrollable flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {(error || errorMsg) && <p className="text-xs text-red-300">{error || errorMsg}</p>}
+        {(error || errorMsg) && (
+          <p className="text-xs text-red-300">
+            {error || errorMsg}
+            {planEmpty && <> <TopUp /></>}
+          </p>
+        )}
 
         {phase === 'setup' && (
           <div className="space-y-4">
+            <div className="space-y-2 rounded-xl border border-blue-500/40 bg-blue-500/5 p-3">
+              <Button variant="primary" icon={<Sparkles className="w-4 h-4" />} onClick={testFromResume} disabled={!hasResume || outOfTokens} className="w-full">
+                {t('Test interview from my resume')}
+              </Button>
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                {t('{n} questions on your skills, projects and experience level, read out loud. Answer by voice, or type if there is no microphone.', { n: RESUME_TEST_QUESTIONS })}
+              </p>
+              {!hasResume && (
+                <p className="flex gap-1.5 text-[11px] leading-relaxed text-amber-300">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {t('There is no resume in this profile yet. Add it in Settings → Profile → Resume, then start the test.')}
+                </p>
+              )}
+              {outOfTokens ? (
+                <p className="text-[11px] leading-relaxed text-amber-300">{t("You've used all the AI answers in your plan. Buy a top-up to continue.")} <TopUp /></p>
+              ) : outOfMinutes ? (
+                <p className="text-[11px] leading-relaxed text-amber-300">
+                  {t("You've used all the listening time in your plan. Buy a top-up to continue.")} {t('You can still type your answers.')} <TopUp />
+                </p>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  {t('Uses your plan: about {n} min of listening for your spoken answers, plus some AI tokens for the questions and scores.', { n: estimate })}
+                  {allowance.minutesLeft !== null && allowance.minutesLeft < estimate && (
+                    <> {t('You have {time} of listening left.', { time: formatMinutes(allowance.minutesLeft) })} <TopUp /></>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('Or set up your own practice')}</div>
             <p className="text-xs leading-relaxed text-slate-400">
               {t('Answer out loud on your microphone, then get a score and a stronger version of your answer.')}
             </p>
@@ -272,8 +406,8 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
             </div>
             <div>
               <div className="mb-1.5 text-xs font-semibold text-slate-300">{t('Questions from')}</div>
-              <div className="flex gap-1.5">
-                {([['new', 'Resume & job'], ['past', 'My past interviews'], ...(initialQuestions?.length ? [['prep', 'Prep pack']] as const : [])] as const).map(([id, label]) => (
+              <div className="flex flex-wrap gap-1.5">
+                {([['resume', 'From my resume'], ['new', 'Resume & job'], ['past', 'My past interviews'], ...(initialQuestions?.length ? [['prep', 'Prep pack']] as const : [])] as const).map(([id, label]) => (
                   <button
                     key={id}
                     onClick={() => setSource(id)}
@@ -283,46 +417,81 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
                   </button>
                 ))}
               </div>
+              {source === 'resume' && (
+                <p className="mt-1.5 text-[11px] text-slate-500">{t('Tailored to you: your named projects, your skills and your experience level.')}</p>
+              )}
               {source === 'past' && (
                 <p className="mt-1.5 text-[11px] text-slate-500">{t('Real questions from History, starting with the weak spots from your interview reviews.')}</p>
               )}
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-300">
-              <input type="checkbox" checked={readAloud} onChange={e => setReadAloud(e.target.checked)} className="accent-blue-500" />
+              <input type="checkbox" checked={readAloud} onChange={e => changeReadAloud(e.target.checked)} className="accent-blue-500" />
               {t('Read the questions out loud')}
             </label>
-            <Button variant="primary" icon={<Mic className="w-4 h-4" />} onClick={start}>{t('Start')}</Button>
+            <Button icon={<Mic className="w-4 h-4" />} onClick={() => begin(source, count)} disabled={outOfTokens}>{t('Start')}</Button>
           </div>
         )}
 
         {phase === 'preparing' && (
           <div className="flex flex-col items-center gap-2 pt-12 text-center">
             <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-            <p className="text-xs text-slate-400">{t('Preparing your questions...')}</p>
+            <p className="text-xs text-slate-400">{source === 'resume' ? t('Reading your resume and preparing your questions...') : t('Preparing your questions...')}</p>
           </div>
         )}
 
-        {['asking', 'answering', 'scoring', 'feedback'].includes(phase) && (
+        {inQuestion && (
           <>
-            <div className="flex gap-2">
-              <p className="flex-1 text-sm font-medium leading-relaxed text-slate-100 select-text">{questions[index]}</p>
-              <IconButton title={t('Read it again')} onClick={() => speak(questions[index])} disabled={phase !== 'answering' && phase !== 'feedback'}>
-                <Volume2 className="w-4 h-4" />
-              </IconButton>
+            <div className="space-y-1.5">
+              {currentKind && (
+                <span className="inline-block rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">{kindLabel(currentKind, t)}</span>
+              )}
+              <p className="text-sm font-medium leading-relaxed text-slate-100 select-text">{questions[index]}</p>
+              <Button size="sm" variant="ghost" icon={<Volume2 className="w-3.5 h-3.5" />} onClick={repeatQuestion} disabled={phase !== 'answering' && phase !== 'feedback'} className="-ml-2.5">
+                {t('Repeat question')}
+              </Button>
             </div>
 
             {phase === 'asking' && <p className="text-xs text-blue-300 animate-pulse">{t('Asking...')}</p>}
 
-            {(phase === 'answering' || phase === 'scoring') && (
-              <div className="rounded-lg border border-slate-800 p-3">
-                <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  {isRecording && <span className="h-2 w-2 rounded-full bg-red-500" style={{ opacity: 0.4 + audioLevel * 0.6 }} />}
-                  {t('Your answer')}
+            {(phase === 'answering' || phase === 'scoring' || (phase === 'asking' && transcript)) && (
+              typingNow && phase !== 'asking' ? (
+                <div className="space-y-1.5">
+                  {micDown && <p className="text-[11px] text-amber-300">{t('The microphone is not available. Type your answer instead.')}</p>}
+                  {outOfMinutes && (
+                    <p className="text-[11px] text-amber-300">{t("You've used all the listening time in your plan. Buy a top-up to continue.")} <TopUp /></p>
+                  )}
+                  {transcript && <p className="text-[11px] leading-relaxed text-slate-500 select-text">{transcript}</p>}
+                  <textarea
+                    value={typed}
+                    onChange={e => setTyped(e.target.value)}
+                    disabled={phase !== 'answering'}
+                    autoFocus
+                    rows={6}
+                    placeholder={t('Type your answer the way you would say it...')}
+                    className="w-full resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs leading-relaxed text-slate-200 placeholder:text-slate-600 focus:border-blue-500 focus:outline-none"
+                  />
                 </div>
-                <p className="min-h-[3em] text-xs leading-relaxed text-slate-300 select-text">
-                  {transcript || <span className="text-slate-600">{phase === 'answering' ? t('Start talking...') : ''}</span>}
-                </p>
-              </div>
+              ) : (
+                <div className="rounded-lg border border-slate-800 p-3">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {isRecording && <span className="h-2 w-2 rounded-full bg-red-500" style={{ opacity: 0.4 + audioLevel * 0.6 }} />}
+                    {t('Your answer')}
+                  </div>
+                  <p className="min-h-[3em] text-xs leading-relaxed text-slate-300 select-text">
+                    {transcript || <span className="text-slate-600">{phase === 'answering' ? t('Start talking...') : ''}</span>}
+                  </p>
+                </div>
+              )
+            )}
+
+            {phase === 'answering' && (
+              typingNow ? (
+                !micDown && !outOfMinutes && (
+                  <button onClick={speakInstead} className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300"><Mic className="h-3 w-3" /> {t('Answer by voice instead')}</button>
+                )
+              ) : (
+                <button onClick={typeInstead} className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300"><Keyboard className="h-3 w-3" /> {t('Type instead')}</button>
+              )
             )}
 
             {phase === 'scoring' && (
@@ -343,6 +512,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
 
         {phase === 'summary' && (
           <div className="space-y-3">
+            {heading && <p className="text-[11px] font-medium text-slate-400">{heading}</p>}
             {scored.length > 0 ? (
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-3xl font-semibold tabular-nums ${scoreColor(averageScore)}`}>{averageScore.toFixed(1)}</span>
@@ -363,6 +533,16 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
                   <div className="text-[10px] uppercase tracking-wide text-slate-500">{t('Filler words')}</div>
                   <div className={`text-sm font-semibold tabular-nums ${totalFillers / answered.length >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{answered.length === 1 ? t('{fillers} in 1 answer', { fillers: totalFillers }) : t('{fillers} in {n} answers', { fillers: totalFillers, n: answered.length })}</div>
                 </div>
+              </div>
+            )}
+            {workOn.length > 0 && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+                <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                  <ListChecks className="h-3.5 w-3.5" /> {t('What to work on')}
+                </div>
+                <ul className="space-y-1">
+                  {workOn.map(item => <li key={item} className="text-[11px] leading-relaxed text-slate-300">• {item}</li>)}
+                </ul>
               </div>
             )}
             <ul className="space-y-1.5">
@@ -399,8 +579,10 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
       </div>
 
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-800 shrink-0">
-        {['asking', 'answering', 'scoring', 'feedback'].includes(phase) ? (
+        {inQuestion ? (
           <Button size="sm" variant="ghost" onClick={endEarly}>{t('End')}</Button>
+        ) : phase === 'summary' ? (
+          <Button size="sm" variant="ghost" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={() => setPhase('setup')}>{t('Practise again')}</Button>
         ) : <span />}
         <div className="flex gap-2">
           {phase === 'answering' && (
@@ -412,8 +594,10 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
           {phase === 'feedback' && (
             <Button size="sm" variant="primary" onClick={next}>{index + 1 < questions.length ? t('Next question') : t('See results')}</Button>
           )}
-          {phase === 'summary' && (
-            <Button size="sm" variant="primary" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={() => setPhase('setup')}>{t('Practise again')}</Button>
+          {phase === 'summary' && retry.length > 0 && (
+            <Button size="sm" variant="primary" icon={<Mic className="w-3.5 h-3.5" />} onClick={() => begin(source, retry.length, retry)} disabled={outOfTokens}>
+              {t('Practise these again')}
+            </Button>
           )}
         </div>
       </div>

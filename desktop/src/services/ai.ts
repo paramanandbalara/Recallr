@@ -3,6 +3,7 @@ import type { QuestionKind } from './questionDetect';
 import { relevantNotes } from './knowledge';
 import { completeChat, streamChat, type ProviderId } from './llm';
 import { fillPlaceholders, loadEnglishStyle, newId, STORY_THEMES, toStory, type PreparedAnswer, type Settings, type Story } from './storage';
+import { parseResumeInterview, type ResumeInterview } from './resumeInterview';
 
 // Keep prompts well inside the model's context window (and short, for speed)
 const MAX_CV_CHARS = 12000;
@@ -567,4 +568,45 @@ If the document has no explicit questions, infer a short question for each answe
     console.error('Structuring error:', error);
     return fallbackSplit(text);
   }
+};
+
+// ---------- Test interview from the resume ----------
+
+// The questions an interviewer would ask THIS person, from their resume (and the job, if there is one), with the
+// experience level it shows. One fast call; questions only use names and facts that are in the resume or job.
+export const resumeInterviewQuestions = async (settings: Settings, count: number): Promise<ResumeInterview> => {
+  const job = settings.job.trim();
+  const response = await completeChat({
+    tier: 'fast',
+    json: true,
+    system: `You are an experienced interviewer preparing a practice interview for ONE candidate, built from their resume${job ? ' and the job they are applying for' : ''}.
+First read the resume and work out:
+- "role": their current or target role in 2 to 4 plain words, e.g. "backend engineer" or "data analyst" (from the resume${job ? ' or the job' : ''}; "" if unclear).
+- "level": "fresher" (student or no full-time job yet), "junior" (up to about 2 years), "mid" (about 3 to 6 years) or "senior" (7+ years, or leads teams or architecture). Judge from the job dates and titles.
+- "years": total years of full-time work from the dates, as a number (0 for a fresher), or null if the resume has no dates.
+Then write exactly ${count} questions, in the order a real interviewer would ask them:
+- "about-you": one warm-up about them and their background.
+- "project": deep-dives into projects NAMED in the resume, e.g. "In <project>, why did you choose <technology they list>?" or "What was the hardest problem in <project>, and how did you solve it?"
+- "skill": technical questions on skills the resume lists${job ? ' that the job also needs' : ''}: how it works, trade-offs, how they used it.
+- "behavioural": one "Tell me about a time when..." question that fits their experience.
+- "situational": one "What would you do if..." question that fits their role.
+With ${count} questions, use one about-you, one behavioural and one situational, and split the rest between project and skill${count < 5 ? ' (with fewer than 5, keep the about-you and the most useful project and skill questions)' : ''}.
+Fit the difficulty to the level: for a fresher, basics, college or internship projects and how they learn; for junior, hands-on details; for mid, design choices and trade-offs; for senior, architecture, scale, hard decisions and leading people.
+Rules:
+- Use ONLY project names, employers, technologies and facts that are written in the resume${job ? ' or the job' : ''}. Never invent a project, number, result or tool, and never state facts about the candidate that the resume doesn't say. If no projects are named, ask about their work at a named employer or their listed skills instead.
+- Phrase each one the way an interviewer speaks out loud: short, natural, one question each (no lists of sub-questions). Plain words.
+Return JSON only: {"role":"...","level":"mid","years":4,"questions":[{"q":"...","kind":"about-you"}]}
+"kind" is one of "about-you", "project", "skill", "behavioural", "situational".
+
+[RESUME]
+${settings.cv.slice(0, MAX_CV_CHARS)}
+${job ? `
+[JOB DESCRIPTION]
+${job.slice(0, MAX_JOB_CHARS)}
+` : ''}${settings.company.trim() ? `\nTarget company: ${settings.company.trim()}` : ''}`,
+    user: 'Write the practice interview questions.',
+    temperature: 0.7,
+    maxTokens: 1500,
+  });
+  return parseResumeInterview(response, count, settings.cv);
 };

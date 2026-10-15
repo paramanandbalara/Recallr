@@ -109,6 +109,7 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
     let hasVoice = false;
     let silenceCount = 0;
     let recordingTime = 0;
+    const startedAt = performance.now(); // The real length is billed: timer ticks slow down when the window is hidden
 
     // Check the volume periodically while recording
     const checkVolume = setInterval(() => {
@@ -159,7 +160,8 @@ const startPipeline = ({ stream, isSystem, keys, onText, onLevel, onLog, onNoSou
       const blob = new Blob(audioChunks, { type: 'audio/webm' });
       // Don't send silence to speech-to-text (prevents hallucinations at the source)
       if (blob.size > 0 && (running || flushing) && hasVoice) {
-        queue = queue.then(() => transcribe(blob, recordingTime / 1000));
+        const seconds = Math.min(600, Math.max(recordingTime, performance.now() - startedAt) / 1000); // The server takes up to 600
+        queue = queue.then(() => transcribe(blob, seconds));
       } else if (running && !hasVoice) {
         onLog('Waiting for speech...');
       }
