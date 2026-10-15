@@ -6,6 +6,7 @@ import type { AiGateway } from '../ai.js';
 import { audit } from '../audit.js';
 import { requireAdmin, requireDevice, requireUser } from '../auth.js';
 import { db } from '../db.js';
+import { clearPageCache } from '../seo.js';
 import { HttpError, route } from '../http.js';
 import { CATEGORY_FROM_KIND, CATEGORY_PAGES, categoryFromSlug, cleanQuestion, isRealQuestion, questionHash, slugify } from '../questions.js';
 
@@ -208,6 +209,7 @@ export const adminQuestionRoutes = (ai: AiGateway) => {
     if (slug) data.slug = slug;
     const updated = await db.question.update({ where: { id: question.id }, data });
     await audit(req, input.published === undefined ? 'question.update' : input.published ? 'question.publish' : 'question.unpublish', updated.text);
+    clearPageCache(); // Search engines see the change straight away
     res.json({ question: updated });
   }));
 
@@ -226,6 +228,7 @@ export const adminQuestionRoutes = (ai: AiGateway) => {
     const question = await db.question.delete({ where: { id: req.params.id } }).catch(() => null);
     if (!question) throw new HttpError(404, 'Question not found.');
     await audit(req, 'question.delete', question.text);
+    clearPageCache();
     res.json({ ok: true });
   }));
 

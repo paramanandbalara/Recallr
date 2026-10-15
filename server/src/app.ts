@@ -7,6 +7,7 @@ import { createAiFromSettings, type AiGateway } from './ai.js';
 import { env } from './env.js';
 import { errorHandler } from './http.js';
 import { readCompanySite } from './research.js';
+import { renderPage, robots, sitemap } from './seo.js';
 import { razorpayFromSettings, type RazorpayGateway } from './razorpay.js';
 import { adminRoutes } from './routes/admin.js';
 import { adminExtraRoutes } from './routes/adminExtra.js';
@@ -64,8 +65,20 @@ export const createApp = (deps: { ai?: AiGateway; razorpay?: RazorpayGateway | n
   // The website: files as they are, and index.html for its own pages (/account, /admin...)
   if (env.WEB_DIST && fs.existsSync(env.WEB_DIST)) {
     const root = path.resolve(env.WEB_DIST);
+    const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+    app.get('/robots.txt', (_req, res) => res.type('text/plain').send(robots()));
+    app.get('/sitemap.xml', async (_req, res, next) => {
+      try { res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(await sitemap()); } catch (error) { next(error); }
+    });
     app.use(express.static(root, { maxAge: '1h', index: false }));
-    app.get('*', (_req, res) => res.sendFile(path.join(root, 'index.html')));
+    // Public pages come with their title, description and content already filled in, for search engines
+    app.get('*', async (req, res) => {
+      const html = await renderPage(indexHtml, req.path).catch(() => null);
+      res.set('Cache-Control', 'no-cache');
+      if (html) return res.type('html').send(html);
+      // Not a page the server knows: the website shows its own page (or "not found")
+      res.status(req.path.startsWith('/interview-questions') ? 404 : 200).type('html').send(indexHtml);
+    });
   }
 
   app.use(errorHandler);

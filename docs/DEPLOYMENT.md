@@ -55,6 +55,12 @@ The health check is `GET /api/health`.
 Without Docker: `cd server && npm ci && npm run build`, `cd web && npm ci && NODE_ENV=production npm run build`,
 then start the server with `WEB_DIST=../web/dist npm run start:prod`.
 
+Serve the website from the server like this (the Docker image already does). Then the server fills in each public
+page before sending it: the interview question pages arrive with their title, description, content and structured
+data in the HTML, so Google indexes them well. It also serves `/sitemap.xml` (every published question) and
+`/robots.txt`. Set `PUBLIC_URL` to your real address (e.g. `https://recallr.app`), since the links in both use it,
+and add the sitemap in Google Search Console once. A newly published question appears at once.
+
 ## 4. Razorpay
 
 1. Razorpay needs these pages before it activates live payments, and they already exist on the site:
