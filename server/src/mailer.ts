@@ -42,7 +42,10 @@ const transport = async () => {
         : null,
     };
   }
-  return { transport: current.transport, from: s.emailFrom || s.smtpUser, businessName: s.businessName };
+  const from = s.emailFrom || s.smtpUser;
+  // Replies reach the support inbox even when emails are sent from a no-reply address
+  const replyTo = s.supportEmail && !from.includes(s.supportEmail) ? s.supportEmail : undefined;
+  return { transport: current.transport, from, replyTo, businessName: s.businessName };
 };
 
 export const emailReady = async () => !!(await transport()).transport;
@@ -57,9 +60,9 @@ export const sendEmail = async (email: Email, kind: string, userId?: string | nu
       testOutbox.push({ ...email, kind, files });
       status = 'SENT';
     } else {
-      const { transport: smtp, from } = await transport();
+      const { transport: smtp, from, replyTo } = await transport();
       if (smtp) {
-        await smtp.sendMail({ from, to: email.to, subject: email.subject, text: email.text, html: email.html, attachments: files });
+        await smtp.sendMail({ from, replyTo, to: email.to, subject: email.subject, text: email.text, html: email.html, attachments: files });
         status = 'SENT';
       } else {
         console.log(`[email not set up] ${kind} → ${email.to}: ${email.subject}`);

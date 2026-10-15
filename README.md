@@ -17,6 +17,11 @@ user's listening time and AI tokens against their plan.
 The website's product clips and screenshots (`web/public/media`) are the real desktop app with a scripted example
 interview; the GIF above is the same clip.
 
+**Website:** [recallr.in](https://recallr.in) · **Support:** [recallr.support@gmail.com](mailto:recallr.support@gmail.com) ·
+**Downloads:** `https://downloads.recallr.in/recallr/` · **Organization:** [github.com/RecallrX](https://github.com/RecallrX)
+(the three apps are moving to their own repositories there, see [docs/SEPARATE_REPOS.md](docs/SEPARATE_REPOS.md)).
+The logos (app icon, wordmarks for light and dark backgrounds, banner) are in [docs/brand](docs/brand).
+
 ## Repository layout
 
 ```text
@@ -106,6 +111,7 @@ and use fake AI and Razorpay gateways. CI (`.github/workflows/ci.yml`) runs all 
 - **Server + website:** see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (Docker image, Amazon RDS, Razorpay webhook).
 - **Desktop app:** see [Releasing the desktop app](#releasing-the-desktop-app) below.
 - **Running it day to day:** see [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md).
+- **Domain, DNS and email (recallr.in):** see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#0-domain-recallrin).
 
 ## Releasing the desktop app
 
@@ -115,7 +121,7 @@ tools only run there). The easiest way is to let GitHub build both for you.
 ### Option A: GitHub builds them (recommended)
 
 1. One time, in GitHub → the repository → **Settings → Secrets and variables → Actions → Variables**, add
-   `RECALLR_API_URL` and `RECALLR_WEB_URL` (your live address, e.g. `https://recallr.app`; they're built into the app).
+   `RECALLR_API_URL` and `RECALLR_WEB_URL` (your live address, e.g. `https://recallr.in`; they're built into the app).
 2. Raise the version in `desktop/package.json` (e.g. `1.2.0`), commit, then tag and push:
    ```bash
    git tag v1.2.0 && git push origin v1.2.0
@@ -130,7 +136,7 @@ tools only run there). The easiest way is to let GitHub build both for you.
 ```bash
 cd desktop
 npm ci
-printf 'VITE_API_URL=https://recallr.app\nVITE_WEB_URL=https://recallr.app\n' > .env   # your live address
+printf 'VITE_API_URL=https://recallr.in\nVITE_WEB_URL=https://recallr.in\n' > .env   # your live address
 NODE_ENV=production npm run dist:win    # on Windows → dist-installers/Recallr-Setup-1.2.0.exe
 NODE_ENV=production npm run dist:mac    # on a Mac   → dist-installers/Recallr-1.2.0-universal.dmg (Intel + Apple silicon)
 ```
@@ -145,20 +151,20 @@ releases need a GitHub login, so they don't work as public links.
 
 | Where | Cost | Your download links |
 |-------|------|---------------------|
-| **Amazon S3 + CloudFront** (good with the rest on AWS) | a few rupees per GB downloaded | `https://downloads.your-domain.com/recallr/Recallr-Setup.exe`, `.../Recallr.dmg` |
-| **Cloudflare R2** with a public bucket or custom domain | free downloads (no egress fees) | `https://downloads.your-domain.com/recallr/Recallr-Setup.exe` |
+| **Amazon S3 + CloudFront** (good with the rest on AWS) | a few rupees per GB downloaded | `https://downloads.recallr.in/recallr/Recallr-Setup.exe`, `.../Recallr.dmg` |
+| **Cloudflare R2** with a public bucket or custom domain | free downloads (no egress fees) | `https://downloads.recallr.in/recallr/Recallr-Setup.exe` |
 | **GitHub Releases** (public repository only) | free | `https://github.com/<you>/<repo>/releases/latest/download/Recallr-Setup-1.2.0.exe` |
 
 S3 step by step: create a bucket (e.g. `recallr-downloads`, region Mumbai `ap-south-1`) → upload into a folder
-`recallr/` → put CloudFront in front of it with your domain (`downloads.your-domain.com`, certificate from ACM in
-us-east-1) → the links are `https://downloads.your-domain.com/recallr/<file name>`. The workflow above also
+`recallr/` → put CloudFront in front of it with your domain (`downloads.recallr.in`, certificate from ACM in
+us-east-1) → the links are `https://downloads.recallr.in/recallr/<file name>`. The workflow above also
 uploads each installer as `Recallr-Setup.exe` and `Recallr.dmg`, names that never change, so your website's buttons
 always give the newest version.
 
 Then, in **Admin → Settings**:
 - **Website → Windows download link / macOS download link:** the two links above (the website's Download page and
   the buttons use them).
-- **App versions → Update files address:** the folder, e.g. `https://downloads.your-domain.com/recallr/`, so
+- **App versions → Update files address:** the folder, e.g. `https://downloads.recallr.in/recallr/`, so
   installed apps download and install updates themselves. **Latest app version:** the new version, e.g. `1.2.0`.
 
 ### Signing (removes the "unknown publisher" warnings)

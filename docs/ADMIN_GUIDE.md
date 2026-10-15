@@ -15,7 +15,7 @@ right there, with Approve and Reject.
 - **AI providers:** Groq, OpenAI and Claude keys (at least one), and whether the fastest answers or a fixed order. Use **Test** after saving.
 - **Razorpay:** key ID, key secret and webhook secret. Without them only offline payment is offered.
 - **Offline payments:** the UPI / bank details users see.
-- **Website:** business name, support email, Windows and macOS download links.
+- **Website:** business name, support email (already `recallr.support@gmail.com`), Windows and macOS download links (e.g. `https://downloads.recallr.in/recallr/Recallr-Setup.exe`).
 - **App versions:** the latest and minimum desktop versions, what's new, and the **Update files address** (the folder
   with the installers and `latest.yml` files). With the address set, apps download and install updates themselves;
   see [DEPLOYMENT.md](DEPLOYMENT.md#updates-that-install-inside-the-app).
@@ -115,7 +115,7 @@ Meta rejects templates that start or end with a variable.
 
   > Your Recallr question of the day: {{1}} Answer it in 2 minutes and get AI feedback: {{2}} You can turn these messages off in your account settings.
 
-  Sample values: `{{1}}` = `Tell me about a time you disagreed with a teammate.`, `{{2}}` = `https://your-domain/account/daily`.
+  Sample values: `{{1}}` = `Tell me about a time you disagreed with a teammate.`, `{{2}}` = `https://recallr.in/account/daily`.
 
 - **`verify_code`**, category **Authentication**, with a **Copy code** button (WhatsApp writes the body itself:
   "*{{1}}* is your verification code."; tick "Add security recommendation" if you like, and set the code to expire

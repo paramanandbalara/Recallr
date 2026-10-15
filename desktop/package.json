@@ -53,7 +53,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://downloads.example.com/recallr/"
+        "url": "https://downloads.recallr.in/recallr/"
       }
     ]
   },

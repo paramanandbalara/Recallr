@@ -111,7 +111,7 @@ export interface Payment {
 
 export const SITE = {
   businessName: 'Recallr',
-  supportEmail: '',
+  supportEmail: 'recallr.support@gmail.com',
   operatorName: '',      // The person who runs it (an individual's legal name), for the legal pages
   grievanceOfficer: '',
   downloadUrlWindows: '',

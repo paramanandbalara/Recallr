@@ -21,7 +21,7 @@ const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what
   },
   {
     id: 'razorpay', title: 'Razorpay (online payments)',
-    text: 'Dashboard → Account & Settings → API Keys. Webhook URL: your-domain/api/billing/webhook (events payment.captured and order.paid). Without keys, only offline payment is offered.',
+    text: 'Dashboard → Account & Settings → API Keys. Webhook URL: https://recallr.in/api/billing/webhook (events payment.captured and order.paid). Without keys, only offline payment is offered.',
     test: [{ what: 'razorpay', label: 'Test Razorpay' }],
   },
   { id: 'payments', title: 'Offline payments', text: 'What users see when they pay by UPI or bank transfer.' },
