@@ -51,6 +51,7 @@ export interface User {
   createdAt: string;
   lastSeenAt?: string | null;
   saveAnswers?: boolean; // Interview questions and answers kept on the account
+  weeklyEmail?: boolean; // The Monday practice email
 }
 
 export interface Plan {

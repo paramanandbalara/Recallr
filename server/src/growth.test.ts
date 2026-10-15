@@ -5,6 +5,8 @@ import { createApp } from './app.js';
 import { db } from './db.js';
 import { clearSettingsCache } from './settings.js';
 import { testOutbox } from './mailer.js';
+import { sendWeeklyEmails } from './jobs.js';
+import { isWeeklyEmailTime, weeklyTip } from './weekly.js';
 
 // Question bank, practice results, and organizations (colleges and bootcamps)
 
@@ -221,5 +223,70 @@ describe('panels', () => {
       { provider: 'groq', model: 'gpt-oss-20b', answers: 2, averageMs: 500, slowestMs: 600 },
       { provider: 'claude', model: 'claude-haiku-5-5', answers: 1, averageMs: 700, slowestMs: 700 },
     ]);
+  });
+});
+
+describe('weekly email', () => {
+  const MONDAY_10_IST = new Date('2026-10-19T04:30:00Z');
+  const sent = () => testOutbox.filter(e => e.kind === 'weekly_progress');
+
+  it('picks one tip for the weakest area', () => {
+    const base = { mockInterviews: 2, score: 7, previousScore: 6, wordsPerMinute: 140, fillersPerMinute: 1, questionsSaved: 0 };
+    expect(weeklyTip({ ...base, mockInterviews: 0 })).toMatch(/one short mock interview/);
+    expect(weeklyTip({ ...base, fillersPerMinute: 5 })).toMatch(/filler words/);
+    expect(weeklyTip({ ...base, wordsPerMinute: 180 })).toMatch(/fast/);
+    expect(weeklyTip({ ...base, wordsPerMinute: 90 })).toMatch(/slowly/);
+    expect(weeklyTip({ ...base, score: 5 })).toMatch(/Story bank/);
+    expect(weeklyTip({ ...base, score: 6, previousScore: 7 })).toMatch(/dipped/);
+    expect(weeklyTip(base)).toMatch(/Prep pack/);
+  });
+
+  it('goes out on Monday morning in India only', () => {
+    expect(isWeeklyEmailTime(MONDAY_10_IST)).toBe(true);
+    expect(isWeeklyEmailTime(new Date('2026-10-19T02:00:00Z'))).toBe(false); // 7:30 IST
+    expect(isWeeklyEmailTime(new Date('2026-10-20T04:30:00Z'))).toBe(false); // Tuesday
+  });
+
+  it('sends once a week to active users, with practice numbers and a working unsubscribe link', async () => {
+    const token = await register('weekly@example.com');
+    await request(app).post('/api/practice').set(auth(token)).send({ answers: [{ question: 'Q', score: 6, wordsPerMinute: 150, fillers: 9, seconds: 120 }] });
+    const quiet = await register('quiet@example.com');
+    await request(app).patch('/api/auth/me').set(auth(quiet)).send({ weeklyEmail: false }).expect(200);
+    await db.practiceSession.updateMany({ data: { createdAt: new Date('2026-10-17T10:00:00Z') } });
+    await db.user.updateMany({ data: { lastSeenAt: new Date('2026-10-16T10:00:00Z') } });
+
+    expect(await sendWeeklyEmails(new Date('2026-10-20T04:30:00Z'))).toBe(0); // Not Monday
+    expect(await sendWeeklyEmails(MONDAY_10_IST)).toBe(2); // The admin and weekly@ (quiet@ turned it off)
+    expect(await sendWeeklyEmails(new Date(MONDAY_10_IST.getTime() + 30 * 60 * 1000))).toBe(0); // Already sent this week
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const email = sent().find(e => e.to === 'weekly@example.com')!;
+    expect(email.text).toMatch(/1 mock interview, with an average score of 6 out of 10/);
+    expect(email.text).toMatch(/4.5 filler words a minute/);
+    expect(email.text).toMatch(/Tip for this week: You used quite a few filler words/);
+
+    const link = new URL(email.text.match(/https?:\/\/\S+weekly\/off\S+/)![0]);
+    const off = await request(app).get(`${link.pathname}${link.search}`);
+    expect(off.text).toContain('Weekly email turned off');
+    expect((await db.user.findUniqueOrThrow({ where: { email: 'weekly@example.com' } })).weeklyEmail).toBe(false);
+    expect((await request(app).get(`${link.pathname}?u=${link.searchParams.get('u')}&t=forged-token-value-123`)).text).toContain('doesn’t work');
+  });
+});
+
+describe('company research route', () => {
+  it('turns the company website into notes, counted against the plan', async () => {
+    const pages: string[] = [];
+    const researchApp = createApp({
+      ai, razorpay: null,
+      readSite: async url => { pages.push(url); return [{ url: 'https://northwind.com/', text: 'Northwind builds route planning for couriers.' }]; },
+    });
+    await register('research@example.com');
+    const desktop = await appToken('research@example.com');
+    const user = await db.user.findUniqueOrThrow({ where: { email: 'research@example.com' } });
+    expect((await request(researchApp).post('/api/ai/company-research').set(auth(desktop)).send({ url: 'northwind.com' })).status).toBe(402); // No plan
+    await db.purchase.create({ data: { userId: user.id, planName: 'Test', source: 'ADMIN_GRANT', expiresAt: new Date(Date.now() + 86_400_000), listeningMinutes: 60, tokenLimit: 100_000 } });
+    const res = await request(researchApp).post('/api/ai/company-research').set(auth(desktop)).send({ url: 'northwind.com' }).expect(200);
+    expect(res.body).toEqual({ notes: expect.stringContaining('What the interviewer wants'), sources: ['https://northwind.com/'] });
+    expect(pages).toEqual(['northwind.com']);
+    expect(await db.usageEvent.count({ where: { userId: user.id } })).toBe(1);
   });
 });

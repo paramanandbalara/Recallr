@@ -8,6 +8,7 @@ import { AccountPanel } from './AccountPanel';
 import { BackupPanel } from './BackupPanel';
 import { KnowledgeEditor } from './KnowledgeEditor';
 import { PrepPack } from './PrepPack';
+import { CompanyResearch } from './CompanyResearch';
 import { StoryBankEditor } from './StoryBankEditor';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
@@ -122,6 +123,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise })
             </div>
             <div>
               <Label hint='Your research on the company, so answers like "Why us?" mention real details.'>Company notes</Label>
+              <CompanyResearch notes={settings.companyNotes} onNotes={companyNotes => patch({ companyNotes })} />
               <TextArea
                 value={settings.companyNotes}
                 onChange={e => patch({ companyNotes: e.target.value })}

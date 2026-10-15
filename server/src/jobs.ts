@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { emails } from './emails.js';
 import { queueEmail } from './mailer.js';
+import { isWeeklyEmailTime, unsubscribeUrl, weeklyTip, weekStats } from './weekly.js';
 
 // Background work, every 30 minutes on each server. Each email is claimed in the database first,
 // so several servers never send it twice.
@@ -25,8 +26,36 @@ export const sendEndingSoonEmails = async (now = new Date()) => {
   return sent;
 };
 
+// The Monday email with practice progress and one tip, once a week, to people who used Recallr in the last month
+export const sendWeeklyEmails = async (now = new Date()) => {
+  if (!isWeeklyEmailTime(now)) return 0;
+  const monthAgo = new Date(now.getTime() - 28 * DAY_MS);
+  const sixDaysAgo = new Date(now.getTime() - 6 * DAY_MS);
+  const users = await db.user.findMany({
+    where: {
+      status: 'ACTIVE', weeklyEmail: true,
+      OR: [{ lastWeeklyEmailAt: null }, { lastWeeklyEmailAt: { lt: sixDaysAgo } }],
+      AND: [{ OR: [{ lastSeenAt: { gte: monthAgo } }, { practiceSessions: { some: { createdAt: { gte: monthAgo } } } }] }],
+    },
+    take: 500,
+  });
+  let sent = 0;
+  for (const user of users) {
+    // Claim it first, so two servers never both send it
+    const { count } = await db.user.updateMany({
+      where: { id: user.id, OR: [{ lastWeeklyEmailAt: null }, { lastWeeklyEmailAt: { lt: sixDaysAgo } }] },
+      data: { lastWeeklyEmailAt: now },
+    });
+    if (!count) continue;
+    const stats = await weekStats(user.id, now);
+    queueEmail(await emails.weeklyProgress(user, stats, weeklyTip(stats), unsubscribeUrl(user)), 'weekly_progress', user.id);
+    sent++;
+  }
+  return sent;
+};
+
 export const startJobs = () => {
-  const run = () => sendEndingSoonEmails().catch(error => console.error('Job failed:', error));
+  const run = () => Promise.all([sendEndingSoonEmails(), sendWeeklyEmails()]).catch(error => console.error('Job failed:', error));
   setTimeout(run, 60_000).unref();
   setInterval(run, EVERY_MS).unref();
 };

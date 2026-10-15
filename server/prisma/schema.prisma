@@ -51,6 +51,9 @@ model User {
   ticketMessages     TicketMessage[]
   // Keep the questions and answers from the app's interviews on the account (the user can turn it off)
   saveAnswers        Boolean              @default(true) @map("save_answers")
+  // The Monday email with practice progress and one tip (the user can turn it off)
+  weeklyEmail        Boolean              @default(true) @map("weekly_email")
+  lastWeeklyEmailAt  DateTime?            @map("last_weekly_email_at")
   savedAnswers       SavedAnswer[]
   practiceSessions   PracticeSession[]
   memberships        OrganizationMember[]

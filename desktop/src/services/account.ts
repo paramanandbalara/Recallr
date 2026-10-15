@@ -306,3 +306,9 @@ export const formatDate = (iso: string | null) =>
 // The questions asked most in real interviews (published on the website), to help the prep pack
 export const fetchCommonQuestions = async () =>
   (await json<{ questions: { text: string }[] }>('/public/questions')).questions.map(q => q.text);
+
+// ---------- Company research ----------
+
+// Notes about a company from its website (read and summarised by the server)
+export const companyResearch = (url: string) =>
+  json<{ notes: string; sources: string[] }>('/ai/company-research', { url });

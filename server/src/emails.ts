@@ -77,6 +77,25 @@ export const emails = {
     `${from} wrote:`, body.slice(0, 2000),
   ], ['Answer it', '/admin/support']),
 
+  weeklyProgress: (u: To, s: { mockInterviews: number; score: number | null; previousScore: number | null; wordsPerMinute: number | null; fillersPerMinute: number | null; questionsSaved: number }, tip: string, offUrl: string) => {
+    const lines: string[] = [];
+    if (s.mockInterviews > 0) {
+      const change = s.score !== null && s.previousScore !== null ? ` (${s.score >= s.previousScore ? 'up' : 'down'} from ${s.previousScore})` : '';
+      lines.push(`This week you did ${s.mockInterviews} mock ${s.mockInterviews === 1 ? 'interview' : 'interviews'}${s.score !== null ? `, with an average score of ${s.score} out of 10${change}` : ''}.`);
+      const speaking = [
+        s.wordsPerMinute !== null ? `you spoke at about ${Math.round(s.wordsPerMinute)} words a minute` : '',
+        s.fillersPerMinute !== null ? `with ${s.fillersPerMinute} filler words a minute` : '',
+      ].filter(Boolean).join(', ');
+      if (speaking) lines.push(`On average ${speaking}.`);
+    } else {
+      lines.push('No mock interviews this week.');
+    }
+    if (s.questionsSaved > 0) lines.push(`You answered ${s.questionsSaved} interview ${s.questionsSaved === 1 ? 'question' : 'questions'} with Recallr; they're saved under My questions.`);
+    lines.push(`Tip for this week: ${tip}`);
+    lines.push(`Don't want this weekly email? Turn it off with one click: ${offUrl}`);
+    return build(u.email, s.mockInterviews > 0 ? 'Your week of interview practice' : 'One tip for your interview practice', first(u.name), lines, ['See your progress', '/account/progress']);
+  },
+
   enquiryForAdmin: (to: string, e: { name: string; email: string; phone: string; organization: string; size: number | null; message: string }) =>
     build(to, `Plan enquiry: ${e.organization}`, 'there', [
       `${e.name} (${e.email}${e.phone ? `, ${e.phone}` : ''}) asked about a plan for ${e.organization}${e.size ? `, about ${e.size} students` : ''}.`,

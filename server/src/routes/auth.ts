@@ -86,6 +86,7 @@ authRoutes.patch('/me', requireUser, route(async (req, res) => {
   const data = z.object({
     name: z.string().trim().min(1, 'Enter your name.').max(100).optional(),
     saveAnswers: z.boolean().optional(), // Keep interview questions and answers on the account
+    weeklyEmail: z.boolean().optional(),  // The Monday practice email
   }).parse(req.body);
   res.json({ user: publicUser(await db.user.update({ where: { id: req.user!.id }, data })) });
 }));

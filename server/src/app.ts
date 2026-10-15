@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { createAiFromSettings, type AiGateway } from './ai.js';
 import { env } from './env.js';
 import { errorHandler } from './http.js';
+import { readCompanySite } from './research.js';
 import { razorpayFromSettings, type RazorpayGateway } from './razorpay.js';
 import { adminRoutes } from './routes/admin.js';
 import { adminExtraRoutes } from './routes/adminExtra.js';
@@ -24,7 +25,7 @@ import { adminQuestionRoutes, publicQuestionRoutes, questionRoutes } from './rou
 import { getSettings } from './settings.js';
 
 // AI and Razorpay use the keys in Admin → Settings; tests pass fakes instead
-export const createApp = (deps: { ai?: AiGateway; razorpay?: RazorpayGateway | null } = {}) => {
+export const createApp = (deps: { ai?: AiGateway; razorpay?: RazorpayGateway | null; readSite?: typeof readCompanySite } = {}) => {
   const ai = deps.ai ?? createAiFromSettings(getSettings);
   const getRazorpay = deps.razorpay === undefined ? razorpayFromSettings(getSettings) : async () => deps.razorpay ?? null;
 
@@ -48,7 +49,7 @@ export const createApp = (deps: { ai?: AiGateway; razorpay?: RazorpayGateway | n
   app.use('/api/admin', adminExtraRoutes);
   app.use('/api/admin', adminQuestionRoutes(ai));
   app.use('/api/admin', adminOrganizationRoutes);
-  app.use('/api/ai', aiRoutes(ai));
+  app.use('/api/ai', aiRoutes(ai, deps.readSite));
   app.use('/api', contentRoutes);
   app.use('/api/backup', backupRoutes);
   app.use('/api/support', supportRoutes);

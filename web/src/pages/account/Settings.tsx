@@ -7,6 +7,40 @@ import { Button, Card, ErrorText, Field, Input } from '../../components/ui';
 const Saved: React.FC<{ show: boolean; children: React.ReactNode }> = ({ show, children }) =>
   show ? <p className="text-sm text-emerald-300">{children}</p> : null;
 
+// Emails the user can turn off (payment and account emails always go out)
+const EmailChoices: React.FC = () => {
+  const { user, refresh } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const on = user?.weeklyEmail !== false;
+  const toggle = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await api('/auth/me', { method: 'PATCH', body: { weeklyEmail: !on } });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card className="md:col-span-2">
+      <h2 className="font-semibold text-slate-100">Emails</h2>
+      <label className="mt-3 flex cursor-pointer items-start gap-3">
+        <input type="checkbox" checked={on} disabled={busy} onChange={toggle} className="mt-1 accent-blue-500" />
+        <span className="text-sm text-slate-300">
+          <span className="font-medium text-slate-100">Weekly practice email</span>
+          <span className="block text-slate-400">Every Monday: your mock interview scores, pace and filler words, and one tip for the week.</span>
+        </span>
+      </label>
+      <p className="mt-2 text-xs text-slate-500">Emails about payments, your plan and your account always come.</p>
+      <div className="mt-2"><ErrorText>{error}</ErrorText></div>
+    </Card>
+  );
+};
+
 // Download everything we keep, or close the account
 const YourData: React.FC = () => {
   const { signOut } = useAuth();
@@ -135,6 +169,7 @@ export const AccountSettings: React.FC = () => {
           </form>
         </Card>
 
+        <EmailChoices />
         <YourData />
       </div>
     </AccountPage>

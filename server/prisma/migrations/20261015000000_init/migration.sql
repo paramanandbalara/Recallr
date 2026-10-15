@@ -16,6 +16,8 @@ CREATE TABLE `users` (
     `referred_by_id` VARCHAR(191) NULL,
     `referral_rewarded_at` DATETIME(3) NULL,
     `save_answers` BOOLEAN NOT NULL DEFAULT true,
+    `weekly_email` BOOLEAN NOT NULL DEFAULT true,
+    `last_weekly_email_at` DATETIME(3) NULL,
 
     UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_referral_code_key`(`referral_code`),
