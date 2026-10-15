@@ -7,6 +7,7 @@ import { razorpaySignature, type RazorpayGateway } from './razorpay.js';
 import { clearSettingsCache, getSettings } from './settings.js';
 import { testOutbox } from './mailer.js';
 import { sendEndingSoonEmails } from './jobs.js';
+import { usageSaved } from './entitlements.js';
 
 // ---------- Fakes for the AI and Razorpay ----------
 
@@ -64,7 +65,8 @@ const createPlan = async (overrides: object = {}) => {
   return res.body.plan.id as string;
 };
 
-const me = async (token: string) => (await request(app).get('/api/auth/me').set(auth(token))).body;
+// Usage is saved just after each answer is sent, so wait for it before reading what's left
+const me = async (token: string) => { await usageSaved(); return (await request(app).get('/api/auth/me').set(auth(token))).body; };
 
 beforeAll(async () => {
   await db.$connect();
@@ -303,7 +305,9 @@ describe('AI with plan limits', () => {
   it('stops answering when the tokens are used up', async () => {
     await givePlan();
     await chat().expect(200);
+    await usageSaved();
     await chat().expect(200);
+    await usageSaved();
     const res = await chat();
     expect(res.status).toBe(402);
     expect(res.body.code).toBe('TOKENS_USED_UP');
@@ -316,6 +320,7 @@ describe('AI with plan limits', () => {
     expect(res.body.text).toBe('Tell me about yourself');
     expect((await me(user)).allowance.minutesLeft).toBe(5);
     await transcribe(300).expect(200);
+    await usageSaved();
     const over = await transcribe(5);
     expect(over.status).toBe(402);
     expect(over.body.code).toBe('MINUTES_USED_UP');

@@ -40,19 +40,23 @@ export const requireUser = async (req: Request, _res: Response, next: NextFuncti
       throw new HttpError(401, 'Your session has ended. Please sign in again.');
     }
     const userId = String(payload.sub);
-    const user = await db.user.findUnique({ where: { id: userId } });
+    // Both lookups at once, and the "last seen" times are written without waiting: answers start sooner
+    const [user, device] = await Promise.all([
+      db.user.findUnique({ where: { id: userId } }),
+      payload.did ? db.device.findUnique({ where: { id: String(payload.did) } }) : null,
+    ]);
     if (!user) throw new HttpError(401, 'Please sign in.');
     if (user.status === 'BLOCKED') throw new HttpError(403, 'Your access has been turned off.', 'BLOCKED');
+    const later = (write: Promise<unknown>) => { write.catch(error => console.error('Could not save last seen:', error)); };
     if (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > SEEN_EVERY_MS) {
-      await db.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
+      later(db.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }));
     }
     if (payload.did) {
-      const device = await db.device.findUnique({ where: { id: String(payload.did) } });
       if (!device || device.userId !== user.id || device.revokedAt) {
         throw new HttpError(401, 'This computer was signed out from your account. Sign in again.', 'DEVICE_REMOVED');
       }
       if (Date.now() - device.lastSeenAt.getTime() > SEEN_EVERY_MS) {
-        await db.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+        later(db.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } }));
       }
       req.device = device;
     }

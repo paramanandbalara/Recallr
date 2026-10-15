@@ -3,7 +3,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import { requireDevice, requireUser } from '../auth.js';
 import type { AiGateway } from '../ai.js';
-import { purchaseFor, recordUsage } from '../entitlements.js';
+import { purchaseFor, recordUsage, recordUsageAfter } from '../entitlements.js';
 import { HttpError, route } from '../http.js';
 import { readCompanySite } from '../research.js';
 
@@ -52,17 +52,18 @@ export const aiRoutes = (ai: AiGateway, readSite = readCompanySite) => {
         send(first ? { text, provider } : { text });
         first = false;
       }, controller.signal);
-      await recordUsage({
+      send({ done: true, provider: result.provider });
+      res.end(); // The answer is complete before anything is saved
+      recordUsageAfter({
         userId: req.user!.id, purchaseId: purchase.id, kind: 'CHAT', provider: result.provider, model: result.model,
         inputTokens: result.inputTokens, outputTokens: result.outputTokens, latencyMs: result.firstTextMs,
       });
-      send({ done: true, provider: result.provider });
     } catch (error) {
       if (controller.signal.aborted) return;
       console.error('AI chat error:', error);
       send({ error: error instanceof HttpError ? error.message : 'The AI is having problems right now. Try again in a moment.' });
     } finally {
-      res.end();
+      if (!res.writableEnded) res.end();
     }
   }));
 
@@ -92,11 +93,11 @@ export const aiRoutes = (ai: AiGateway, readSite = readCompanySite) => {
     const seconds = z.coerce.number().min(0).max(600).default(0).parse(req.body.seconds);
     const purchase = await purchaseFor(req.user!.id, 'TRANSCRIBE');
     const result = await ai.transcribe(req.file.buffer, language, { keepFillers: req.body.fillers === '1' });
-    await recordUsage({
+    res.json({ text: result.text });
+    recordUsageAfter({
       userId: req.user!.id, purchaseId: purchase.id, kind: 'TRANSCRIBE', provider: result.provider, model: result.model,
       audioSeconds: seconds,
     });
-    res.json({ text: result.text });
   }));
 
   return router;

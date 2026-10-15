@@ -21,7 +21,7 @@ const readLanguage = (): UiLanguage => {
 };
 
 let current: UiLanguage = readLanguage();
-const apply = () => { document.documentElement.lang = current; };
+const apply = () => { if (typeof document !== 'undefined') document.documentElement.lang = current; };
 apply();
 
 export const uiLanguage = () => current;

@@ -49,6 +49,15 @@ export const recordUsage = async (usage: {
   if (usage.kind === 'TRANSCRIBE' && purchase.listeningMinutes !== null && !purchase.notifiedLow) await warnIfLow(usage.userId);
 };
 
+// Usage is written after the answer has been sent, so saving never slows an answer down. Tests wait with usageSaved().
+const pendingUsage = new Set<Promise<void>>();
+export const recordUsageAfter = (usage: Parameters<typeof recordUsage>[0]) => {
+  const write = recordUsage(usage).catch(error => console.error('Could not record usage:', error));
+  pendingUsage.add(write);
+  void write.finally(() => pendingUsage.delete(write));
+};
+export const usageSaved = async () => { await Promise.all([...pendingUsage]); };
+
 // One email when the listening time left (all packs together) drops below the warning level
 const warnIfLow = async (userId: string) => {
   const threshold = numberSetting(await getSettings(), 'lowMinutesWarning');
