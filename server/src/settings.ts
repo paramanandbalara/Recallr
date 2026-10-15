@@ -7,7 +7,7 @@ import { env } from './env.js';
 
 interface Definition {
   label: string;
-  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website';
+  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog';
   number?: boolean;        // Must be a whole number
   secret?: boolean;        // Encrypted in the database, never sent back in full
   public?: boolean;        // Shown on the website (/api/site)
@@ -46,6 +46,13 @@ export const SETTINGS = {
   supportEmail: { label: 'Support email', group: 'website', public: true, default: '' },
   downloadUrlWindows: { label: 'Windows download link', group: 'website', public: true, default: '' },
   downloadUrlMac: { label: 'macOS download link', group: 'website', public: true, default: '' },
+  s3Bucket: { label: 'S3 bucket', group: 'storage', env: 'S3_BUCKET', hint: 'Where profiles and resume files are kept. Empty: they are kept in the database (resume files are then not kept).' },
+  s3Region: { label: 'S3 region', group: 'storage', env: 'S3_REGION', default: 'ap-south-1' },
+  s3AccessKeyId: { label: 'Access key ID', group: 'storage', env: 'S3_ACCESS_KEY_ID', hint: 'An IAM user allowed only s3:PutObject, s3:GetObject and s3:DeleteObject on this bucket. Empty on AWS with an instance role.' },
+  s3SecretAccessKey: { label: 'Secret access key', group: 'storage', secret: true, env: 'S3_SECRET_ACCESS_KEY' },
+  s3Endpoint: { label: 'Endpoint (not AWS)', group: 'storage', env: 'S3_ENDPOINT', hint: 'Only for S3-compatible storage such as Cloudflare R2: https://<account>.r2.cloudflarestorage.com' },
+  blogAutoPost: { label: 'Daily AI post', group: 'blog', default: 'draft', hint: '"draft": the AI writes one post a day for you to check and publish. "publish": it goes live at once. "off": none.' },
+  blogTopics: { label: 'Topics to write about', group: 'blog', default: '', hint: 'One per line (optional). Empty: the AI picks interview topics that haven’t been covered yet.' },
 } satisfies Record<string, Definition>;
 
 export type SettingKey = keyof typeof SETTINGS;

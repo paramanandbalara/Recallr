@@ -7,7 +7,7 @@ import { AdminTitle } from './AdminLayout';
 interface Setting {
   key: string;
   label: string;
-  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website';
+  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog';
   hint: string;
   secret: boolean;
   source: 'database' | 'environment' | 'default' | 'unset';
@@ -34,6 +34,8 @@ const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what
   { id: 'referrals', title: 'Invite friends', text: 'What both people get when an invited friend makes their first payment.' },
   { id: 'app', title: 'App versions', text: 'After you publish a new desktop build, set the latest version so older apps offer the update. Set the minimum to force it (e.g. after a breaking change).' },
   { id: 'website', title: 'Website', text: 'Shown in the footer, the legal pages, the guide and the Download page.' },
+  { id: 'storage', title: 'File storage (S3)', text: 'Copies of users’ profiles and their resume files. Use a private bucket (Block all public access on). Without it, profiles are kept in the database.' },
+  { id: 'blog', title: 'Blog', text: 'Posts are written in Admin → Blog. The AI can also draft one post a day.' },
 ];
 
 const SOURCE: Record<Setting['source'], { label: string; tone: 'green' | 'blue' | 'slate' | 'amber' }> = {

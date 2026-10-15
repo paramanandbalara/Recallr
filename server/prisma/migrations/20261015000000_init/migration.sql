@@ -18,6 +18,7 @@ CREATE TABLE `users` (
     `save_answers` BOOLEAN NOT NULL DEFAULT true,
     `weekly_email` BOOLEAN NOT NULL DEFAULT true,
     `last_weekly_email_at` DATETIME(3) NULL,
+    `profile_sync` BOOLEAN NOT NULL DEFAULT true,
 
     UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_referral_code_key`(`referral_code`),
@@ -400,4 +401,52 @@ CREATE TABLE `enquiries` (
 
     INDEX `enquiries_status_created_at_idx`(`status`, `created_at`),
     PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `user_profiles` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `client_id` VARCHAR(40) NOT NULL,
+    `name` VARCHAR(120) NOT NULL,
+    `company` VARCHAR(200) NOT NULL DEFAULT '',
+    `job_title` VARCHAR(200) NOT NULL DEFAULT '',
+    `resume_file_name` VARCHAR(255) NOT NULL DEFAULT '',
+    `resume_chars` INTEGER NOT NULL DEFAULT 0,
+    `answers_count` INTEGER NOT NULL DEFAULT 0,
+    `stories_count` INTEGER NOT NULL DEFAULT 0,
+    `storage` ENUM('DATABASE', 'S3') NOT NULL DEFAULT 'DATABASE',
+    `data` LONGTEXT NULL,
+    `storage_key` VARCHAR(300) NULL,
+    `size_bytes` INTEGER NOT NULL DEFAULT 0,
+    `resume_file_key` VARCHAR(300) NULL,
+    `resume_file_type` VARCHAR(100) NULL,
+    `device_name` VARCHAR(100) NOT NULL DEFAULT '',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `user_profiles_user_id_client_id_key`(`user_id`, `client_id`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `user_profiles_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `blog_posts` (
+    `id` VARCHAR(191) NOT NULL,
+    `slug` VARCHAR(120) NOT NULL,
+    `title` VARCHAR(200) NOT NULL,
+    `summary` VARCHAR(400) NOT NULL DEFAULT '',
+    `body` MEDIUMTEXT NOT NULL,
+    `tags` VARCHAR(300) NOT NULL DEFAULT '',
+    `status` ENUM('DRAFT', 'PUBLISHED') NOT NULL DEFAULT 'DRAFT',
+    `source` ENUM('ADMIN', 'AI') NOT NULL DEFAULT 'ADMIN',
+    `author_id` VARCHAR(191) NULL,
+    `published_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `blog_posts_slug_key`(`slug`),
+    INDEX `blog_posts_status_published_at_idx`(`status`, `published_at`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `blog_posts_author_id_fkey` FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

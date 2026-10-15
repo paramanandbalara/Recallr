@@ -57,6 +57,10 @@ model User {
   savedAnswers       SavedAnswer[]
   practiceSessions   PracticeSession[]
   memberships        OrganizationMember[]
+  // Keep a copy of the app's profiles (resume, job, notes, answers) on the account (the user can turn it off)
+  profileSync        Boolean              @default(true) @map("profile_sync")
+  profiles           UserProfile[]
+  blogPosts          BlogPost[]
 
   @@map("users")
 }
@@ -539,4 +543,68 @@ model Enquiry {
 
   @@index([status, createdAt])
   @@map("enquiries")
+}
+
+// A copy of one of the app's profiles, kept on the account. The searchable details are in columns; the whole profile
+// (resume text, job, notes, answers, stories) is encrypted, in `data` or in S3 under `storageKey`.
+model UserProfile {
+  id             String      @id @default(cuid())
+  userId         String      @map("user_id")
+  clientId       String      @map("client_id") @db.VarChar(40) // The profile's id in the app
+  name           String      @db.VarChar(120)
+  company        String      @default("") @db.VarChar(200)
+  jobTitle       String      @default("") @map("job_title") @db.VarChar(200)
+  resumeFileName String      @default("") @map("resume_file_name") @db.VarChar(255)
+  resumeChars    Int         @default(0) @map("resume_chars")
+  answersCount   Int         @default(0) @map("answers_count")
+  storiesCount   Int         @default(0) @map("stories_count")
+  storage        StorageKind @default(DATABASE)
+  data           String?     @db.LongText
+  storageKey     String?     @map("storage_key") @db.VarChar(300)
+  sizeBytes      Int         @default(0) @map("size_bytes")
+  // The original resume file (PDF / Word), in S3 only
+  resumeFileKey  String?     @map("resume_file_key") @db.VarChar(300)
+  resumeFileType String?     @map("resume_file_type") @db.VarChar(100)
+  deviceName     String      @default("") @map("device_name") @db.VarChar(100)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@map("user_profiles")
+}
+
+enum StorageKind {
+  DATABASE
+  S3
+}
+
+// Posts on the website's blog: written by an admin, or drafted by the AI each day
+model BlogPost {
+  id          String     @id @default(cuid())
+  slug        String     @unique @db.VarChar(120)
+  title       String     @db.VarChar(200)
+  summary     String     @default("") @db.VarChar(400)
+  body        String     @db.MediumText // Markdown-like: "## " headings, "- " lists, paragraphs
+  tags        String     @default("") @db.VarChar(300) // Comma-separated
+  status      BlogStatus @default(DRAFT)
+  source      BlogSource @default(ADMIN)
+  authorId    String?    @map("author_id")
+  publishedAt DateTime?  @map("published_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at")
+  author      User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum BlogSource {
+  ADMIN
+  AI
 }
