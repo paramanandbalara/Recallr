@@ -10,7 +10,7 @@ import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loa
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { recordAnswered } from './services/questionBank';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsModal, type Tab as SettingsTab } from './components/SettingsModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { DisplayMenu } from './components/DisplayMenu';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -18,6 +18,7 @@ import { ReviewPanel } from './components/ReviewPanel';
 import { SetupCheck } from './components/SetupCheck';
 import { NoticeBar } from './components/NoticeBar';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { CalendarReminder } from './components/CalendarReminder';
 import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
 
@@ -87,6 +88,7 @@ function App() {
   // AI usage is counted per conversation
   const turnsRef = useRef(turns);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsStart, setSettingsStart] = useState<{ tab?: SettingsTab; prep?: boolean }>();
   const [askText, setAskText] = useState('');
   const [overlay, setOverlay] = useState(() => loadOverlay());
   const [audioSource, setAudioSource] = useState<AudioSource>(() => loadAudioSource());
@@ -557,7 +559,7 @@ function App() {
           >
             {overlay ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
           </IconButton>
-          <IconButton onClick={() => setIsSettingsOpen(true)} title={`Settings (resume, answers, account) · Profile: ${profileName}`}>
+          <IconButton onClick={() => { setSettingsStart(undefined); setIsSettingsOpen(true); }} title={`Settings (resume, answers, account) · Profile: ${profileName}`}>
             <Settings className="w-4 h-4" />
           </IconButton>
           <IconButton onClick={() => sendIpc('hide-app')} title="Hide (to system tray)">
@@ -672,10 +674,16 @@ function App() {
             onClose={() => setIsSettingsOpen(false)}
             onSaved={reloadSettings}
             onPractise={isRecording ? undefined : questions => { setIsSettingsOpen(false); setMockQuestions(questions); setIsMockOpen(true); }}
+            start={settingsStart}
           />
         </div>
       )}
 
+      <CalendarReminder
+        paused={isRecording || isMockOpen || isCheckOpen || isSettingsOpen}
+        onProfileChanged={reloadSettings}
+        onPrep={() => { setSettingsStart({ tab: 'answers', prep: true }); setIsSettingsOpen(true); }}
+      />
       <UpdatePrompt paused={isRecording || isMockOpen || isCheckOpen} />
     </div>
   );

@@ -10,32 +10,35 @@ import { KnowledgeEditor } from './KnowledgeEditor';
 import { PrepPack } from './PrepPack';
 import { CompanyResearch } from './CompanyResearch';
 import { StoryBankEditor } from './StoryBankEditor';
+import { InterviewCalendar } from './InterviewCalendar';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
   onClose: () => void;
   onSaved: () => void;
   onPractise?: (questions: string[]) => void; // Start a mock interview with these questions
+  start?: { tab?: Tab; prep?: boolean };        // Open on this tab (and the prep pack), e.g. from an interview reminder
 }
 
-type Tab = 'profile' | 'answers' | 'stories' | 'account' | 'data';
+export type Tab = 'profile' | 'answers' | 'stories' | 'interviews' | 'account' | 'data';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'profile', label: 'Profile' },
   { id: 'answers', label: 'Answers' },
   { id: 'stories', label: 'Stories' },
+  { id: 'interviews', label: 'Interviews' },
   { id: 'account', label: 'Account' },
   { id: 'data', label: 'Data' },
 ];
 
 // Mounted only while open, so it always starts from the saved settings
-export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, start }) => {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
-  const [tab, setTab] = useState<Tab>('profile');
+  const [tab, setTab] = useState<Tab>(start?.tab ?? 'profile');
   const [preparedMode, setPreparedMode] = useState<PreparedMode>(loadPreparedMode); // Saved right away
   const [profiles, setProfiles] = useState(() => loadProfiles());
   const [activeId, setActiveId] = useState(() => loadActiveProfile().id);
-  const [prepOpen, setPrepOpen] = useState(false);
+  const [prepOpen, setPrepOpen] = useState(!!start?.prep);
 
   // Profile changes save the current edits first, so nothing typed is lost
   const changeProfiles = (change: () => void) => {
@@ -72,12 +75,12 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise })
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 px-3 pt-2 border-b border-slate-800 shrink-0">
+      <div className="scrollable flex gap-0.5 overflow-x-auto px-2 pt-2 border-b border-slate-800 shrink-0">
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-2.5 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
               tab === t.id ? 'border-blue-500 text-slate-100' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
@@ -190,6 +193,17 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise })
           <StoryBankEditor settings={settings} onChange={stories => patch({ stories })} />
         )}
 
+        {tab === 'interviews' && (
+          <InterviewCalendar
+            profiles={profiles}
+            activeId={activeId}
+            onPrep={interview => {
+              if (profiles.some(p => p.id === interview.profileId)) changeProfiles(() => setActiveProfile(interview.profileId));
+              setTab('answers');
+              setPrepOpen(true);
+            }}
+          />
+        )}
         {tab === 'account' && <AccountPanel />}
         {tab === 'data' && <BackupPanel />}
       </div>
