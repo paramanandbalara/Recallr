@@ -48,7 +48,7 @@ body {
   background: rgb(165, 180, 252);
 }
 
-.rotating-word { display: inline-block; }
+.rotating-word { display: grid; }
 .rotating-word-in { display: inline-block; }
 
 .marquee-track { display: flex; width: max-content; }

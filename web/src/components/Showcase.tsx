@@ -133,9 +133,16 @@ export const RotatingWord: React.FC<{ words: string[]; className?: string }> = (
     const timer = setInterval(() => setIndex(i => (i + 1) % words.length), 2600);
     return () => clearInterval(timer);
   }, [words.length]);
+  // Every word sits in the same grid cell (the others invisible), so the space is always that of the longest one
+  // and the text around it never moves or changes size
   return (
-    <span className="rotating-word" aria-live="off">
-      <span key={index} className={`rotating-word-in ${className}`}>{words[index]}</span>
+    <span className="rotating-word grid pb-1" aria-live="off">
+      {words.map((word, i) => (
+        <span key={i === index ? `on-${index}` : i} aria-hidden={i !== index}
+          className={`col-start-1 row-start-1 ${i === index ? `rotating-word-in ${className}` : 'invisible'}`}>
+          {word}
+        </span>
+      ))}
     </span>
   );
 };

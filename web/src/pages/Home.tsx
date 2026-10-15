@@ -11,7 +11,7 @@ import { HeroBadges, NewFeatures, ScrollProgress } from '../components/Modern';
 import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
 import { useAuth } from '../auth';
 
-const QUESTION_KINDS = ['an interview question', 'a coding round', 'a system design question', 'an HR round', 'a follow-up question'];
+const QUESTION_KINDS = ['a coding round', 'system design', 'an HR round', 'a follow-up', 'a hard question'];
 
 const WORKS_WITH = ['Zoom', 'Google Meet', 'Microsoft Teams', 'Webex', 'Skype', 'Slack huddles', 'Phone calls on your computer', 'Any app with sound'];
 
@@ -117,8 +117,9 @@ export const Home: React.FC = () => {
             </Reveal>
             <Reveal delay={80}>
               <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-6xl">
-                Never get stuck on<br className="hidden sm:block" />{' '}
-                <RotatingWord words={QUESTION_KINDS} className="gradient-text" /> again
+                Never get stuck on
+                <RotatingWord words={QUESTION_KINDS} className="gradient-text" />
+                again
               </h1>
             </Reveal>
             <Reveal delay={160}>
