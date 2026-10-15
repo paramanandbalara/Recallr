@@ -52,7 +52,7 @@ export const createInvoice = async (tx: Tx, paymentId: string, purchase: Purchas
     data: {
       number: formatInvoiceNumber(cleanPrefix(s.invoicePrefix), year, sequence),
       financialYear: year, sequence, kind, paymentId, userId: payment.userId, issuedAt,
-      sellerName: (s.sellerLegalName || s.businessName || 'Recallr').slice(0, 200),
+      sellerName: (s.sellerLegalName || (s.operatorName ? `${s.businessName || 'Recallr'} (${s.operatorName})` : '') || s.businessName || 'Recallr').slice(0, 200),
       sellerAddress: s.sellerAddress.slice(0, 500),
       sellerState: sellerState?.name ?? s.sellerState.slice(0, 60),
       sellerGstin: sellerGstin.slice(0, 15),

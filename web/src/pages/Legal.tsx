@@ -7,6 +7,11 @@ import { SITE } from '../api';
 
 type Page = 'terms' | 'privacy' | 'refunds' | 'contact';
 
+// "Recallr, operated by Asha Rao, an individual based in India" once the owner fills in their name
+const provider = () => (SITE.operatorName
+  ? `${SITE.businessName}, operated by ${SITE.operatorName}, an individual based in India`
+  : `${SITE.businessName}, an independent business run by an individual in India`);
+
 const Email = () => (SITE.supportEmail
   ? <a href={`mailto:${SITE.supportEmail}`} className="text-blue-400">{SITE.supportEmail}</a>
   : <Link to="/contact" className="text-blue-400">our contact page</Link>);
@@ -22,7 +27,7 @@ const content = (): Record<Page, { title: string; updated?: string; body: React.
     updated: UPDATED,
     body: (
       <>
-        <p>These terms apply to the Recallr website and desktop app, provided by {SITE.businessName}, an independent business run from India. By creating an account you agree to them and to our <Link to="/privacy" className="text-blue-400">privacy policy</Link>.</p>
+        <p>These terms apply to the Recallr website and desktop app, provided by {provider()}. By creating an account you agree to them and to our <Link to="/privacy" className="text-blue-400">privacy policy</Link>.</p>
         <h2>Who can use Recallr</h2>
         <p>You must be 18 or older to create an account.</p>
         <h2>Your account</h2>
@@ -49,7 +54,7 @@ const content = (): Record<Page, { title: string; updated?: string; body: React.
     updated: UPDATED,
     body: (
       <>
-        <p>{SITE.businessName} (“we”) is an independent business run by an individual in India. This policy explains, in plain words, what the Recallr website and desktop app keep about you, why, who else handles it, and what you can do about it. It is written to follow India’s Digital Personal Data Protection Act, 2023.</p>
+        <p>Recallr is provided by {provider()} (“we”). This policy explains, in plain words, what the Recallr website and desktop app keep about you, why, who else handles it, and what you can do about it. It is written to follow India’s Digital Personal Data Protection Act, 2023.</p>
 
         <h2>Your account</h2>
         <ul>
@@ -116,7 +121,7 @@ const content = (): Record<Page, { title: string; updated?: string; body: React.
         <p>If a security breach affects your data, we’ll tell you and the Data Protection Board as the law requires.</p>
 
         <h2>Grievance Officer</h2>
-        <p>Grievance Officer, {SITE.businessName}: <Email />. Write with your account email and what you’d like us to do. We’ll reply within 7 days and resolve it as quickly as we can, within the time the law allows.</p>
+        <p>Grievance Officer: {SITE.grievanceOfficer || SITE.operatorName || SITE.businessName}, <Email />. Write with your account email and what you’d like us to do. We’ll reply within 7 days and resolve it as quickly as we can, within the time the law allows.</p>
 
         <h2>Children</h2>
         <p>Recallr is for people aged 18 and over. We don’t knowingly keep data about children; if you think a child has made an account, write to us and we’ll delete it.</p>
