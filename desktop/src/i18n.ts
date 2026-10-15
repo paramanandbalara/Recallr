@@ -44,5 +44,5 @@ export const uiLocale = () => (current === 'hi' ? 'hi-IN' : undefined);
 const fill = (text: string, vars?: Record<string, string | number>) =>
   vars ? text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match)) : text;
 
-// t('Start listening'), t('{n} minutes left', { n: 5 })
+// Pass the English text; {name} placeholders are filled from the second argument
 export const t = (text: string, vars?: Record<string, string | number>) => fill(current === 'hi' ? HI[text] ?? text : text, vars);

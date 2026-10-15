@@ -11,6 +11,7 @@ import { PrepPack } from './PrepPack';
 import { CompanyResearch } from './CompanyResearch';
 import { StoryBankEditor } from './StoryBankEditor';
 import { InterviewCalendar } from './InterviewCalendar';
+import { t } from '../i18n';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
 interface Props {
@@ -52,7 +53,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
 
   const removeProfile = () => {
     const name = profiles.find(p => p.id === activeId)?.name;
-    if (!window.confirm(`Delete the profile "${name}" with its resume, job details and answers? This can't be undone.`)) return;
+    if (!window.confirm(t('Delete the profile "{name}" with its resume, job details and answers? This can\'t be undone.', { name: name ?? '' }))) return;
     changeProfiles(() => deleteProfile(activeId));
   };
 
@@ -68,24 +69,24 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       {/* Header */}
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-        <h2 className="text-sm font-semibold text-slate-100">Settings</h2>
-        <IconButton onClick={onClose} title="Close without saving">
+        <h2 className="text-sm font-semibold text-slate-100">{t('Settings')}</h2>
+        <IconButton onClick={onClose} title={t('Close without saving')}>
           <X className="w-4 h-4" />
         </IconButton>
       </div>
 
       {/* Tabs */}
       <div className="scrollable flex gap-0.5 overflow-x-auto px-2 pt-2 border-b border-slate-800 shrink-0">
-        {TABS.map(t => (
+        {TABS.map(item => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
+            key={item.id}
+            onClick={() => setTab(item.id)}
             className={`shrink-0 whitespace-nowrap px-2.5 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.id ? 'border-blue-500 text-slate-100' : 'border-transparent text-slate-500 hover:text-slate-300'
+              tab === item.id ? 'border-blue-500 text-slate-100' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            {t.label}
-            {t.id === 'answers' && settings.answers.length > 0 && (
+            {t(item.label)}
+            {item.id === 'answers' && settings.answers.length > 0 && (
               <span className="ml-1.5 rounded-full bg-slate-700 px-1.5 py-px text-[10px] text-slate-300">{settings.answers.length}</span>
             )}
           </button>
@@ -108,62 +109,62 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
         {tab === 'profile' && (
           <>
             <div>
-              <Label hint="Answers are built only from facts in your resume.">Resume</Label>
+              <Label hint={t('Answers are built only from facts in your resume.')}>{t('Resume')}</Label>
               <ResumeInput cv={settings.cv} fileName={settings.cvFileName} onChange={(cv, cvFileName) => patch({ cv, cvFileName })} />
             </div>
             <div>
-              <Label hint='Fills "[company name]" in your prepared answers.'>Company name</Label>
-              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder="e.g. Shopify" />
+              <Label hint={t('Fills "[company name]" in your prepared answers.')}>{t('Company name')}</Label>
+              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder={t('e.g. Shopify')} />
             </div>
             <div>
-              <Label hint="The job ad or the goal of the meeting.">Job description</Label>
+              <Label hint={t('The job ad or the goal of the meeting.')}>{t('Job description')}</Label>
               <TextArea
                 value={settings.job}
                 onChange={e => patch({ job: e.target.value })}
-                placeholder="Job requirements, responsibilities, tech stack..."
+                placeholder={t('Job requirements, responsibilities, tech stack...')}
                 className="h-32 text-xs"
               />
             </div>
             <div>
-              <Label hint='Your research on the company, so answers like "Why us?" mention real details.'>Company notes</Label>
+              <Label hint={t('Your research on the company, so answers like "Why us?" mention real details.')}>{t('Company notes')}</Label>
               <CompanyResearch notes={settings.companyNotes} onNotes={companyNotes => patch({ companyNotes })} />
               <TextArea
                 value={settings.companyNotes}
                 onChange={e => patch({ companyNotes: e.target.value })}
-                placeholder="Products, mission and values, recent news, team, tech stack..."
+                placeholder={t('Products, mission and values, recent news, team, tech stack...')}
                 className="h-28 text-xs"
               />
             </div>
             <div>
-              <Label hint="Who's interviewing, so answers fit who's asking (optional).">Interviewer</Label>
+              <Label hint={t("Who's interviewing, so answers fit who's asking (optional).")}>{t('Interviewer')}</Label>
               <TextArea
                 value={settings.interviewer}
                 onChange={e => patch({ interviewer: e.target.value })}
-                placeholder="e.g. Engineering manager, 10 yrs Java, second technical round"
+                placeholder={t('e.g. Engineering manager, 10 yrs Java, second technical round')}
                 className="h-16 text-xs"
               />
             </div>
             <div>
-              <Label hint="Project notes, docs, system design notes... Each question only uses the parts that fit it.">Your notes & documents</Label>
+              <Label hint={t('Project notes, docs, system design notes... Each question only uses the parts that fit it.')}>{t('Your notes & documents')}</Label>
               <KnowledgeEditor files={settings.knowledge} onChange={knowledge => patch({ knowledge })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label hint="What the interviewer speaks.">Interview language</Label>
+                <Label hint={t('What the interviewer speaks.')}>{t('Interview language')}</Label>
                 <Select value={settings.language} onChange={e => patch({ language: e.target.value })} className="text-xs">
-                  {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                  {LANGUAGES.map(l => <option key={l.code} value={l.code}>{t(l.label)}</option>)}
                 </Select>
               </div>
               <div>
-                <Label hint="Hindi answers come as Hinglish.">Answer in</Label>
+                <Label hint={t('Hindi answers come as Hinglish.')}>{t('Answer in')}</Label>
                 <Select
                   value={settings.answerLanguage}
                   onChange={e => patch({ answerLanguage: e.target.value as AnswerLanguage })}
                   disabled={settings.language === 'en'}
                   className="text-xs disabled:opacity-50"
                 >
-                  <option value="same">Same as the question</option>
-                  <option value="english">Always English</option>
+                  <option value="same">{t('Same as the question')}</option>
+                  <option value="english">{t('Always English')}</option>
                 </Select>
               </div>
             </div>
@@ -172,7 +173,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
 
         {tab === 'answers' && (
           <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 px-3 py-2">
-            <span className="text-[11px] text-slate-400">When a question matches</span>
+            <span className="text-[11px] text-slate-400">{t('When a question matches')}</span>
             <div className="flex rounded-md border border-slate-700 p-0.5">
               {([['instant', 'Show it instantly'], ['retell', 'AI retells it']] as [PreparedMode, string][]).map(([mode, label]) => (
                 <button
@@ -180,7 +181,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
                   onClick={() => { setPreparedMode(mode); savePreparedMode(mode); }}
                   className={`rounded px-2 py-0.5 text-[11px] font-medium ${preparedMode === mode ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -223,8 +224,8 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
 
       {/* Footer */}
       <div className="flex justify-end gap-2 px-4 py-3 border-t border-slate-800 shrink-0">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" icon={<Save className="w-4 h-4" />} onClick={handleSave}>Save</Button>
+        <Button variant="ghost" onClick={onClose}>{t('Cancel')}</Button>
+        <Button variant="primary" icon={<Save className="w-4 h-4" />} onClick={handleSave}>{t('Save')}</Button>
       </div>
     </div>
   );

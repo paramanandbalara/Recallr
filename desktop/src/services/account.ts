@@ -2,7 +2,7 @@
 // and counts usage against the user's plan. The sign-in token is kept encrypted by the OS (see
 // "Sign-in token" in electron/main.ts), with localStorage as the fallback outside Electron.
 
-import { t } from '../i18n';
+import { t, uiLocale } from '../i18n';
 
 const env = import.meta.env as Record<string, string | undefined>;
 const trimSlash = (url: string) => url.replace(/\/+$/, '');
@@ -318,13 +318,13 @@ export const openWebsite = (path: string) => {
 // ---------- Formatting ----------
 
 export const formatMinutes = (minutes: number | null) =>
-  minutes === null ? 'Unlimited' : minutes >= 60 ? `${+(minutes / 60).toFixed(1)} h` : `${Math.floor(minutes)} min`;
+  minutes === null ? t('Unlimited') : minutes >= 60 ? t('{n} h', { n: +(minutes / 60).toFixed(1) }) : t('{n} min', { n: Math.floor(minutes) });
 
 export const formatTokens = (n: number | null) =>
-  n === null ? 'Unlimited' : n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
+  n === null ? t('Unlimited') : n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n);
 
 export const formatDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
+  iso ? new Date(iso).toLocaleDateString(uiLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '–';
 
 // ---------- Question bank ----------
 

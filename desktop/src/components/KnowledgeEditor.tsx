@@ -3,6 +3,7 @@ import { FileText, Upload, ClipboardPaste, Trash2, AlertCircle } from 'lucide-re
 import { ACCEPTED_FILES, extractTextFromFile } from '../services/fileText';
 import { MAX_FILE_CHARS, type KnowledgeFile } from '../services/knowledge';
 import { newId } from '../services/storage';
+import { t } from '../i18n';
 import { Button, IconButton, TextArea, TextInput } from './ui';
 
 interface Props {
@@ -24,7 +25,7 @@ export const KnowledgeEditor: React.FC<Props> = ({ files, onChange }) => {
   const add = (name: string, text: string) => {
     const clean = text.trim();
     if (!clean) return;
-    if (clean.length > MAX_FILE_CHARS) setError(`"${name}" is long, so only the first ${MAX_FILE_CHARS.toLocaleString()} characters are kept.`);
+    if (clean.length > MAX_FILE_CHARS) setError(t('"{name}" is long, so only the first {count} characters are kept.', { name, count: MAX_FILE_CHARS.toLocaleString() }));
     onChange([...files, { id: newId(), name: name.trim() || 'Notes', text: clean.slice(0, MAX_FILE_CHARS) }]);
   };
 
@@ -35,7 +36,7 @@ export const KnowledgeEditor: React.FC<Props> = ({ files, onChange }) => {
     try {
       add(file.name, await extractTextFromFile(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not read this file.');
+      setError(err instanceof Error ? err.message : t('Could not read this file.'));
     } finally {
       setReading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -51,8 +52,8 @@ export const KnowledgeEditor: React.FC<Props> = ({ files, onChange }) => {
             <li key={file.id} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-2.5 py-1.5">
               <FileText className="w-3.5 h-3.5 shrink-0 text-slate-500" />
               <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{file.name}</span>
-              <span className="shrink-0 text-[10px] text-slate-500">{wordCount(file.text).toLocaleString()} words</span>
-              <IconButton title="Remove" onClick={() => onChange(files.filter(f => f.id !== file.id))} className="hover:!bg-red-500/10 hover:!text-red-300">
+              <span className="shrink-0 text-[10px] text-slate-500">{t('{n} words', { n: wordCount(file.text).toLocaleString() })}</span>
+              <IconButton title={t('Remove')} onClick={() => onChange(files.filter(f => f.id !== file.id))} className="hover:!bg-red-500/10 hover:!text-red-300">
                 <Trash2 className="w-3.5 h-3.5" />
               </IconButton>
             </li>
@@ -60,13 +61,13 @@ export const KnowledgeEditor: React.FC<Props> = ({ files, onChange }) => {
         </ul>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" icon={<Upload className="w-3.5 h-3.5" />} onClick={() => fileRef.current?.click()} loading={reading}>Add file</Button>
-        <Button size="sm" icon={<ClipboardPaste className="w-3.5 h-3.5" />} onClick={() => setPasteOpen(v => !v)}>Paste notes</Button>
+        <Button size="sm" icon={<Upload className="w-3.5 h-3.5" />} onClick={() => fileRef.current?.click()} loading={reading}>{t('Add file')}</Button>
+        <Button size="sm" icon={<ClipboardPaste className="w-3.5 h-3.5" />} onClick={() => setPasteOpen(v => !v)}>{t('Paste notes')}</Button>
       </div>
       {pasteOpen && (
         <div className="space-y-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2.5">
-          <TextInput value={pasteName} onChange={e => setPasteName(e.target.value)} placeholder="Name, e.g. Payments project notes" className="text-xs" />
-          <TextArea value={pasteText} onChange={e => setPasteText(e.target.value)} placeholder="Your notes..." className="h-28 text-xs" />
+          <TextInput value={pasteName} onChange={e => setPasteName(e.target.value)} placeholder={t('Name, e.g. Payments project notes')} className="text-xs" />
+          <TextArea value={pasteText} onChange={e => setPasteText(e.target.value)} placeholder={t('Your notes...')} className="h-28 text-xs" />
           <div className="flex justify-end">
             <Button
               size="sm"
@@ -79,7 +80,7 @@ export const KnowledgeEditor: React.FC<Props> = ({ files, onChange }) => {
                 setPasteOpen(false);
               }}
             >
-              Add
+              {t('Add')}
             </Button>
           </div>
         </div>

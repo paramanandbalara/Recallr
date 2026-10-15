@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { setUiLanguage, uiLanguage, UI_LANGUAGES } from '../i18n';
+import { setUiLanguage, t, uiLanguage, UI_LANGUAGES } from '../i18n';
 import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, WINDOW_SIZES, ZOOMS, type Display, type EnglishStyle, type Layout } from '../services/storage';
 
 interface Props {
@@ -23,6 +23,8 @@ const SHORTCUTS = [
   { keys: 'N', label: 'New conversation' },
   { keys: 'S', label: 'Read question from screen' },
 ];
+
+const SIZE_LABELS: Record<keyof typeof WINDOW_SIZES, string> = { small: 'Small', medium: 'Medium', large: 'Large' };
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="flex items-center justify-between gap-3">
@@ -49,11 +51,11 @@ const Segmented = <T extends string>({ value, options, onChange }: {
   </div>
 );
 
-// Opacity in 5% steps; `value` is 0..1
+// Opacity in 5% steps; `value` is 0..1 (`label` is the whole row label, already translated)
 const PercentSlider: React.FC<{ label: string; min: number; value: number; onChange: (value: number) => void }> = ({
   label, min, value, onChange,
 }) => (
-  <Row label={`${label} opacity`}>
+  <Row label={label}>
     <div className="flex items-center gap-2">
       <input
         type="range"
@@ -117,88 +119,88 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
   return (
     <div ref={ref} className="menu-in absolute right-2 top-11 z-40 w-64 space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl">
       <div>
-        <div className="mb-1.5 text-[11px] text-slate-400">Style</div>
+        <div className="mb-1.5 text-[11px] text-slate-400">{t('Style')}</div>
         <div className="grid grid-cols-4 gap-1">
           {STYLES.map(style => (
             <button
               key={style.id}
               onClick={() => patch({ layout: style.id })}
-              title={style.title}
+              title={t(style.title)}
               className={`rounded-md border px-1 py-1.5 text-[10px] font-medium ${display.layout === style.id ? 'border-blue-500 bg-blue-500/10 text-slate-100' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
             >
               <span className="mx-auto mb-1 block h-5 w-7 overflow-hidden rounded-sm border border-slate-600 bg-slate-800/80">{style.preview}</span>
-              {style.label}
+              {t(style.label)}
             </button>
           ))}
         </div>
       </div>
 
-      <Row label="Window size">
+      <Row label={t('Window size')}>
         <div className="flex rounded-md border border-slate-700 p-0.5">
           {(Object.keys(WINDOW_SIZES) as (keyof typeof WINDOW_SIZES)[]).map(size => (
             <button
               key={size}
               onClick={() => sendWindowSize(WINDOW_SIZES[size])}
-              title={`${WINDOW_SIZES[size].width} × ${WINDOW_SIZES[size].height} (drag any edge to fine-tune)`}
+              title={t('{width} × {height} (drag any edge to fine-tune)', { width: WINDOW_SIZES[size].width, height: WINDOW_SIZES[size].height })}
               className="rounded px-2 py-0.5 text-[11px] font-medium capitalize text-slate-400 hover:bg-slate-800 hover:text-slate-100"
             >
-              {size}
+              {t(SIZE_LABELS[size])}
             </button>
           ))}
         </div>
       </Row>
 
-      <Row label="Answers as">
+      <Row label={t('Answers as')}>
         <Segmented
           value={display.keyPoints ? 'points' : 'full'}
-          options={[{ id: 'full', label: 'Full text' }, { id: 'points', label: 'Key points' }]}
+          options={[{ id: 'full', label: t('Full text') }, { id: 'points', label: t('Key points') }]}
           onChange={v => patch({ keyPoints: v === 'points' })}
         />
       </Row>
 
-      <Row label="Text size">
+      <Row label={t('Text size')}>
         <div className="flex items-center gap-1">
-          <button className={stepButton} title="Smaller" disabled={display.textSize <= TEXT_SIZES.min} onClick={() => patch({ textSize: display.textSize - 1 })}>
+          <button className={stepButton} title={t('Smaller')} disabled={display.textSize <= TEXT_SIZES.min} onClick={() => patch({ textSize: display.textSize - 1 })}>
             <Minus className="w-3 h-3" />
           </button>
           <span className="w-8 text-center text-[11px] tabular-nums text-slate-300">{display.textSize}px</span>
-          <button className={stepButton} title="Larger" disabled={display.textSize >= TEXT_SIZES.max} onClick={() => patch({ textSize: display.textSize + 1 })}>
+          <button className={stepButton} title={t('Larger')} disabled={display.textSize >= TEXT_SIZES.max} onClick={() => patch({ textSize: display.textSize + 1 })}>
             <Plus className="w-3 h-3" />
           </button>
         </div>
       </Row>
 
-      <Row label="App size">
+      <Row label={t('App size')}>
         <div className="flex items-center gap-1">
-          <button className={stepButton} title={`Smaller (${isMac ? '⌘' : 'Ctrl'} −)`} disabled={display.zoom <= ZOOMS.min + 0.001} onClick={() => patch({ zoom: Math.round((display.zoom - ZOOMS.step) * 10) / 10 })}>
+          <button className={stepButton} title={t('Smaller ({key} −)', { key: isMac ? '⌘' : 'Ctrl' })} disabled={display.zoom <= ZOOMS.min + 0.001} onClick={() => patch({ zoom: Math.round((display.zoom - ZOOMS.step) * 10) / 10 })}>
             <Minus className="w-3 h-3" />
           </button>
-          <button className="w-10 text-center text-[11px] tabular-nums text-slate-300 hover:text-slate-100" title="Back to 100%" onClick={() => patch({ zoom: ZOOMS.default })}>
+          <button className="w-10 text-center text-[11px] tabular-nums text-slate-300 hover:text-slate-100" title={t('Back to 100%')} onClick={() => patch({ zoom: ZOOMS.default })}>
             {Math.round(display.zoom * 100)}%
           </button>
-          <button className={stepButton} title={`Larger (${isMac ? '⌘' : 'Ctrl'} +)`} disabled={display.zoom >= ZOOMS.max - 0.001} onClick={() => patch({ zoom: Math.round((display.zoom + ZOOMS.step) * 10) / 10 })}>
+          <button className={stepButton} title={t('Larger ({key} +)', { key: isMac ? '⌘' : 'Ctrl' })} disabled={display.zoom >= ZOOMS.max - 0.001} onClick={() => patch({ zoom: Math.round((display.zoom + ZOOMS.step) * 10) / 10 })}>
             <Plus className="w-3 h-3" />
           </button>
         </div>
       </Row>
 
       <PercentSlider
-        label="Background"
+        label={t('Background opacity')}
         min={0}
         value={display.bgOpacity}
         onChange={bgOpacity => patch({ bgOpacity })}
       />
       <PercentSlider
-        label="Text"
+        label={t('Text opacity')}
         min={30}
         value={display.textOpacity}
         onChange={textOpacity => patch({ textOpacity })}
       />
 
-      <Row label="English">
+      <Row label={t('English')}>
         <Segmented
           value={english}
-          options={[{ id: 'normal', label: 'Normal' }, { id: 'broken', label: 'Broken' }]}
+          options={[{ id: 'normal', label: t('Normal') }, { id: 'broken', label: t('Broken') }]}
           onChange={style => {
             setEnglish(style);
             saveEnglishStyle(style);
@@ -206,16 +208,16 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
         />
       </Row>
 
-      <Row label="App language">
-        <div title={listening ? 'Stop listening first' : undefined} className={listening ? 'pointer-events-none opacity-40' : ''}>
+      <Row label={t('App language')}>
+        <div title={listening ? t('Stop listening first') : undefined} className={listening ? 'pointer-events-none opacity-40' : ''}>
           <Segmented value={uiLanguage()} options={UI_LANGUAGES} onChange={setUiLanguage} />
         </div>
       </Row>
 
-      <Row label="Theme">
+      <Row label={t('Theme')}>
         <Segmented
           value={display.theme}
-          options={[{ id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }]}
+          options={[{ id: 'dark', label: t('Dark') }, { id: 'light', label: t('Light') }]}
           onChange={theme => patch({ theme })}
         />
       </Row>
@@ -224,27 +226,27 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
         <button
           onClick={onCheck}
           disabled={!onCheck}
-          title={onCheck ? 'Test keys, speed, microphone, call audio and screen reading' : 'Stop listening first'}
+          title={onCheck ? t('Test keys, speed, microphone, call audio and screen reading') : t('Stop listening first')}
           className="rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
         >
-          Pre-interview check
+          {t('Pre-interview check')}
         </button>
         <button
           onClick={onMock}
           disabled={!onMock}
-          title={onMock ? 'Practise: questions read out loud, answer by voice, get a score' : 'Stop listening first'}
+          title={onMock ? t('Practise: questions read out loud, answer by voice, get a score') : t('Stop listening first')}
           className="rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
         >
-          Mock interview
+          {t('Mock interview')}
         </button>
       </div>
 
       <div className="border-t border-slate-800 pt-2.5">
-        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Shortcuts (work in any app)</div>
+        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('Shortcuts (work in any app)')}</div>
         <ul className="space-y-1">
           {SHORTCUTS.map(s => (
             <li key={s.keys} className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400">{s.label}</span>
+              <span className="text-slate-400">{t(s.label)}</span>
               <kbd className="rounded border border-slate-700 bg-slate-800 px-1.5 py-px font-sans text-[10px] text-slate-300">
                 {MODIFIERS} {s.keys}
               </kbd>

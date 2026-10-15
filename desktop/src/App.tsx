@@ -21,6 +21,7 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { CalendarReminder } from './components/CalendarReminder';
 import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
+import { t } from './i18n';
 
 const PAUSE_BEFORE_ANSWER_MS = 500;
 const FILLER_TIMEOUT_MS = 5000;
@@ -419,13 +420,13 @@ function App() {
     if (isReadingScreen) return;
     setIsReadingScreen(true);
     const id = newId();
-    addTurn({ id, question: 'Reading your screen…', answer: '', status: 'thinking', origin: 'screen' });
-    const fail = (message: string) => patchTurn(id, { question: 'Read from screen', status: 'error', answer: message });
+    addTurn({ id, question: t('Reading your screen…'), answer: '', status: 'thinking', origin: 'screen' });
+    const fail = (message: string) => patchTurn(id, { question: t('Read from screen'), status: 'error', answer: message });
     try {
       const capture = await captureScreens();
-      if (!capture?.images) return fail(SCREEN_ERRORS[capture?.error ?? 'empty']);
+      if (!capture?.images) return fail(t(SCREEN_ERRORS[capture?.error ?? 'empty']));
       const question = await readQuestionFromScreen(capture.images);
-      if (!question) return fail('No interview question found on the screen.');
+      if (!question) return fail(t('No interview question found on the screen.'));
       patchTurn(id, { question });
       lastPreparedIdRef.current = null;
       if (!answerFromPrepared(id, question)) answerWithAi(id, question);
@@ -466,7 +467,7 @@ function App() {
     const saved = await loadSession(id);
     setIsHistoryOpen(false);
     if (!saved) {
-      window.alert('That conversation could not be opened.');
+      window.alert(t('That conversation could not be opened.'));
       return;
     }
     switchConversation({ id: saved.id, startedAt: saved.startedAt }, closeUnfinished(saved.turns));
@@ -504,7 +505,7 @@ function App() {
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={toggleRecording}
-            title={isRecording ? `Stop listening${debugLog ? ` · ${debugLog}` : ''}` : 'Start listening'}
+            title={isRecording ? `${t('Stop listening')}${debugLog ? ` · ${debugLog}` : ''}` : t('Start listening')}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               isRecording ? 'listening-ring bg-red-500/90 text-white hover:bg-red-500' : 'bg-blue-600 text-white hover:bg-blue-500'
             }`}
@@ -520,22 +521,22 @@ function App() {
                     />
                   ))}
                 </span>
-                Listening
+                {t('Listening')}
               </>
             ) : (
-              <><Mic className="w-3.5 h-3.5" /> Listen</>
+              <><Mic className="w-3.5 h-3.5" /> {t('Listen')}</>
             )}
           </button>
           <button
             onClick={toggleAudioSource}
             disabled={isRecording}
-            title={AUDIO_SOURCES[audioSource].title}
+            title={t(AUDIO_SOURCES[audioSource].title)}
             className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-300 hover:border-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {audioSource === 'system' && <Volume2 className="w-3 h-3 text-emerald-400" />}
             {audioSource === 'both' && <Users className="w-3 h-3 text-sky-400" />}
             {audioSource === 'microphone' && <Mic className="w-3 h-3 text-amber-400" />}
-            <span className="compact-hide">{AUDIO_SOURCES[audioSource].label}</span>
+            <span className="compact-hide">{t(AUDIO_SOURCES[audioSource].label)}</span>
           </button>
           {!isRecording && (
             <span className="compact-hide hidden min-[440px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
@@ -547,25 +548,25 @@ function App() {
           <IconButton
             data-display-toggle
             onClick={() => setIsDisplayOpen(open => !open)}
-            title="Display and shortcuts"
+            title={t('Display and shortcuts')}
             className={isDisplayOpen ? '!text-blue-400' : ''}
           >
             <SlidersHorizontal className="w-4 h-4" />
           </IconButton>
           <IconButton
             onClick={toggleOverlay}
-            title={overlay ? 'Overlay on: floating above all apps (click to unpin)' : 'Overlay off: click to float above all apps'}
+            title={overlay ? t('Overlay on: floating above all apps (click to unpin)') : t('Overlay off: click to float above all apps')}
             className={overlay ? '!text-blue-400' : ''}
           >
             {overlay ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
           </IconButton>
-          <IconButton onClick={() => { setSettingsStart(undefined); setIsSettingsOpen(true); }} title={`Settings (resume, answers, account) · Profile: ${profileName}`}>
+          <IconButton onClick={() => { setSettingsStart(undefined); setIsSettingsOpen(true); }} title={t('Settings (resume, answers, account) · Profile: {profile}', { profile: profileName })}>
             <Settings className="w-4 h-4" />
           </IconButton>
-          <IconButton onClick={() => sendIpc('hide-app')} title="Hide (to system tray)">
+          <IconButton onClick={() => sendIpc('hide-app')} title={t('Hide (to system tray)')}>
             <Minus className="w-4 h-4" />
           </IconButton>
-          <IconButton onClick={() => sendIpc('quit-app')} title="Quit" tone="danger">
+          <IconButton onClick={() => sendIpc('quit-app')} title={t('Quit')} tone="danger">
             <X className="w-4 h-4" />
           </IconButton>
         </div>
@@ -607,32 +608,32 @@ function App() {
           ref={askInputRef}
           value={askText}
           onChange={e => setAskText(e.target.value)}
-          placeholder="Type a question..."
+          placeholder={t('Type a question...')}
           className="flex-1 bg-slate-950/60 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
         />
-        <IconButton type="submit" title="Get answer" disabled={!askText.trim()}>
+        <IconButton type="submit" title={t('Get answer')} disabled={!askText.trim()}>
           <SendHorizontal className="w-4 h-4" />
         </IconButton>
         <IconButton
           type="button"
-          title="Read the question from your screen"
+          title={t('Read the question from your screen')}
           disabled={isReadingScreen}
           onClick={readScreen}
           className={isReadingScreen ? 'animate-pulse !text-blue-400' : ''}
         >
           <ScanText className="w-4 h-4" />
         </IconButton>
-        <IconButton type="button" title="History: past conversations" onClick={() => setIsHistoryOpen(true)}>
+        <IconButton type="button" title={t('History: past conversations')} onClick={() => setIsHistoryOpen(true)}>
           <History className="w-4 h-4" />
         </IconButton>
         <button
           type="button"
-          title="Start a new conversation (this one stays in History)"
+          title={t('Start a new conversation (this one stays in History)')}
           disabled={!turns.length}
           onClick={startNew}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          <SquarePen className="w-3.5 h-3.5" /> <span className="compact-hide">New</span>
+          <SquarePen className="w-3.5 h-3.5" /> <span className="compact-hide">{t('New')}</span>
         </button>
       </form>
 

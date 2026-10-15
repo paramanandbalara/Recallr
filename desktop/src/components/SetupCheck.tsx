@@ -4,6 +4,7 @@ import { PROVIDERS, streamChat, type ProviderId } from '../services/llm';
 import { fetchAccount, formatDate, formatMinutes } from '../services/account';
 import { loadActiveProfile } from '../services/storage';
 import { getMicrophoneStream, getSystemAudioStream } from '../hooks/useAudioCapture';
+import { t } from '../i18n';
 import { Button, IconButton } from './ui';
 
 interface Props {
@@ -88,29 +89,32 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
     if (stale()) return;
 
     // 1. Account and what's left of the plan
-    set('account', 'running', 'Checking your plan...');
+    set('account', 'running', t('Checking your plan...'));
     let working = 0;
     try {
       const { allowance } = await fetchAccount();
       const minutes = allowance.minutesLeft;
-      if (!allowance.active) set('account', 'fail', 'No active plan. Buy one in Settings → Account.');
-      else if (minutes !== null && minutes < 1) set('account', 'fail', 'No listening time left. Buy a top-up in Settings → Account.');
+      if (!allowance.active) set('account', 'fail', t('No active plan. Buy one in Settings → Account.'));
+      else if (minutes !== null && minutes < 1) set('account', 'fail', t('No listening time left. Buy a top-up in Settings → Account.'));
       else {
         working = 1;
-        const label = `${allowance.onTrial ? 'Free trial' : 'Plan'}: ${formatMinutes(minutes)} of listening left, until ${formatDate(allowance.expiresAt)}.`;
+        const left = { time: formatMinutes(minutes), date: formatDate(allowance.expiresAt) };
+        const label = allowance.onTrial
+          ? t('Free trial: {time} of listening left, until {date}.', left)
+          : t('Plan: {time} of listening left, until {date}.', left);
         set('account', minutes !== null && minutes < 30 ? 'warn' : 'ok', minutes !== null && minutes < 30
-          ? `${label} That may not cover a whole interview: buy a top-up in Settings → Account.`
+          ? t('{plan} That may not cover a whole interview: buy a top-up in Settings → Account.', { plan: label })
           : label);
       }
     } catch (error) {
-      set('account', 'fail', error instanceof Error ? error.message : "Couldn't check your account.");
+      set('account', 'fail', error instanceof Error ? error.message : t("Couldn't check your account."));
     }
 
     if (stale()) return;
 
     // 2. How fast answers start
     if (working > 0) {
-      set('speed', 'running', 'Asking a test question...');
+      set('speed', 'running', t('Asking a test question...'));
       try {
         const startedAt = performance.now();
         let firstMs = 0;
@@ -125,71 +129,80 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
         const seconds = `${(firstMs / 1000).toFixed(1)} s`;
         const by = provider ? ` (${PROVIDERS[provider].label})` : '';
         set('speed', firstMs < SLOW_ANSWER_MS ? 'ok' : 'warn', firstMs < SLOW_ANSWER_MS
-          ? `Answers start in about ${seconds}${by}.`
-          : `Answers take ${seconds} to start${by}. Check your internet connection: a wired or faster network helps.`);
+          ? t('Answers start in about {seconds}{by}.', { seconds, by })
+          : t('Answers take {seconds} to start{by}. Check your internet connection: a wired or faster network helps.', { seconds, by }));
       } catch (error) {
-        set('speed', 'fail', error instanceof Error ? error.message : 'The test question failed.');
+        set('speed', 'fail', error instanceof Error ? error.message : t('The test question failed.'));
       }
     } else {
-      set('speed', 'fail', 'Needs an active plan.');
+      set('speed', 'fail', t('Needs an active plan.'));
     }
 
     if (stale()) return;
 
     // 3. Profile
     const profile = loadActiveProfile();
-    const missing = [!profile.cv.trim() && 'resume', !profile.job.trim() && 'job description'].filter(Boolean);
+    const noCv = !profile.cv.trim();
+    const noJob = !profile.job.trim();
     const answered = profile.answers.filter(a => a.answer.trim()).length;
-    set('profile', missing.length ? 'warn' : 'ok', missing.length
-      ? `"${profile.name}" has no ${missing.join(' or ')}. Answers will be generic: add ${missing.length > 1 ? 'them' : 'it'} in Settings → Profile.`
-      : `"${profile.name}": resume and job description set, ${answered} prepared ${answered === 1 ? 'answer' : 'answers'}.`);
+    const vars = { profile: profile.name, n: answered };
+    const missing = noCv && noJob
+      ? t('"{profile}" has no resume or job description. Answers will be generic: add them in Settings → Profile.', vars)
+      : noCv
+        ? t('"{profile}" has no resume. Answers will be generic: add it in Settings → Profile.', vars)
+        : noJob
+          ? t('"{profile}" has no job description. Answers will be generic: add it in Settings → Profile.', vars)
+          : '';
+    set('profile', missing ? 'warn' : 'ok', missing || (answered === 1
+      ? t('"{profile}": resume and job description set, {n} prepared answer.', vars)
+      : t('"{profile}": resume and job description set, {n} prepared answers.', vars)));
 
     // 4. Microphone
     if (access.microphone === 'denied' || access.microphone === 'restricted') {
-      set('mic', 'fail', 'Microphone access is off. Turn it on in System Settings → Privacy & Security → Microphone, then restart Recallr.');
+      set('mic', 'fail', t('Microphone access is off. Turn it on in System Settings → Privacy & Security → Microphone, then restart Recallr.'));
     } else {
-      set('mic', 'running', 'Say a few words now...');
+      set('mic', 'running', t('Say a few words now...'));
       try {
         const stream = await getMicrophoneStream();
         const { loudest } = await measureLevel(stream, MIC_TEST_MS);
         stream.getTracks().forEach(track => track.stop());
         set('mic', loudest > 0.02 ? 'ok' : 'warn', loudest > 0.02
-          ? 'Your microphone is working.'
-          : "Didn't hear you. Check the input device in your system sound settings (only needed for Mic and Call + mic).");
+          ? t('Your microphone is working.')
+          : t("Didn't hear you. Check the input device in your system sound settings (only needed for Mic and Call + mic)."));
       } catch {
-        set('mic', 'fail', 'Could not open the microphone. Check its permission in System Settings → Privacy & Security → Microphone.');
+        set('mic', 'fail', t('Could not open the microphone. Check its permission in System Settings → Privacy & Security → Microphone.'));
       }
     }
 
     if (stale()) return;
 
     // 5. Call audio
-    set('call', 'running', 'Play any sound now (a video, music...)');
+    set('call', 'running', t('Play any sound now (a video, music...)'));
     try {
       const { capture } = await getSystemAudioStream();
       const { loudest, anySignal } = await measureLevel(new MediaStream(capture.getAudioTracks()), CALL_TEST_MS);
       capture.getTracks().forEach(track => track.stop());
       if (!anySignal) {
-        set('call', 'warn', 'Heard only silence. If nothing was playing, play a video and run the check again. If something was playing, allow Recallr (in development: "Electron") under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart it.');
+        set('call', 'warn', t('Heard only silence. If nothing was playing, play a video and run the check again. If something was playing, allow Recallr (in development: "Electron") under System Settings → Privacy & Security → Screen & System Audio Recording → "System Audio Recording Only", then restart it.'));
       } else {
         set('call', loudest > 0.002 ? 'ok' : 'warn', loudest > 0.002
-          ? 'Call audio is reaching Recallr.'
-          : 'Connected, but nothing was playing. Play something and run the check again to be sure.');
+          ? t('Call audio is reaching Recallr.')
+          : t('Connected, but nothing was playing. Play something and run the check again to be sure.'));
       }
     } catch {
-      set('call', 'fail', 'Could not capture the computer\'s audio. On macOS, allow it in System Settings → Privacy & Security → Screen & System Audio Recording, then restart Recallr.');
+      set('call', 'fail', t('Could not capture the computer\'s audio. On macOS, allow it in System Settings → Privacy & Security → Screen & System Audio Recording, then restart Recallr.'));
     }
 
     if (stale()) return;
 
     // 6. Reading the screen
-    set('screen', 'running', 'Checking...');
+    set('screen', 'running', t('Checking...'));
     if (access.screen === 'denied' || access.screen === 'restricted') {
-      set('screen', 'warn', 'Screen Recording is off, so "Read from screen" can\'t see other apps. Turn it on in System Settings → Privacy & Security → Screen Recording.');
+      set('screen', 'warn', t('Screen Recording is off, so "Read from screen" can\'t see other apps. Turn it on in System Settings → Privacy & Security → Screen Recording.'));
     } else if (!working) {
-      set('screen', 'fail', 'Needs an active plan.');
+      set('screen', 'fail', t('Needs an active plan.'));
     } else {
-      set('screen', 'ok', 'Ready.');
+      set('screen', 'ok', t('Ready.'));
     }
 
     if (!stale()) setRunning(false);
@@ -212,8 +225,8 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
   return (
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-        <h2 className="text-sm font-semibold text-slate-100">Pre-interview check</h2>
-        <IconButton onClick={onClose} title="Close"><X className="w-4 h-4" /></IconButton>
+        <h2 className="text-sm font-semibold text-slate-100">{t('Pre-interview check')}</h2>
+        <IconButton onClick={onClose} title={t('Close')}><X className="w-4 h-4" /></IconButton>
       </div>
 
       <ul className="scrollable flex-1 min-h-0 overflow-y-auto p-3 space-y-1.5">
@@ -221,7 +234,7 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
           <li key={id} className="flex gap-2.5 rounded-lg border border-slate-800 px-3 py-2.5">
             <span className="mt-px shrink-0">{ICONS[checks[id].status]}</span>
             <div className="min-w-0">
-              <div className="text-xs font-medium text-slate-200">{label}</div>
+              <div className="text-xs font-medium text-slate-200">{t(label)}</div>
               {checks[id].detail && (
                 <div className={`mt-0.5 text-[11px] leading-relaxed ${checks[id].status === 'running' ? 'text-blue-300' : 'text-slate-400'}`}>
                   {checks[id].detail}
@@ -234,9 +247,9 @@ export const SetupCheck: React.FC<Props> = ({ onClose }) => {
 
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-800 shrink-0">
         <span className="text-[11px] text-slate-400">
-          {!done ? 'Checking...' : failed ? `${failed} to fix before the interview.` : warned ? 'Ready, with a few things to look at.' : "All set. You're ready."}
+          {!done ? t('Checking...') : failed ? t('{n} to fix before the interview.', { n: failed }) : warned ? t('Ready, with a few things to look at.') : t("All set. You're ready.")}
         </span>
-        <Button size="sm" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={run} disabled={running}>Run again</Button>
+        <Button size="sm" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={run} disabled={running}>{t('Run again')}</Button>
       </div>
     </div>
   );

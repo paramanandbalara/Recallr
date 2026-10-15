@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Search, Trash2, MessagesSquare, ClipboardCheck, FileText, FileDown } from 'lucide-react';
 import { deleteSession, listSessions, loadSession, type SessionSummary } from '../services/sessions';
 import { exportSession } from '../services/exportSession';
+import { t, uiLocale } from '../i18n';
 import { IconButton, TextInput } from './ui';
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
 
 const SEARCH_DELAY_MS = 200;
 
-const formatDate = (time: number) => new Date(time).toLocaleString(undefined, {
+const formatDate = (time: number) => new Date(time).toLocaleString(uiLocale(), {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
 });
 
@@ -35,10 +36,10 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
     try {
       const saved = await loadSession(id);
       if (!saved) throw new Error('missing');
-      if (await exportSession(saved, kind)) showNotice(`Saved as ${kind === 'pdf' ? 'PDF' : 'Markdown'}.`);
+      if (await exportSession(saved, kind)) showNotice(t('Saved as {format}.', { format: kind === 'pdf' ? 'PDF' : 'Markdown' }));
     } catch (error) {
       console.error('Export error:', error);
-      showNotice('Could not export this conversation.');
+      showNotice(t('Could not export this conversation.'));
     }
   };
 
@@ -54,7 +55,7 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
   }, [query, reloadCount, refreshKey]);
 
   const remove = async (session: SessionSummary) => {
-    if (!window.confirm(`Delete "${session.title}"? This can't be undone.`)) return;
+    if (!window.confirm(t('Delete "{title}"? This can\'t be undone.', { title: session.title }))) return;
     await deleteSession(session.id);
     setReloadCount(n => n + 1);
   };
@@ -62,8 +63,8 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
   return (
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-        <h2 className="text-sm font-semibold text-slate-100">History</h2>
-        <IconButton onClick={onClose} title="Close">
+        <h2 className="text-sm font-semibold text-slate-100">{t('History')}</h2>
+        <IconButton onClick={onClose} title={t('Close')}>
           <X className="w-4 h-4" />
         </IconButton>
       </div>
@@ -75,11 +76,11 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search questions and answers..."
+            placeholder={t('Search questions and answers...')}
             className="!pl-8 !py-1.5 text-xs"
           />
         </div>
-        {!canOpen && <p className="mt-2 text-[11px] text-amber-300">Stop listening to open another conversation.</p>}
+        {!canOpen && <p className="mt-2 text-[11px] text-amber-300">{t('Stop listening to open another conversation.')}</p>}
         {notice && <p className="mt-2 text-[11px] text-emerald-300">{notice}</p>}
       </div>
 
@@ -88,7 +89,7 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
           <div className="flex flex-col items-center gap-2 pt-12 text-center">
             <MessagesSquare className="w-6 h-6 text-slate-600" />
             <p className="text-xs text-slate-400">
-              {query ? 'No conversations match your search.' : 'Conversations are saved here once they have an answer.'}
+              {query ? t('No conversations match your search.') : t('Conversations are saved here once they have an answer.')}
             </p>
           </div>
         )}
@@ -105,30 +106,30 @@ export const HistoryPanel: React.FC<Props> = ({ currentId, canOpen, onOpen, onRe
                 className="min-w-0 flex-1 text-left disabled:cursor-default"
                 disabled={isCurrent || !canOpen}
                 onClick={() => onOpen(session.id)}
-                title={isCurrent ? 'This is the current conversation' : 'Open this conversation'}
+                title={isCurrent ? t('This is the current conversation') : t('Open this conversation')}
               >
                 <div className="truncate text-xs font-medium text-slate-200">{session.title}</div>
                 <div className="mt-0.5 truncate text-[10px] text-slate-500">
-                  {formatDate(session.updatedAt)} · {session.questionCount} {session.questionCount === 1 ? 'answer' : 'answers'}
+                  {formatDate(session.updatedAt)} · {session.questionCount === 1 ? t('{n} answer', { n: session.questionCount }) : t('{n} answers', { n: session.questionCount })}
                   {session.profileName && ` · ${session.profileName}`}
                 </div>
               </button>
               <div className="flex shrink-0 items-center">
                 {isCurrent && (
-                  <span className="mr-1 rounded-full bg-blue-500/15 px-1.5 py-px text-[10px] font-medium text-blue-300">Current</span>
+                  <span className="mr-1 rounded-full bg-blue-500/15 px-1.5 py-px text-[10px] font-medium text-blue-300">{t('Current')}</span>
                 )}
                 <div className="flex opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                  <IconButton title={session.hasReview ? 'See the review' : 'Review this interview'} onClick={() => onReview(session.id)}>
+                  <IconButton title={session.hasReview ? t('See the review') : t('Review this interview')} onClick={() => onReview(session.id)}>
                     <ClipboardCheck className={`w-3.5 h-3.5 ${session.hasReview ? 'text-emerald-400' : ''}`} />
                   </IconButton>
-                  <IconButton title="Export as Markdown" onClick={() => exportAs(session.id, 'md')}>
+                  <IconButton title={t('Export as Markdown')} onClick={() => exportAs(session.id, 'md')}>
                     <FileText className="w-3.5 h-3.5" />
                   </IconButton>
-                  <IconButton title="Export as PDF" onClick={() => exportAs(session.id, 'pdf')}>
+                  <IconButton title={t('Export as PDF')} onClick={() => exportAs(session.id, 'pdf')}>
                     <FileDown className="w-3.5 h-3.5" />
                   </IconButton>
                   {!isCurrent && (
-                    <IconButton tone="danger" title="Delete" onClick={() => remove(session)}>
+                    <IconButton tone="danger" title={t('Delete')} onClick={() => remove(session)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </IconButton>
                   )}

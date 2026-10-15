@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import type { Profile } from '../services/storage';
+import { t } from '../i18n';
 import { IconButton } from './ui';
 
 interface Props {
@@ -41,23 +42,23 @@ export const ProfileBar: React.FC<Props> = ({ profiles, activeId, onSwitch, onCr
             value={name}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => e.key === 'Escape' && setEditing(null)}
-            placeholder={editing === 'new' ? 'e.g. Shopify – Tech Lead' : 'Profile name'}
+            placeholder={editing === 'new' ? t('e.g. Shopify – Tech Lead') : t('Profile name')}
             className={fieldClass}
           />
-          <IconButton type="submit" title="Save name" disabled={!name.trim()}><Check className="w-3.5 h-3.5" /></IconButton>
-          <IconButton type="button" title="Cancel" onClick={() => setEditing(null)}><X className="w-3.5 h-3.5" /></IconButton>
+          <IconButton type="submit" title={t('Save name')} disabled={!name.trim()}><Check className="w-3.5 h-3.5" /></IconButton>
+          <IconButton type="button" title={t('Cancel')} onClick={() => setEditing(null)}><X className="w-3.5 h-3.5" /></IconButton>
         </form>
       ) : (
         <div className="flex items-center gap-1">
-          <span className="text-[11px] font-semibold text-slate-400 mr-1">Profile</span>
+          <span className="text-[11px] font-semibold text-slate-400 mr-1">{t('Profile')}</span>
           <select value={activeId} onChange={e => onSwitch(e.target.value)} className={fieldClass}>
             {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <IconButton title="New profile" onClick={() => startEditing('new')}><Plus className="w-3.5 h-3.5" /></IconButton>
-          <IconButton title="Rename profile" onClick={() => startEditing('rename')}><Pencil className="w-3.5 h-3.5" /></IconButton>
+          <IconButton title={t('New profile')} onClick={() => startEditing('new')}><Plus className="w-3.5 h-3.5" /></IconButton>
+          <IconButton title={t('Rename profile')} onClick={() => startEditing('rename')}><Pencil className="w-3.5 h-3.5" /></IconButton>
           <IconButton
             tone="danger"
-            title={profiles.length > 1 ? 'Delete profile' : "The only profile can't be deleted"}
+            title={profiles.length > 1 ? t('Delete profile') : t("The only profile can't be deleted")}
             disabled={profiles.length <= 1}
             onClick={onDelete}
           >
@@ -67,8 +68,8 @@ export const ProfileBar: React.FC<Props> = ({ profiles, activeId, onSwitch, onCr
       )}
       <p className="mt-1 text-[10px] text-slate-500">
         {editing === 'new'
-          ? 'Starts with your current resume and prepared answers; add the job details after.'
-          : 'Each profile has its own resume, job, company notes and answers. Switching saves your changes.'}
+          ? t('Starts with your current resume and prepared answers; add the job details after.')
+          : t('Each profile has its own resume, job, company notes and answers. Switching saves your changes.')}
       </p>
     </div>
   );

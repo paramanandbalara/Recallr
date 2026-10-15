@@ -4,6 +4,7 @@ import {
   appVersion, canUpdateInApp, downloadUrl, fetchVersionInfo, installUpdate, onUpdateStatus, openUrl, REMIND_LATER_MS, startUpdate, updateToOffer,
   type UpdateSnooze, type VersionInfo,
 } from '../services/account';
+import { t } from '../i18n';
 import { Button, IconButton } from './ui';
 
 const SNOOZE_KEY = 'secondBrain_updateSnooze';
@@ -74,9 +75,9 @@ export const UpdatePrompt: React.FC<{ paused: boolean }> = ({ paused }) => {
     setPhase({ step: 'downloading', percent: 0, hidden: false });
     startUpdate(info.feedUrl!).then(status => {
       if (status.state === 'ready') setPhase({ step: 'ready', version: status.version, hidden: false });
-      else if (status.state === 'none') setPhase({ step: 'failed', message: 'The new version isn’t ready to download yet. Get it from the website instead.' });
-      else if (status.state === 'error') setPhase({ step: 'failed', message: `The download didn’t finish (${status.message}). Get it from the website instead.` });
-    }, () => setPhase({ step: 'failed', message: 'The download didn’t finish. Get it from the website instead.' }));
+      else if (status.state === 'none') setPhase({ step: 'failed', message: t('The new version isn’t ready to download yet. Get it from the website instead.') });
+      else if (status.state === 'error') setPhase({ step: 'failed', message: t('The download didn’t finish ({error}). Get it from the website instead.', { error: status.message }) });
+    }, () => setPhase({ step: 'failed', message: t('The download didn’t finish. Get it from the website instead.') }));
   };
 
   // Hidden downloads and "Later" keep going quietly; a finished download asks again when not in an interview
@@ -98,19 +99,21 @@ export const UpdatePrompt: React.FC<{ paused: boolean }> = ({ paused }) => {
           <div className="rounded-lg bg-blue-500/15 p-2 text-blue-400"><Sparkles className="w-4 h-4" /></div>
           <div className="min-w-0 flex-1">
             <h2 id="update-title" className="text-sm font-semibold text-slate-100">
-              {phase.step === 'ready' ? 'Update ready to install' : phase.step === 'downloading' ? 'Downloading the update' : 'Update available'}
+              {phase.step === 'ready' ? t('Update ready to install') : phase.step === 'downloading' ? t('Downloading the update') : t('Update available')}
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-400">
               {phase.step === 'ready'
-                ? `Recallr ${version} is downloaded. Restart to install it; it takes a few seconds. Your profiles and history are kept.`
+                ? t('Recallr {version} is downloaded. Restart to install it; it takes a few seconds. Your profiles and history are kept.', { version: String(version) })
                 : phase.step === 'downloading'
-                  ? 'You can keep using Recallr while it downloads.'
+                  ? t('You can keep using Recallr while it downloads.')
                   : phase.step === 'failed'
                     ? phase.message
-                    : `Recallr ${version} is ready${appVersion() ? ` (you have ${appVersion()})` : ''}. Your profiles and history are kept.`}
+                    : appVersion()
+                      ? t('Recallr {version} is ready (you have {current}). Your profiles and history are kept.', { version: String(version), current: String(appVersion()) })
+                      : t('Recallr {version} is ready. Your profiles and history are kept.', { version: String(version) })}
             </p>
           </div>
-          <IconButton onClick={close} title={phase.step === 'offer' ? 'Remind me later' : 'Hide'}><X className="w-3.5 h-3.5" /></IconButton>
+          <IconButton onClick={close} title={phase.step === 'offer' ? t('Remind me later') : t('Hide')}><X className="w-3.5 h-3.5" /></IconButton>
         </div>
 
         {phase.step === 'downloading' && (
@@ -124,24 +127,24 @@ export const UpdatePrompt: React.FC<{ paused: boolean }> = ({ paused }) => {
 
         {phase.step === 'offer' && info.notes && (
           <div className="scrollable mt-3 max-h-40 overflow-y-auto rounded-lg bg-slate-800/60 px-3 py-2">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">What's new</div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t("What's new")}</div>
             <p className="whitespace-pre-line text-[11px] leading-relaxed text-slate-300">{info.notes}</p>
           </div>
         )}
 
         <div className="mt-4 flex justify-end gap-2">
           {phase.step === 'offer' && <>
-            <Button size="sm" variant="ghost" onClick={remindLater}>Remind me later</Button>
-            <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={update}>Update</Button>
+            <Button size="sm" variant="ghost" onClick={remindLater}>{t('Remind me later')}</Button>
+            <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={update}>{t('Update')}</Button>
           </>}
-          {phase.step === 'downloading' && <Button size="sm" variant="ghost" onClick={close}>Hide</Button>}
+          {phase.step === 'downloading' && <Button size="sm" variant="ghost" onClick={close}>{t('Hide')}</Button>}
           {phase.step === 'ready' && <>
-            <Button size="sm" variant="ghost" onClick={close} title="It installs the next time you quit Recallr">Later</Button>
-            <Button size="sm" variant="primary" icon={<RotateCw className="w-3.5 h-3.5" />} onClick={() => { installUpdate(); }}>Restart now</Button>
+            <Button size="sm" variant="ghost" onClick={close} title={t('It installs the next time you quit Recallr')}>{t('Later')}</Button>
+            <Button size="sm" variant="primary" icon={<RotateCw className="w-3.5 h-3.5" />} onClick={() => { installUpdate(); }}>{t('Restart now')}</Button>
           </>}
           {phase.step === 'failed' && <>
-            <Button size="sm" variant="ghost" onClick={close}>Close</Button>
-            <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={openDownloadPage}>Open download page</Button>
+            <Button size="sm" variant="ghost" onClick={close}>{t('Close')}</Button>
+            <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={openDownloadPage}>{t('Open download page')}</Button>
           </>}
         </div>
       </div>

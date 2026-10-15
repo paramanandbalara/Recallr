@@ -78,4 +78,7 @@ export const access: Record<string, string> = {
     'कृपया फिर से साइन इन करें। अब Recallr आपके साइन इन को इस कंप्यूटर से जोड़ता है, और आपका यह साइन इन उससे पहले का है।',
   "Can't reach Recallr. Check your internet connection.": 'Recallr से कनेक्ट नहीं हो पा रहा। अपना इंटरनेट कनेक्शन चेक करें।',
   "Recallr's server had a problem ({status}).": 'Recallr के सर्वर में कोई दिक्कत आई ({status})।',
+  'Unlimited': 'असीमित',
+  '{n} h': '{n} घंटे',
+  '{n} min': '{n} मिनट',
 };

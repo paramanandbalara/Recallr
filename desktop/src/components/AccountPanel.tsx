@@ -3,6 +3,7 @@ import { BookMarked, ExternalLink, Gift, Laptop, LifeBuoy, LogOut, RotateCcw } f
 import { formatDate, formatMinutes, formatTokens, openWebsite } from '../services/account';
 import { useAccount } from '../hooks/useAccount';
 import { setSaveAnswers } from '../services/questionBank';
+import { t } from '../i18n';
 import { Button } from './ui';
 
 const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -25,7 +26,7 @@ export const AccountPanel: React.FC = () => {
       await setSaveAnswers(next);
     } catch (error) {
       setSave(!next);
-      setSaveError(error instanceof Error ? error.message : 'Could not change it.');
+      setSaveError(error instanceof Error ? error.message : t('Could not change it.'));
     }
   };
 
@@ -42,12 +43,12 @@ export const AccountPanel: React.FC = () => {
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-xs font-semibold text-slate-300">{allowance.onTrial ? 'Free trial' : 'Your plan'}</span>
-          <span className="text-[11px] text-slate-500">until {formatDate(allowance.expiresAt)}</span>
+          <span className="text-xs font-semibold text-slate-300">{allowance.onTrial ? t('Free trial') : t('Your plan')}</span>
+          <span className="text-[11px] text-slate-500">{t('until {date}', { date: formatDate(allowance.expiresAt) })}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Stat label="Listening left" value={formatMinutes(allowance.minutesLeft)} />
-          <Stat label="AI answers left" value={`${formatTokens(allowance.tokensLeft)} tokens`} />
+          <Stat label={t('Listening left')} value={formatMinutes(allowance.minutesLeft)} />
+          <Stat label={t('AI answers left')} value={t('{n} tokens', { n: formatTokens(allowance.tokensLeft) })} />
         </div>
         {allowance.packs.length > 1 && (
           <ul className="space-y-1">
@@ -55,47 +56,45 @@ export const AccountPanel: React.FC = () => {
               <li key={pack.id} className="flex justify-between rounded-md border border-slate-800 px-2.5 py-1.5 text-[11px]">
                 <span className="text-slate-300">{pack.planName}</span>
                 <span className="tabular-nums text-slate-500">
-                  {formatMinutes(pack.minutesLeft)} · until {formatDate(pack.expiresAt)}
+                  {t('{minutes} · until {date}', { minutes: formatMinutes(pack.minutesLeft), date: formatDate(pack.expiresAt) })}
                 </span>
               </li>
             ))}
           </ul>
         )}
         <p className="text-[11px] leading-relaxed text-slate-500">
-          Listening time counts only while Recallr hears speech. AI answers are counted in tokens (about 3/4 of a word each);
-          a typical answer uses 1,500–3,000.
+          {t('Listening time counts only while Recallr hears speech. AI answers are counted in tokens (about 3/4 of a word each); a typical answer uses 1,500–3,000.')}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="primary" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/buy')}>
-          {allowance.onTrial ? 'Upgrade' : 'Buy more'}
+          {allowance.onTrial ? t('Upgrade') : t('Buy more')}
         </Button>
-        <Button size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account')}>Manage account</Button>
-        <Button size="sm" variant="ghost" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={refresh}>Refresh</Button>
+        <Button size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account')}>{t('Manage account')}</Button>
+        <Button size="sm" variant="ghost" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={refresh}>{t('Refresh')}</Button>
       </div>
 
       <div className="space-y-1.5 border-t border-slate-800 pt-3">
         <label className="flex cursor-pointer items-start gap-2">
           <input type="checkbox" checked={saveAnswers} onChange={toggleSave} className="mt-0.5 accent-blue-500" />
           <span className="text-[11px] leading-relaxed text-slate-400">
-            <span className="font-medium text-slate-200">Save my questions and answers to my account.</span>{' '}
-            See them by category on the website (My questions) and use them to prepare. Questions are also counted,
-            without your name, to show which ones interviewers ask most.
+            <span className="font-medium text-slate-200">{t('Save my questions and answers to my account.')}</span>{' '}
+            {t('See them by category on the website (My questions) and use them to prepare. Questions are also counted, without your name, to show which ones interviewers ask most.')}
           </span>
         </label>
         {saveError && <p className="text-[11px] text-red-300">{saveError}</p>}
-        <Button size="sm" variant="ghost" icon={<BookMarked className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/questions')}>My questions</Button>
+        <Button size="sm" variant="ghost" icon={<BookMarked className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/questions')}>{t('My questions')}</Button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 border-t border-slate-800 pt-3">
-        <Button size="sm" variant="ghost" icon={<Laptop className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/devices')}>Devices</Button>
-        <Button size="sm" variant="ghost" icon={<Gift className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/invite')}>Invite friends</Button>
-        <Button size="sm" variant="ghost" icon={<LifeBuoy className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/support')}>Get help</Button>
+        <Button size="sm" variant="ghost" icon={<Laptop className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/devices')}>{t('Devices')}</Button>
+        <Button size="sm" variant="ghost" icon={<Gift className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/invite')}>{t('Invite friends')}</Button>
+        <Button size="sm" variant="ghost" icon={<LifeBuoy className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/support')}>{t('Get help')}</Button>
       </div>
 
       <div className="border-t border-slate-800 pt-3">
-        <Button size="sm" variant="ghost" icon={<LogOut className="w-3.5 h-3.5" />} onClick={signOut}>Sign out</Button>
+        <Button size="sm" variant="ghost" icon={<LogOut className="w-3.5 h-3.5" />} onClick={signOut}>{t('Sign out')}</Button>
       </div>
     </div>
   );
