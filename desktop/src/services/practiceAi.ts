@@ -1,4 +1,5 @@
 import { completeChat } from './llm';
+import { WE_VOICE } from './ai';
 import type { Settings } from './storage';
 import {
   describeSetup, formatTranscript, MAX_REPLIES, MIN_REPLIES, parseHrTurn, parseNegotiationSummary, repliesSoFar,
@@ -108,8 +109,10 @@ Return JSON only: {"answers":[{"n":1,"score":6,"good":"...","fix":"...","better"
 - "score": 1 to 10 for how well what they said would land with the interviewer (answered the question, a concrete example or evidence, clarity, length).
 - "good": one sentence on what was good. "fix": the one or two changes that would help most.
 - "better": a stronger version of THEIR answer that they could say next time: keep their story and facts, add only facts from the resume,
-  60 to 150 words, natural spoken English in the first person.
+  60 to 150 words, natural spoken English.
 ${PLAIN_SPEECH}
+In "better" (the candidate's own words):
+${WE_VOICE}
 [RESUME]
 ${settings.cv.slice(0, MAX_CV_CHARS) || 'Not provided'}
 [JOB]

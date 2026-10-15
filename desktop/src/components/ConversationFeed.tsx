@@ -8,6 +8,7 @@ import { scoreAnswer } from '../services/answerScore';
 import { AnswerText } from './AnswerText';
 import { t } from '../i18n';
 import { DailyCard } from './DailyCard';
+import { latestQuestionIndex } from '../services/latestQuestion';
 
 export interface Turn {
   id: string;
@@ -139,7 +140,11 @@ interface Props {
 
 export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', isRecording, keyPointsView, onAdjust, onAnswer, onCheck, onMock }) => {
   const latestOnly = layout === 'compact' || layout === 'teleprompter';
-  const hidden = latestOnly ? Math.max(0, turns.length - 1) : 0;
+  // The question being answered: the newest one that isn't a remark heard while it was answered. Remarks
+  // (and what the user says while answering) are added below it but never take the view away from it.
+  const anchorIndex = latestQuestionIndex(turns);
+  const anchorId = anchorIndex >= 0 ? turns[anchorIndex].id : undefined;
+  const hidden = latestOnly ? Math.max(0, anchorIndex >= 0 ? anchorIndex : turns.length - 1) : 0;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const latestRef = useRef<HTMLDivElement>(null); // The newest question and answer
@@ -163,10 +168,10 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
     return latest ? Math.max(0, Math.min(bottom, latest.offsetTop - 12)) : bottom;
   };
 
-  // A new question: follow it again
+  // A new question (not a remark): follow it again
   useEffect(() => {
     following.current = true;
-  }, [turns.length]);
+  }, [anchorId]);
 
   // Follow new text as it is typed, unless the user scrolled up to read
   useEffect(() => {
@@ -209,7 +214,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
         )}
         {turns.slice(hidden).map((turn, shownIndex) => {
           const index = shownIndex + hidden;
-          const isLatest = index === turns.length - 1;
+          const isLatest = index === anchorIndex;
           // Key-points view: the latest answer shows its key points above the full text (so it never
           // collapses while being read); older answers show only their key points until opened.
           const hasPoints = keyPointsView && turn.status === 'done' && !!turn.keyPoints?.length;

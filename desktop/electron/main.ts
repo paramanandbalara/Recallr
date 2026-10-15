@@ -69,7 +69,9 @@ function createWindow() {
     height: saved?.height ?? 640,
     minWidth: MIN_SIZE.width,
     minHeight: MIN_SIZE.height,
-    resizable: true,
+    // The OS's own resize edges would show resize arrows; the app's edges (src/windowResize.ts) resize the window
+    // instead and keep the normal arrow cursor. setBounds still works on a non-resizable window.
+    resizable: false,
     transparent: true,
     frame: false,
     hasShadow: false,

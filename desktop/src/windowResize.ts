@@ -11,15 +11,16 @@ const send = (action: 'start' | 'stop', edge?: Edge) => {
 const EDGE = 5;   // px of each edge that resizes
 const CORNER = 12; // px of each corner
 
-const HANDLES: { edge: Edge; cursor: string; style: Partial<CSSStyleDeclaration> }[] = [
-  { edge: 'n', cursor: 'ns-resize', style: { top: '0', left: `${CORNER}px`, right: `${CORNER}px`, height: `${EDGE}px` } },
-  { edge: 's', cursor: 'ns-resize', style: { bottom: '0', left: `${CORNER}px`, right: `${CORNER}px`, height: `${EDGE}px` } },
-  { edge: 'w', cursor: 'ew-resize', style: { left: '0', top: `${CORNER}px`, bottom: `${CORNER}px`, width: `${EDGE}px` } },
-  { edge: 'e', cursor: 'ew-resize', style: { right: '0', top: `${CORNER}px`, bottom: `${CORNER}px`, width: `${EDGE}px` } },
-  { edge: 'nw', cursor: 'nwse-resize', style: { top: '0', left: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
-  { edge: 'se', cursor: 'nwse-resize', style: { bottom: '0', right: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
-  { edge: 'ne', cursor: 'nesw-resize', style: { top: '0', right: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
-  { edge: 'sw', cursor: 'nesw-resize', style: { bottom: '0', left: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
+// The cursor stays the normal arrow over the handles (see index.css)
+const HANDLES: { edge: Edge; style: Partial<CSSStyleDeclaration> }[] = [
+  { edge: 'n', style: { top: '0', left: `${CORNER}px`, right: `${CORNER}px`, height: `${EDGE}px` } },
+  { edge: 's', style: { bottom: '0', left: `${CORNER}px`, right: `${CORNER}px`, height: `${EDGE}px` } },
+  { edge: 'w', style: { left: '0', top: `${CORNER}px`, bottom: `${CORNER}px`, width: `${EDGE}px` } },
+  { edge: 'e', style: { right: '0', top: `${CORNER}px`, bottom: `${CORNER}px`, width: `${EDGE}px` } },
+  { edge: 'nw', style: { top: '0', left: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
+  { edge: 'se', style: { bottom: '0', right: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
+  { edge: 'ne', style: { top: '0', right: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
+  { edge: 'sw', style: { bottom: '0', left: '0', width: `${CORNER}px`, height: `${CORNER}px` } },
 ];
 
 export const installWindowResize = () => {
@@ -33,10 +34,10 @@ export const installWindowResize = () => {
     send('stop');
   };
 
-  for (const { edge, cursor, style } of HANDLES) {
+  for (const { edge, style } of HANDLES) {
     const handle = document.createElement('div');
     handle.dataset.interactive = '';
-    Object.assign(handle.style, { position: 'fixed', zIndex: '9999', cursor, ...style });
+    Object.assign(handle.style, { position: 'fixed', zIndex: '9999', cursor: 'default', ...style });
     handle.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       event.preventDefault();

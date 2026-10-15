@@ -11,6 +11,7 @@ import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loa
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { recordAnswered } from './services/questionBank';
 import { ConversationFeed, type Turn } from './components/ConversationFeed';
+import { latestQuestionIndex } from './services/latestQuestion';
 import { SettingsModal, type Tab as SettingsTab } from './components/SettingsModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { DisplayMenu } from './components/DisplayMenu';
@@ -356,9 +357,13 @@ function App() {
 
   const handleTranscript = useCallback((text: string, speaker: Speaker) => {
     if (speaker === 'you') {
-      setTurns(prev => prev.length === 0 ? prev : prev.map((t, i) => (
-        i === prev.length - 1 ? { ...t, spoken: t.spoken ? `${t.spoken} ${text}` : text } : t
-      )));
+      // What the user says goes under the question being answered, not under a remark heard meanwhile
+      setTurns(prev => {
+        const target = latestQuestionIndex(prev);
+        return target < 0 ? prev : prev.map((t, i) => (
+          i === target ? { ...t, spoken: t.spoken ? `${t.spoken} ${text}` : text } : t
+        ));
+      });
       return;
     }
     lastSpeechAtRef.current = Date.now();

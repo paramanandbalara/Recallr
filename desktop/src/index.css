@@ -106,9 +106,12 @@ body {
 .code-block .hljs-variable,
 .code-block .hljs-params { color: var(--color-slate-300); }
 
-/* Header bars move the window (handled in src/windowDrag.ts); normal arrow cursor, pointer on buttons */
-.drag-area button {
-  cursor: pointer;
+/* One cursor everywhere: the normal arrow. Over buttons, text being selected, inputs, links and the resize edges it
+   stays the same, so nothing on a shared screen shows the window is there or what is being done in it. */
+*,
+*::before,
+*::after {
+  cursor: default !important;
 }
 
 /* Custom Scrollbar */

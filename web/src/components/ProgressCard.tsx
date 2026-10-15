@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, Download, Info, Share2 } from 'lucide-react';
-import { LogoMark } from './Logo';
+import logoMarkUrl from '../assets/logo-mark.webp';
 
 // A picture of the user's practice (streak, mock interviews, scores) to post or send: drawn on a canvas in the
 // browser (nothing goes to the server), downloaded as a PNG or shared with the phone's share sheet.
@@ -138,17 +138,12 @@ const draw = (ctx: CanvasRenderingContext2D, stats: ProgressStats, logo: HTMLIma
   ctx.textAlign = 'left';
 };
 
-// The logo, as an image the canvas can draw (from the same drawing the site uses)
-const logoImage = (holder: HTMLElement | null) => new Promise<HTMLImageElement | null>(resolve => {
-  const svg = holder?.querySelector('svg')?.cloneNode(true) as SVGSVGElement | undefined;
-  if (!svg) return resolve(null);
-  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  svg.setAttribute('width', '120');
-  svg.setAttribute('height', '120');
+// The logo, as an image the canvas can draw
+const logoImage = () => new Promise<HTMLImageElement | null>(resolve => {
   const img = new Image();
   img.onload = () => resolve(img);
   img.onerror = () => resolve(null);
-  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  img.src = logoMarkUrl;
 });
 
 export const shareText = (stats: ProgressStats) => {
@@ -159,7 +154,6 @@ export const shareText = (stats: ProgressStats) => {
 };
 
 export const ProgressCard: React.FC<{ stats: ProgressStats }> = ({ stats }) => {
-  const logoRef = useRef<HTMLSpanElement>(null);
   const [png, setPng] = useState<{ blob: Blob; url: string } | null>(null);
   const [note, setNote] = useState<{ text: string; ok: boolean } | null>(null);
   const key = JSON.stringify(stats);
@@ -169,7 +163,7 @@ export const ProgressCard: React.FC<{ stats: ProgressStats }> = ({ stats }) => {
     let made: string | null = null;
     (async () => {
       await document.fonts?.ready.catch(() => {});
-      const logo = await logoImage(logoRef.current);
+      const logo = await logoImage();
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -216,7 +210,6 @@ export const ProgressCard: React.FC<{ stats: ProgressStats }> = ({ stats }) => {
 
   return (
     <div>
-      <span ref={logoRef} className="hidden" aria-hidden><LogoMark /></span>
       <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-2xl shadow-black/40">
         {png
           ? <img src={png.url} alt={`Progress card: ${text}`} width={W} height={H} className="block h-auto w-full" />

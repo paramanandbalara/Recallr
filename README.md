@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="desktop/public/icon.png" alt="Recallr Logo" width="120" />
+  <img src="docs/brand/wordmark-light.png" alt="Recallr, AI interview assistant" width="420" />
   <h1>Recallr 💬</h1>
   <p><strong>Your AI interview assistant, from prep to follow-up</strong></p>
 </div>
