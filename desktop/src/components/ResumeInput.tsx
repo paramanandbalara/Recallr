@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Upload, X, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 import { ACCEPTED_FILES, extractTextFromFile } from '../services/fileText';
+import { queueResumeFile } from '../services/profileSync';
 import { t } from '../i18n';
 import { Button, IconButton, TextArea } from './ui';
 
@@ -24,6 +25,7 @@ export const ResumeInput: React.FC<Props> = ({ cv, fileName, onChange }) => {
     try {
       const text = await extractTextFromFile(file);
       onChange(text, file.name);
+      queueResumeFile(file); // The original file goes to the account in the background, if that's on
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Could not read this file.'));
     } finally {

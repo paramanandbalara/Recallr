@@ -11,6 +11,7 @@ import { queueEmail } from '../mailer.js';
 import { activeDevices, publicDevice } from '../devices.js';
 import { PROVIDER_IDS, testAiKey } from '../ai.js';
 import { HttpError, route } from '../http.js';
+import { profileSummary } from '../profiles.js';
 import { testRazorpayKeys } from '../razorpay.js';
 import { getSettings, isNumberSetting, saveSettings, SETTING_KEYS, SETTINGS, settingsForAdmin, type SettingKey } from '../settings.js';
 
@@ -124,7 +125,7 @@ adminRoutes.get('/users', route(async (req, res) => {
 adminRoutes.get('/users/:id', route(async (req, res) => {
   const user = await db.user.findUnique({ where: { id: req.params.id } });
   if (!user) throw new HttpError(404, 'User not found.');
-  const [purchases, payments, usage, devices, emailLog, referredBy, referrals, backup, practice, savedAnswers, memberships] = await Promise.all([
+  const [purchases, payments, usage, devices, emailLog, referredBy, referrals, backup, practice, savedAnswers, memberships, profiles] = await Promise.all([
     db.purchase.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
     db.payment.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, include: { plan: { select: { name: true } } } }),
     db.usageEvent.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
@@ -136,6 +137,7 @@ adminRoutes.get('/users/:id', route(async (req, res) => {
     db.practiceSession.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 20 }),
     db.savedAnswer.count({ where: { userId: user.id } }),
     db.organizationMember.findMany({ where: { userId: user.id }, include: { organization: { select: { id: true, name: true } } } }),
+    db.userProfile.findMany({ where: { userId: user.id }, orderBy: { updatedAt: 'desc' } }),
   ]);
   res.json({
     user: { ...publicUser(user), lastSeenAt: user.lastSeenAt },
@@ -149,6 +151,7 @@ adminRoutes.get('/users/:id', route(async (req, res) => {
     practice: practice.map(p => ({ id: p.id, role: p.role, questionCount: p.questionCount, averageScore: p.averageScore, wordsPerMinute: p.wordsPerMinute, fillersPerMinute: p.fillersPerMinute, createdAt: p.createdAt })),
     savedAnswers,
     memberships: memberships.map(m => ({ role: m.role, organization: m.organization })),
+    profiles: profiles.map(profileSummary),
   });
 }));
 

@@ -41,6 +41,42 @@ const EmailChoices: React.FC = () => {
   );
 };
 
+// The copy of the app's profiles kept on the account; turning it off deletes the copy
+const ProfileCopy: React.FC = () => {
+  const { user, refresh } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const on = user?.profileSync !== false;
+  const toggle = async () => {
+    if (on && !window.confirm('Turn this off? The copy of your profiles on your Recallr account is deleted. Your profiles in the app stay.')) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api('/auth/me', { method: 'PATCH', body: { profileSync: !on } });
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-4 border-t border-slate-800 pt-4">
+      <label className="flex cursor-pointer items-start gap-3">
+        <input type="checkbox" checked={on} disabled={busy} onChange={toggle} className="mt-1 accent-blue-500" />
+        <span className="text-sm text-slate-300">
+          <span className="font-medium text-slate-100">Keep a copy of my profiles in my Recallr account</span>
+          <span className="block text-slate-400">
+            Your resume (and its original file), job details, company notes, prepared answers and stories from the app, stored encrypted and
+            updated in the background, so they can be restored and we can improve Recallr. Turning it off deletes the copy.
+          </span>
+        </span>
+      </label>
+      <div className="mt-2"><ErrorText>{error}</ErrorText></div>
+    </div>
+  );
+};
+
 // Download everything we keep, or close the account
 const YourData: React.FC = () => {
   const { signOut } = useAuth();
@@ -79,7 +115,7 @@ const YourData: React.FC = () => {
     <Card className="md:col-span-2">
       <h2 className="font-semibold text-slate-100">Your data</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Download everything Recallr keeps about you (account, plans, payments, saved questions and answers, mock interview results) as one file.
+        Download everything Recallr keeps about you (account, profiles, plans, payments, saved questions and answers, mock interview results) as one file.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button loading={busy === 'download'} onClick={download}>Download my data</Button>
@@ -88,7 +124,7 @@ const YourData: React.FC = () => {
       {closing && (
         <form onSubmit={close} className="mt-4 max-w-md space-y-3 rounded-xl border border-red-500/30 bg-red-500/5 p-4">
           <p className="text-sm text-red-100">
-            This deletes your saved questions and answers, mock interview results, cloud backup and computers, and signs you out everywhere.
+            This deletes your profiles, saved questions and answers, mock interview results, cloud backup and computers, and signs you out everywhere.
             Payment records are kept without your name, as the law requires. It can’t be undone.
           </p>
           <Field label="Your password"><Input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /></Field>
@@ -99,6 +135,7 @@ const YourData: React.FC = () => {
         </form>
       )}
       <div className="mt-3"><ErrorText>{error}</ErrorText></div>
+      <ProfileCopy />
     </Card>
   );
 };

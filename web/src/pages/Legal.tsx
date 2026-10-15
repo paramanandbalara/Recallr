@@ -39,8 +39,10 @@ const content = (): Record<Page, { title: string; body: React.ReactNode }> => ({
       <>
         <h2>What we keep</h2>
         <p>Your name, email, a hash of your password (never the password itself), your plans and payments, and how much listening time and AI you used (amounts and dates, not content).</p>
+        <h2>Your profiles</h2>
+        <p>Your profiles (resume text and the original resume file, job description, company and company notes, interviewer, notes and documents, prepared answers and stories) are stored in the app on your computer. While “Keep a copy of my profiles in my Recallr account” is on (it is by default), the app also sends a copy to our server in the background. We keep it encrypted, to restore your profiles and to improve Recallr; our staff can see it when needed to run the service, for example to help you. You can turn it off in the app (Settings → Data) or on the website (Account → Settings): the copy is then deleted.</p>
         <h2>What stays on your computer</h2>
-        <p>Your resume, job details, prepared answers, notes and full conversation history are stored on your own computer. If you use Cloud backup, an encrypted copy is kept on our server until you delete it.</p>
+        <p>Your full conversation history stays on your own computer. If you use Cloud backup, an encrypted copy of the app’s data is kept on our server until you delete it.</p>
         <h2>Interview questions and answers</h2>
         <p>Each question you’re asked in an interview is added to our question bank without your name, so we can count which questions are asked most and publish general guides on how to answer them. While “Save my questions and answers” is on (it is by default), the question and the answer Recallr gave are also kept on your account so you can see them under My questions. You can turn it off in the app or on the website, and delete them at any time. Only you can see your answers; if you joined through a college or bootcamp, your coach sees your mock interview scores, never your answers.</p>
         <h2>What is processed but not kept</h2>
@@ -48,7 +50,7 @@ const content = (): Record<Page, { title: string; body: React.ReactNode }> => ({
         <h2>Payments</h2>
         <p>Card, UPI and bank details are handled by Razorpay; we never see or store them.</p>
         <h2>Your choices</h2>
-        <p>To get a copy of your account data or have your account deleted, email <Email />.</p>
+        <p>You can download everything we keep about you, including your profiles, or close your account and delete it, under Account → Settings on the website. You can also email <Email />.</p>
       </>
     ),
   },

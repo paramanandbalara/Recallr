@@ -9,6 +9,7 @@ import { emails } from '../emails.js';
 import { allowance } from '../entitlements.js';
 import { env } from '../env.js';
 import { HttpError, route } from '../http.js';
+import { deleteUserProfiles, exportProfiles } from '../profiles.js';
 import { queueEmail } from '../mailer.js';
 import { getSettings, numberSetting } from '../settings.js';
 
@@ -87,7 +88,9 @@ authRoutes.patch('/me', requireUser, route(async (req, res) => {
     name: z.string().trim().min(1, 'Enter your name.').max(100).optional(),
     saveAnswers: z.boolean().optional(), // Keep interview questions and answers on the account
     weeklyEmail: z.boolean().optional(),  // The Monday practice email
+    profileSync: z.boolean().optional(),  // Keep a copy of the app's profiles on the account; off deletes the copy
   }).parse(req.body);
+  if (data.profileSync === false) await deleteUserProfiles(req.user!.id);
   res.json({ user: publicUser(await db.user.update({ where: { id: req.user!.id }, data })) });
 }));
 
@@ -103,7 +106,7 @@ authRoutes.post('/password', requireUser, limiter, route(async (req, res) => {
 // Everything Recallr keeps about the user, as one JSON file (never the password)
 authRoutes.get('/me/export', requireUser, route(async (req, res) => {
   const id = req.user!.id;
-  const [purchases, payments, savedAnswers, practice, devices, tickets, memberships] = await Promise.all([
+  const [purchases, payments, savedAnswers, practice, devices, tickets, memberships, profiles] = await Promise.all([
     db.purchase.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' } }),
     db.payment.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { amountPaise: true, currency: true, method: true, status: true, reference: true, createdAt: true, paidAt: true, plan: { select: { name: true } } } }),
     db.savedAnswer.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { questionText: true, category: true, answer: true, source: true, createdAt: true } }),
@@ -111,10 +114,11 @@ authRoutes.get('/me/export', requireUser, route(async (req, res) => {
     db.device.findMany({ where: { userId: id }, select: { name: true, platform: true, appVersion: true, createdAt: true, lastSeenAt: true, revokedAt: true } }),
     db.ticket.findMany({ where: { userId: id }, include: { messages: { select: { fromAdmin: true, body: true, createdAt: true } } } }),
     db.organizationMember.findMany({ where: { userId: id }, include: { organization: { select: { name: true } } } }),
+    exportProfiles(id),
   ]);
   res.setHeader('Content-Disposition', `attachment; filename="recallr-my-data-${new Date().toISOString().slice(0, 10)}.json"`);
   res.json({
-    exportedAt: new Date(), account: publicUser(req.user!), purchases, payments, savedAnswers, mockInterviews: practice, devices,
+    exportedAt: new Date(), account: publicUser(req.user!), profiles, purchases, payments, savedAnswers, mockInterviews: practice, devices,
     supportTickets: tickets, organizations: memberships.map(m => ({ name: m.organization.name, role: m.role, joinedAt: m.createdAt })),
   });
 }));
@@ -128,6 +132,7 @@ authRoutes.post('/me/delete', requireUser, limiter, route(async (req, res) => {
   if (user.role === 'ADMIN' && (await db.user.count({ where: { role: 'ADMIN', status: 'ACTIVE' } })) <= 1) {
     throw new HttpError(400, 'You are the only admin. Make someone else an admin first.');
   }
+  await deleteUserProfiles(user.id); // Also their files in S3
   await db.$transaction([
     db.savedAnswer.deleteMany({ where: { userId: user.id } }),
     db.practiceSession.deleteMany({ where: { userId: user.id } }),
@@ -139,7 +144,7 @@ authRoutes.post('/me/delete', requireUser, limiter, route(async (req, res) => {
     db.user.update({
       where: { id: user.id },
       data: {
-        email: `deleted-${user.id}@deleted.invalid`, name: 'Deleted user', status: 'BLOCKED', referralCode: null, saveAnswers: false,
+        email: `deleted-${user.id}@deleted.invalid`, name: 'Deleted user', status: 'BLOCKED', referralCode: null, saveAnswers: false, profileSync: false,
         passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
       },
     }),

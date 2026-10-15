@@ -1,4 +1,5 @@
-// All user data lives in localStorage on this machine only.
+// All user data lives in localStorage on this machine. A copy of the profiles is kept on the account while that's
+// on (services/profileSync.ts).
 import type { KnowledgeFile } from './knowledge';
 
 export interface PreparedAnswer {
@@ -202,7 +203,13 @@ const legacyProfile = (): Profile => toProfile({
   answers: readAnswers(),
 });
 
-const saveProfiles = (profiles: Profile[]) => write(KEYS.profiles, JSON.stringify(profiles));
+// Fired on window after profiles are saved (created, edited, renamed, deleted); services/profileSync.ts listens
+export const PROFILES_EVENT = 'recallr:profiles-changed';
+
+const saveProfiles = (profiles: Profile[]) => {
+  write(KEYS.profiles, JSON.stringify(profiles));
+  if (typeof window !== 'undefined' && !restoring) window.dispatchEvent(new Event(PROFILES_EVENT));
+};
 
 export const loadProfiles = (): Profile[] => {
   try {

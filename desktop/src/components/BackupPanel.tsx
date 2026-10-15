@@ -4,6 +4,7 @@ import { fetchCloudBackup, type CloudBackup } from '../services/account';
 import { exportBackup, fetchBackupFromAccount, parseBackup, restoreBackup, uploadBackup } from '../services/backup';
 import { t } from '../i18n';
 import { Button } from './ui';
+import { ProfileSyncToggle } from './ProfileSyncToggle';
 
 const openBackupFile = async (): Promise<string | null> =>
   // @ts-expect-error ipcRenderer is injected by the preload script
@@ -85,6 +86,7 @@ export const BackupPanel: React.FC = () => {
 
   return (
     <div className="space-y-2.5">
+      <ProfileSyncToggle />
       <div>
         <div className="text-xs font-semibold text-slate-300">{t('Backup on your account')}</div>
         <div className="mt-0.5 text-[11px] leading-relaxed text-slate-500">

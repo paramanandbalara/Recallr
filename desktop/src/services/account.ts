@@ -12,6 +12,7 @@ export const API_URL = trimSlash(env.VITE_API_URL || 'http://localhost:4000');
 export const WEB_URL = trimSlash(env.VITE_WEB_URL || 'http://localhost:5174');
 
 export const PLAN_EVENT = 'recallr-plan-changed'; // Fired on window when the server says the plan ran out
+export const SIGNED_IN_EVENT = 'recallr:signed-in'; // Fired on window after signing in
 
 export interface User {
   id: string;
@@ -19,6 +20,7 @@ export interface User {
   name: string;
   role: 'USER' | 'ADMIN';
   saveAnswers?: boolean; // Questions and answers kept on the account
+  profileSync?: boolean; // A copy of the profiles kept on the account
 }
 
 export interface Pack {
@@ -202,6 +204,7 @@ export const signIn = async (email: string, password: string) => {
   device ??= await loadDevice();
   const result = await json<{ token: string; trial: TrialResult }>('/auth/login', { email: email.trim(), password, device });
   saveToken(result.token);
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(SIGNED_IN_EVENT));
   return result.trial;
 };
 

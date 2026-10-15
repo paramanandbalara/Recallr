@@ -18,7 +18,7 @@ export const signToken = (user: Pick<User, 'id' | 'role'>, deviceId?: string) =>
 
 export const publicUser = (user: User) => ({
   id: user.id, email: user.email, name: user.name, role: user.role, status: user.status, createdAt: user.createdAt,
-  saveAnswers: user.saveAnswers, weeklyEmail: user.weeklyEmail,
+  saveAnswers: user.saveAnswers, weeklyEmail: user.weeklyEmail, profileSync: user.profileSync,
 });
 
 declare module 'express-serve-static-core' {

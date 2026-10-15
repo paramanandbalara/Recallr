@@ -1,5 +1,8 @@
+import { createAiFromSettings, type AiGateway } from './ai.js';
+import { postDailyBlog } from './blog.js';
 import { db } from './db.js';
 import { emails } from './emails.js';
+import { getSettings } from './settings.js';
 import { queueEmail } from './mailer.js';
 import { isWeeklyEmailTime, unsubscribeUrl, weeklyTip, weekStats } from './weekly.js';
 
@@ -54,8 +57,11 @@ export const sendWeeklyEmails = async (now = new Date()) => {
   return sent;
 };
 
-export const startJobs = () => {
-  const run = () => Promise.all([sendEndingSoonEmails(), sendWeeklyEmails()]).catch(error => console.error('Job failed:', error));
+export const startJobs = (ai: AiGateway = createAiFromSettings(getSettings)) => {
+  const run = () => {
+    void postDailyBlog(ai); // The day's AI blog post (logs its own failures)
+    return Promise.all([sendEndingSoonEmails(), sendWeeklyEmails()]).catch(error => console.error('Job failed:', error));
+  };
   setTimeout(run, 60_000).unref();
   setInterval(run, EVERY_MS).unref();
 };

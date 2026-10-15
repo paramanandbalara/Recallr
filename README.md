@@ -190,7 +190,11 @@ overlay, and global shortcuts (⌃⌥ on macOS, Ctrl+Alt+Shift elsewhere: **L** 
 weekly email with practice progress and one tip. The website's interview question pages are pre-rendered by the
 server (with a sitemap) so search engines index them.
 
-Users' resumes, answers and history stay on their own computer; the server keeps accounts, payments and usage amounts only.
+Users' data lives in the app on their computer. The server keeps accounts, payments and usage amounts, and, while
+"Keep a copy of my profiles in my Recallr account" is on (the default), an encrypted copy of each profile (resume
+text and original file, job, company, notes, prepared answers, stories) in the database or in S3 (Admin → Settings →
+Storage). Users can turn it off (the copy is deleted), download everything, or close their account. Conversation
+history stays on their computer.
 
 ## License
 

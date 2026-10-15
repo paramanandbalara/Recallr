@@ -15,6 +15,7 @@ interface PageMeta {
   body?: string;     // Pre-rendered content for #root
   jsonLd?: object[]; // Structured data
   noindex?: boolean;
+  ogType?: 'website' | 'article';
 }
 
 // The plain-text guide ("## " headings, "- " bullets, ``` code) as simple HTML
@@ -63,7 +64,60 @@ const STATIC: Record<string, PageMeta> = {
   '/colleges': { title: 'Recallr for colleges and bootcamps', description: 'Interview practice for your students: mock interviews with scores and speaking feedback, one invite link, and a coach dashboard.' },
 };
 
+// ---------- Blog ----------
+
+const BLOG_META = {
+  title: 'Interview tips and guides – the Recallr blog',
+  description: 'Practical interview advice for job seekers: HR and behavioral rounds, coding and system design, resumes, salary talks and more.',
+};
+
+const blogTags = (tags: string) => (tags ? tags.split(',').filter(Boolean) : []);
+const blogDate = (d: Date | null) => (d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }) : '');
+const blogLink = (p: { slug: string; title: string; summary: string }) =>
+  `<li><a href="/blog/${escape(p.slug)}">${escape(p.title)}</a>${p.summary ? `<p>${escape(p.summary)}</p>` : ''}</li>`;
+
+const blogPage = async (slug?: string): Promise<PageMeta | null> => {
+  const published = { status: 'PUBLISHED' as const };
+  if (!slug) {
+    const posts = await db.blogPost.findMany({ where: published, orderBy: { publishedAt: 'desc' }, take: 50 });
+    return {
+      ...BLOG_META,
+      body: `<main><h1>Interview tips and guides</h1><p>${escape(BLOG_META.description)}</p><ul>${posts.map(blogLink).join('')}</ul></main>`,
+      jsonLd: [
+        { '@context': 'https://schema.org', '@type': 'Blog', name: 'The Recallr blog', url: `${publicUrl}/blog`, description: BLOG_META.description },
+        breadcrumbs([['Blog', '/blog']]),
+      ],
+    };
+  }
+  const post = await db.blogPost.findFirst({ where: { slug, ...published } });
+  if (!post) return null;
+  const tags = blogTags(post.tags);
+  const related = await db.blogPost.findMany({
+    where: { ...published, id: { not: post.id } }, orderBy: { publishedAt: 'desc' }, take: 3, select: { slug: true, title: true, summary: true },
+  });
+  const url = `/blog/${post.slug}`;
+  const description = post.summary || summary(post.body, post.title);
+  const datePublished = (post.publishedAt ?? post.createdAt).toISOString();
+  return {
+    title: `${post.title} | Recallr blog`,
+    description,
+    ogType: 'article',
+    body: `<main><article><h1>${escape(post.title)}</h1><p><time datetime="${datePublished}">${escape(blogDate(post.publishedAt))}</time>${tags.length ? ` · ${tags.map(escape).join(', ')}` : ''}</p>${guideHtml(post.body)}</article>${related.length ? `<h2>More from the blog</h2><ul>${related.map(blogLink).join('')}</ul>` : ''}</main>`,
+    jsonLd: [
+      {
+        '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title.slice(0, 110), description,
+        datePublished, dateModified: post.updatedAt.toISOString(), mainEntityOfPage: `${publicUrl}${url}`, url: `${publicUrl}${url}`,
+        ...(tags.length ? { keywords: tags.join(', ') } : {}),
+        author: { '@type': 'Organization', name: 'Recallr' }, publisher: { '@type': 'Organization', name: 'Recallr' },
+      },
+      breadcrumbs([['Blog', '/blog'], [post.title, url]]),
+    ],
+  };
+};
+
 const pageFor = async (path: string): Promise<PageMeta | null> => {
+  const blog = path.match(/^\/blog(?:\/([a-z0-9-]+))?$/);
+  if (blog) return blogPage(blog[1]);
   if (STATIC[path]) return STATIC[path];
   if (/^\/(account|admin|join|login|register|forgot-password|reset-password)(\/|$)/.test(path)) {
     return { title: 'Recallr', description: STATIC['/'].description, noindex: true };
@@ -128,14 +182,17 @@ export const fillPage = (indexHtml: string, path: string, meta: PageMeta) => {
     `<meta property="og:title" content="${escape(meta.title)}" />`,
     `<meta property="og:description" content="${escape(meta.description)}" />`,
     `<meta property="og:url" content="${escape(url)}" />`,
-    '<meta property="og:type" content="website" />',
+    `<meta property="og:type" content="${meta.ogType ?? 'website'}" />`,
     '<meta property="og:site_name" content="Recallr" />',
     '<meta name="twitter:card" content="summary_large_image" />',
+    `<meta property="og:image" content="${publicUrl}/og-image.png" />`,
+    `<meta name="twitter:image" content="${publicUrl}/og-image.png" />`,
     ...(meta.jsonLd ?? []).map(data => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`),
   ].join('\n    ');
   return indexHtml
     .replace(/<title>[\s\S]*?<\/title>/i, '')
     .replace(/<meta\s+name="description"[^>]*>/i, '')
+    .replace(/<meta\s+property="og:image"[^>]*>/i, '')
     .replace('</head>', `    ${head}\n  </head>`)
     .replace(/<div id="root"><\/div>/, `<div id="root">${meta.body ?? ''}</div>`);
 };
@@ -165,6 +222,9 @@ export const sitemap = async () => {
     ['/interview-questions'],
     ...categories.map(c => [`/interview-questions/${CATEGORY_PAGES[c].slug}`] as [string]),
     ...questions.map(q => [`/interview-questions/${CATEGORY_PAGES[q.category].slug}/${q.slug}`, q.updatedAt.toISOString().slice(0, 10)] as [string, string]),
+    ['/blog'],
+    ...(await db.blogPost.findMany({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, select: { slug: true, updatedAt: true } }))
+      .map(p => [`/blog/${p.slug}`, p.updatedAt.toISOString().slice(0, 10)] as [string, string]),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(([path, lastmod]) => `  <url><loc>${escape(`${publicUrl}${path === '/' ? '' : path}`)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`)

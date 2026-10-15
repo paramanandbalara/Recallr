@@ -52,7 +52,114 @@ interface Detail {
   practice: { id: string; role: string; questionCount: number; averageScore: number | null; wordsPerMinute: number | null; fillersPerMinute: number | null; createdAt: string }[];
   savedAnswers: number;
   memberships: { role: 'COACH' | 'STUDENT'; organization: { id: string; name: string } }[];
+  profiles: ProfileRow[];
 }
+
+// A copy of one of the app's profiles, kept on the account
+interface ProfileRow {
+  id: string;
+  name: string;
+  company: string;
+  jobTitle: string;
+  resumeFileName: string;
+  resumeChars: number;
+  answersCount: number;
+  storiesCount: number;
+  storage: 'DATABASE' | 'S3';
+  sizeBytes: number;
+  hasResumeFile: boolean;
+  deviceName: string;
+  updatedAt: string;
+}
+
+// The profile as the app sent it (fields may be missing in older apps)
+interface ProfileData {
+  cv?: string;
+  job?: string;
+  company?: string;
+  companyNotes?: string;
+  interviewer?: string;
+  knowledge?: { name?: string; text?: string }[];
+  answers?: { question?: string; answer?: string; notes?: string }[];
+  stories?: { title?: string; situation?: string; action?: string; result?: string; themes?: string[] }[];
+}
+
+const kb = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+const Block: React.FC<{ title: string; text?: string }> = ({ title, text }) => (text?.trim() ? (
+  <div>
+    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+    <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-3 font-sans text-xs text-slate-300">{text}</pre>
+  </div>
+) : null);
+
+const ProfileView: React.FC<{ data: ProfileData }> = ({ data }) => (
+  <div className="mt-3 space-y-3 border-t border-slate-800 pt-3">
+    <Block title="Resume" text={data.cv} />
+    <Block title="Job description" text={data.job} />
+    <Block title="Company notes" text={data.companyNotes} />
+    <Block title="Interviewer" text={data.interviewer} />
+    {(data.knowledge ?? []).map((k, i) => <Block key={`k${i}`} title={`Notes: ${k.name ?? ''}`} text={k.text} />)}
+    <Block title={`Prepared answers (${data.answers?.length ?? 0})`}
+      text={(data.answers ?? []).map(a => `Q: ${a.question ?? ''}\n${a.answer ?? ''}${a.notes ? `\n(${a.notes})` : ''}`).join('\n\n')} />
+    <Block title={`Stories (${data.stories?.length ?? 0})`}
+      text={(data.stories ?? []).map(st => `${st.title ?? ''}${st.themes?.length ? ` [${st.themes.join(', ')}]` : ''}\nSituation: ${st.situation ?? ''}\nAction: ${st.action ?? ''}\nResult: ${st.result ?? ''}`).join('\n\n')} />
+  </div>
+);
+
+// Each view and download is recorded in the activity log
+const Profiles: React.FC<{ userId: string; profiles: ProfileRow[] }> = ({ userId, profiles }) => {
+  const [open, setOpen] = useState<{ id: string; data: ProfileData } | null>(null);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  const act = async (key: string, action: () => Promise<void>) => {
+    setBusy(key);
+    setError('');
+    try {
+      await action();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  };
+  const view = (p: ProfileRow) => (open?.id === p.id ? setOpen(null) : act(`view-${p.id}`, async () => {
+    const res = await api<{ profile: ProfileData | null }>(`/admin/users/${userId}/profiles/${p.id}`);
+    setOpen({ id: p.id, data: res.profile ?? {} });
+  }));
+  const download = (p: ProfileRow) => act(`file-${p.id}`, async () => {
+    const { url } = await api<{ url: string }>(`/admin/users/${userId}/profiles/${p.id}/resume-file`);
+    window.open(url, '_blank', 'noopener');
+  });
+
+  return (
+    <div className="space-y-2">
+      <ErrorText>{error}</ErrorText>
+      {profiles.map(p => (
+        <Card key={p.id} className="!p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="font-medium text-slate-100">{p.name}</span>{' '}
+              <span className="text-xs text-slate-500">{[p.company, p.jobTitle].filter(Boolean).join(' · ') || 'No job details'}</span>
+              <div className="mt-0.5 text-xs text-slate-500">
+                {p.resumeChars ? `Resume ${p.resumeFileName || '(pasted)'}, ${p.resumeChars.toLocaleString('en-IN')} characters` : 'No resume'}
+                {` · ${p.answersCount} answers · ${p.storiesCount} stories · ${kb(p.sizeBytes)} in ${p.storage === 'S3' ? 'S3' : 'the database'}`}
+                {` · updated ${dateTime(p.updatedAt)}${p.deviceName ? ` from ${p.deviceName}` : ''}`}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" loading={busy === `view-${p.id}`} onClick={() => view(p)}>{open?.id === p.id ? 'Close' : 'View'}</Button>
+              {p.hasResumeFile && <Button size="sm" variant="ghost" loading={busy === `file-${p.id}`} onClick={() => download(p)}>Resume file</Button>}
+            </div>
+          </div>
+          {open?.id === p.id && <ProfileView data={open.data} />}
+        </Card>
+      ))}
+      {profiles.length === 0 && <p className="text-sm text-slate-500">No profiles kept on the account.</p>}
+    </div>
+  );
+};
 
 const EMAIL_STATUS = { SENT: 'green', FAILED: 'red', SKIPPED: 'slate' } as const;
 
@@ -283,6 +390,10 @@ export const AdminUserDetail: React.FC = () => {
           </ul>
         </Card>
       </div>
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-100">Profiles</h2>
+      {user.profileSync === false && <p className="mb-2 text-xs text-slate-500">They turned off keeping a copy of their profiles.</p>}
+      <Profiles userId={user.id} profiles={detail.profiles ?? []} />
 
       <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-100">Emails</h2>
       <div className="overflow-x-auto rounded-xl border border-slate-800">

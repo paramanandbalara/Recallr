@@ -52,6 +52,7 @@ export interface User {
   lastSeenAt?: string | null;
   saveAnswers?: boolean; // Interview questions and answers kept on the account
   weeklyEmail?: boolean; // The Monday practice email
+  profileSync?: boolean; // A copy of the app's profiles kept on the account
 }
 
 export interface Plan {

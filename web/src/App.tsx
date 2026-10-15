@@ -28,6 +28,9 @@ const Colleges = named(() => import('./pages/Colleges'), 'Colleges');
 const QuestionLibrary = named(() => import('./pages/Questions'), 'QuestionLibrary');
 const QuestionPage = named(() => import('./pages/Questions'), 'QuestionPage');
 const AdminQuestions = named(() => import('./pages/admin/Questions'), 'AdminQuestions');
+const BlogIndex = named(() => import('./pages/Blog'), 'BlogIndex');
+const BlogPostPage = named(() => import('./pages/Blog'), 'BlogPostPage');
+const AdminBlog = named(() => import('./pages/admin/Blog'), 'AdminBlog');
 const AdminOrganizations = named(() => import('./pages/admin/Organizations'), 'AdminOrganizations');
 const AdminOrganizationDetail = named(() => import('./pages/admin/Organizations'), 'AdminOrganizationDetail');
 const AdminReports = named(() => import('./pages/admin/Reports'), 'AdminReports');
@@ -89,6 +92,8 @@ export const App: React.FC = () => (
       <Route path="/interview-questions" element={<QuestionLibrary />} />
       <Route path="/interview-questions/:category" element={<QuestionLibrary />} />
       <Route path="/interview-questions/:category/:slug" element={<QuestionPage />} />
+      <Route path="/blog" element={<BlogIndex />} />
+      <Route path="/blog/:slug" element={<BlogPostPage />} />
 
       <Route path="/account" element={<RequireAuth><AccountOverview /></RequireAuth>} />
       <Route path="/account/buy" element={<RequireAuth><Buy /></RequireAuth>} />
@@ -115,6 +120,7 @@ export const App: React.FC = () => (
         <Route path="settings" element={<AdminSettings />} />
         <Route path="activity" element={<AdminActivity />} />
         <Route path="questions" element={<AdminQuestions />} />
+        <Route path="blog" element={<AdminBlog />} />
         <Route path="organizations" element={<AdminOrganizations />} />
         <Route path="organizations/:id" element={<AdminOrganizationDetail />} />
       </Route>

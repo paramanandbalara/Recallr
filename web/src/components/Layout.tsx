@@ -11,6 +11,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 const PUBLIC_LINKS = [
   { to: '/interview-questions', label: 'Questions' },
+  { to: '/blog', label: 'Blog' },
   { to: '/colleges', label: 'For colleges' },
   { to: '/pricing', label: 'Pricing' },
   { to: '/guide', label: 'How to use' },
@@ -77,6 +78,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <Link to="/guide" className="hover:text-slate-300">How to use</Link>
             <Link to="/download" className="hover:text-slate-300">Download</Link>
             <Link to="/interview-questions" className="hover:text-slate-300">Interview questions</Link>
+            <Link to="/blog" className="hover:text-slate-300">Blog</Link>
             <Link to="/colleges" className="hover:text-slate-300">For colleges and bootcamps</Link>
             <Link to="/contact" className="hover:text-slate-300">Contact</Link>
           </div>

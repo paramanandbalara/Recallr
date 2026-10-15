@@ -210,4 +210,8 @@ export const settings: Record<string, string> = {
   "The same, as one file you keep yourself. Your sign-in isn't included.": 'यही सब, एक फ़ाइल में जिसे आप खुद रखें। आपका साइन इन इसमें शामिल नहीं होता।',
   'Export backup': 'बैकअप एक्सपोर्ट करें',
   'Restore': 'रीस्टोर करें',
+  // ProfileSyncToggle
+  'Keep a copy of my profiles in my Recallr account': 'मेरी प्रोफ़ाइल की एक कॉपी मेरे Recallr अकाउंट में रखें',
+  'Your resume, job details, notes, prepared answers and stories, stored encrypted and updated in the background, so they can be restored and Recallr can improve. Turning it off deletes the copy.': 'आपका रिज़्यूमे, जॉब की जानकारी, नोट्स, तैयार जवाब और कहानियाँ, एन्क्रिप्ट करके रखी जाती हैं और बैकग्राउंड में अपडेट होती हैं, ताकि इन्हें रीस्टोर किया जा सके और Recallr बेहतर हो सके। इसे बंद करने पर कॉपी डिलीट हो जाती है।',
+  'Turn this off? The copy of your profiles on your Recallr account is deleted. Your profiles on this computer stay.': 'इसे बंद करें? आपके Recallr अकाउंट पर रखी प्रोफ़ाइल की कॉपी डिलीट हो जाएगी। इस कंप्यूटर पर आपकी प्रोफ़ाइल बनी रहेंगी।',
 };

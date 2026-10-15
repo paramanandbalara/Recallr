@@ -4,6 +4,7 @@ import './index.css'
 import { installWindowDrag } from './windowDrag'
 import { installWindowResize } from './windowResize'
 import { initAccount } from './services/account'
+import { startProfileSync } from './services/profileSync'
 import { Root } from './Root'
 
 installWindowDrag()
@@ -16,4 +17,5 @@ initAccount().finally(() => {
       <Root />
     </StrictMode>,
   )
+  startProfileSync() // Keeps a copy of the profiles on the account, in the background
 })
