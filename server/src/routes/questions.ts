@@ -9,6 +9,7 @@ import { db } from '../db.js';
 import { clearPageCache } from '../seo.js';
 import { HttpError, route } from '../http.js';
 import { CATEGORY_FROM_KIND, CATEGORY_PAGES, categoryFromSlug, cleanQuestion, isRealQuestion, questionHash, slugify } from '../questions.js';
+import { cleanCompany, companyPack, listCompanies } from '../companies.js';
 
 const CATEGORIES = Object.keys(CATEGORY_PAGES) as [QuestionCategory, ...QuestionCategory[]];
 
@@ -34,6 +35,7 @@ const recordInput = z.object({
     kind: z.string().max(20).default('other'),
     source: z.enum(['ai', 'prepared']).default('ai'),
     provider: z.string().max(20).default(''),
+    company: z.string().max(300).default(''), // The profile's company, for company question packs
   })).min(1).max(20),
 });
 
@@ -51,13 +53,24 @@ questionRoutes.post('/record', requireDevice, route(async (req, res) => {
       await db.savedAnswer.create({
         data: {
           userId: req.user!.id, questionId: question.id, questionText: text, category, answer: item.answer.trim(),
-          source: item.source === 'prepared' ? 'PREPARED' : 'AI', provider: item.provider,
+          source: item.source === 'prepared' ? 'PREPARED' : 'AI', provider: item.provider, company: cleanCompany(item.company),
         },
       });
       saved++;
     }
   }
   res.json({ saved });
+}));
+
+// Company question packs (see companies.ts): only questions, only companies enough people were asked at
+questionRoutes.get('/companies', route(async (req, res) => {
+  const { q } = z.object({ q: z.string().trim().max(200).default('') }).parse(req.query);
+  res.json({ companies: (await listCompanies(q)).slice(0, 100) });
+}));
+
+questionRoutes.get('/company-packs', route(async (req, res) => {
+  const { company } = z.object({ company: z.string().trim().min(1).max(300) }).parse(req.query);
+  res.json({ pack: await companyPack(company) });
 }));
 
 questionRoutes.get('/mine', route(async (req, res) => {
@@ -123,6 +136,20 @@ publicQuestionRoutes.get('/', route(async (req, res) => {
     categories: CATEGORIES.map(c => ({ category: c, ...CATEGORY_PAGES[c], count: counts.find(x => x.category === c)?._count._all ?? 0 })),
     questions: questions.map(publicQuestion),
   });
+}));
+
+// The website's company pages (before /:slug, which would take "companies" for a question)
+publicQuestionRoutes.get('/companies', route(async (req, res) => {
+  const { q } = z.object({ q: z.string().trim().max(200).default('') }).parse(req.query);
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ companies: await listCompanies(q) });
+}));
+
+publicQuestionRoutes.get('/companies/:slug', route(async (req, res) => {
+  const pack = await companyPack(req.params.slug);
+  if (!pack) throw new HttpError(404, 'No questions for this company yet.');
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ pack });
 }));
 
 publicQuestionRoutes.get('/:slug', route(async (req, res) => {

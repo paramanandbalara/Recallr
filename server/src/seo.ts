@@ -2,6 +2,8 @@ import type { QuestionCategory } from '@prisma/client';
 import { db } from './db.js';
 import { publicUrl } from './env.js';
 import { CATEGORY_PAGES, categoryFromSlug } from './questions.js';
+import { getBlock } from './siteBlocks.js';
+import { companyPack, listCompanies } from './companies.js';
 
 // Search engines get each public page with its own title, description and content already in the HTML.
 // The website (a React app) still takes over in the browser; this only fills in index.html before it's sent.
@@ -115,13 +117,48 @@ const blogPage = async (slug?: string): Promise<PageMeta | null> => {
   };
 };
 
+// ---------- Questions asked at a company ----------
+
+const companyLink = (c: { name: string; slug: string }) => `<li><a href="/interview-questions/companies/${escape(c.slug)}">${escape(c.name)} interview questions</a></li>`;
+
+const companyPage = async (slug?: string): Promise<PageMeta | null> => {
+  if (!slug) {
+    const companies = await listCompanies();
+    return {
+      title: 'Interview questions by company | Recallr',
+      description: 'Questions candidates were really asked in interviews at each company, gathered without names. Practise them before your interview.',
+      body: `<main><h1>Interview questions by company</h1><p>Questions candidates were really asked at each company, without names or answers.</p><ul>${companies.map(companyLink).join('')}</ul></main>`,
+      jsonLd: [breadcrumbs([['Interview questions', '/interview-questions'], ['By company', '/interview-questions/companies']])],
+    };
+  }
+  const pack = await companyPack(slug);
+  if (!pack || pack.company.slug !== slug) return null;
+  const url = `/interview-questions/companies/${pack.company.slug}`;
+  const name = pack.company.name;
+  return {
+    title: `${name} interview questions – asked in real interviews | Recallr`,
+    description: `${pack.questions.length === 1 ? 'A question' : `${pack.questions.length} questions`} candidates were really asked in ${name} interviews: HR, behavioral, coding, system design and technical.`,
+    body: `<main><h1>${escape(name)} interview questions</h1><p>Questions candidates were really asked in interviews at ${escape(name)}.</p><ul>${pack.questions
+      .map(q => `<li>${q.slug ? `<a href="/interview-questions/${q.categorySlug}/${escape(q.slug)}">${escape(q.text)}</a>` : escape(q.text)}</li>`).join('')}</ul></main>`,
+    jsonLd: [breadcrumbs([['Interview questions', '/interview-questions'], ['By company', '/interview-questions/companies'], [name, url]])],
+  };
+};
+
 const pageFor = async (path: string): Promise<PageMeta | null> => {
   const blog = path.match(/^\/blog(?:\/([a-z0-9-]+))?$/);
   if (blog) return blogPage(blog[1]);
+  // The home page's title and description are edited with its hero text (Admin → Website content)
+  if (path === '/') {
+    const hero = await getBlock('hero');
+    return { ...STATIC['/'], title: hero.seoTitle, description: hero.seoDescription };
+  }
   if (STATIC[path]) return STATIC[path];
   if (/^\/(account|admin|join|login|register|forgot-password|reset-password)(\/|$)/.test(path)) {
     return { title: 'Recallr', description: STATIC['/'].description, noindex: true };
   }
+
+  const company = path.match(/^\/interview-questions\/companies(?:\/([\p{L}\p{N}-]+))?$/u);
+  if (company) return companyPage(company[1]);
 
   const match = path.match(/^\/interview-questions(?:\/([a-z-]+))?(?:\/([a-z0-9-]+))?\/?$/);
   if (!match) return null;
@@ -220,6 +257,8 @@ export const sitemap = async () => {
   const urls: [string, string?][] = [
     ...Object.keys(STATIC).map(path => [path] as [string]),
     ['/interview-questions'],
+    ['/interview-questions/companies'],
+    ...(await listCompanies()).map(c => [`/interview-questions/companies/${c.slug}`] as [string]),
     ...categories.map(c => [`/interview-questions/${CATEGORY_PAGES[c].slug}`] as [string]),
     ...questions.map(q => [`/interview-questions/${CATEGORY_PAGES[q.category].slug}/${q.slug}`, q.updatedAt.toISOString().slice(0, 10)] as [string, string]),
     ['/blog'],

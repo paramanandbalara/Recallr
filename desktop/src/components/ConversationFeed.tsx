@@ -7,6 +7,7 @@ import type { Layout } from '../services/storage';
 import { scoreAnswer } from '../services/answerScore';
 import { AnswerText } from './AnswerText';
 import { t } from '../i18n';
+import { DailyCard } from './DailyCard';
 
 export interface Turn {
   id: string;
@@ -199,6 +200,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
                 <button onClick={onMock} className="text-blue-400 hover:text-blue-300">{t('Mock interview')}</button>
               </div>
             )}
+            {!isRecording && <DailyCard />}
           </div>
         )}
 

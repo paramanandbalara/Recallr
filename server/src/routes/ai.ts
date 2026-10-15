@@ -2,8 +2,8 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { requireDevice, requireUser } from '../auth.js';
-import type { AiGateway } from '../ai.js';
-import { purchaseFor, recordUsage, recordUsageAfter } from '../entitlements.js';
+import { estimateInputTokens, estimateTokens, type AiGateway, type ProviderId } from '../ai.js';
+import { listeningSecondsToBill, purchaseFor, recordUsage, recordUsageAfter } from '../entitlements.js';
 import { HttpError, route } from '../http.js';
 import { readCompanySite } from '../research.js';
 
@@ -46,11 +46,15 @@ export const aiRoutes = (ai: AiGateway, readSite = readCompanySite) => {
     res.flushHeaders();
     const send = (data: object) => res.write(`${JSON.stringify(data)}\n`);
 
+    let streamed = ''; // What the user already received, billed if the app stops the answer halfway
+    let streamedFrom: ProviderId | null = null;
     try {
       let first = true;
       const result = await ai.streamChat(input, (text, provider) => {
         send(first ? { text, provider } : { text });
         first = false;
+        streamed += text;
+        streamedFrom = provider;
       }, controller.signal);
       send({ done: true, provider: result.provider });
       res.end(); // The answer is complete before anything is saved
@@ -59,7 +63,17 @@ export const aiRoutes = (ai: AiGateway, readSite = readCompanySite) => {
         inputTokens: result.inputTokens, outputTokens: result.outputTokens, latencyMs: result.firstTextMs,
       });
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        // Cancelled by the app (e.g. a newer question): the words already sent still count, estimated
+        const provider = streamedFrom as ProviderId | null; // Set while streaming
+        if (streamed && provider) {
+          recordUsageAfter({
+            userId: req.user!.id, purchaseId: purchase.id, kind: 'CHAT', provider, model: 'cancelled',
+            inputTokens: estimateInputTokens(input), outputTokens: estimateTokens(streamed),
+          });
+        }
+        return;
+      }
       console.error('AI chat error:', error);
       send({ error: error instanceof HttpError ? error.message : 'The AI is having problems right now. Try again in a moment.' });
     } finally {
@@ -89,14 +103,14 @@ export const aiRoutes = (ai: AiGateway, readSite = readCompanySite) => {
   router.post('/transcribe', upload.single('audio'), route(async (req, res) => {
     if (!req.file) throw new HttpError(400, 'No audio was sent.');
     const language = z.string().regex(/^[a-z]{2}$|^auto$/).default('en').parse(req.body.language);
-    // Length of the recording, as measured by the app (counted against listening time)
-    const seconds = z.coerce.number().min(0).max(600).default(0).parse(req.body.seconds);
+    // Length of the recording as the app measured it. What's billed is the provider's measure (see listeningSecondsToBill).
+    const appSeconds = z.coerce.number().min(0).max(600).default(0).parse(req.body.seconds);
     const purchase = await purchaseFor(req.user!.id, 'TRANSCRIBE');
     const result = await ai.transcribe(req.file.buffer, language, { keepFillers: req.body.fillers === '1' });
     res.json({ text: result.text });
     recordUsageAfter({
       userId: req.user!.id, purchaseId: purchase.id, kind: 'TRANSCRIBE', provider: result.provider, model: result.model,
-      audioSeconds: seconds,
+      audioSeconds: listeningSecondsToBill({ appSeconds, providerSeconds: result.durationSeconds, audioBytes: req.file.size }),
     });
   }));
 

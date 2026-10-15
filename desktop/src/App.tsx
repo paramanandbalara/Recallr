@@ -20,8 +20,11 @@ import { SetupCheck } from './components/SetupCheck';
 import { NoticeBar } from './components/NoticeBar';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { CalendarReminder } from './components/CalendarReminder';
+import { GuidedTour } from './components/GuidedTour';
+import { NextInterviewChip } from './components/NextInterviewChip';
 import { LogoMark } from './components/Logo';
 import { MockInterview } from './components/MockInterview';
+import { PeerPractice } from './components/PeerPractice';
 import { IconButton } from './components/ui';
 import { t } from './i18n';
 
@@ -102,6 +105,7 @@ function App() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [isCheckOpen, setIsCheckOpen] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(false);
+  const [isPeerOpen, setIsPeerOpen] = useState(false); // Practise with a friend
   const [mockQuestions, setMockQuestions] = useState<string[] | undefined>(); // From the prep pack
   const askInputRef = useRef<HTMLInputElement>(null);
   const closeDisplay = useCallback(() => setIsDisplayOpen(false), []);
@@ -509,7 +513,7 @@ function App() {
     shortcutRef.current = action => {
       if (!onboarded) return;
       if (action === 'toggle-listening') {
-        if (!isMockOpen && !isCheckOpen) toggleRecording();
+        if (!isMockOpen && !isCheckOpen && !isPeerOpen) toggleRecording();
       }
       else if (action === 'focus-ask') askInputRef.current?.focus();
       else if (action === 'new-conversation') startNew();
@@ -535,6 +539,7 @@ function App() {
       >
         <div className="flex items-center gap-2 min-w-0">
           <button
+            data-tour="listen"
             onClick={toggleRecording}
             title={isRecording ? `${t('Stop listening')}${debugLog ? ` · ${debugLog}` : ''}` : t('Start listening')}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
@@ -559,6 +564,7 @@ function App() {
             )}
           </button>
           <button
+            data-tour="source"
             onClick={toggleAudioSource}
             disabled={isRecording}
             title={t(AUDIO_SOURCES[audioSource].title)}
@@ -569,15 +575,18 @@ function App() {
             {audioSource === 'microphone' && <Mic className="w-3 h-3 text-amber-400" />}
             <span className="compact-hide">{t(AUDIO_SOURCES[audioSource].label)}</span>
           </button>
-          {!isRecording && (
-            <span className="compact-hide hidden min-[440px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
-              <LogoMark className="w-4 h-4 shrink-0" /> Recallr
-            </span>
-          )}
+          <NextInterviewChip dimmed={isRecording} onOpen={() => { setSettingsStart({ tab: 'interviews' }); setIsSettingsOpen(true); }}>
+            {!isRecording && (
+              <span className="compact-hide hidden min-[440px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
+                <LogoMark className="w-4 h-4 shrink-0" /> Recallr
+              </span>
+            )}
+          </NextInterviewChip>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <IconButton
             data-display-toggle
+            data-tour="display"
             onClick={() => setIsDisplayOpen(open => !open)}
             title={t('Display and shortcuts')}
             className={isDisplayOpen ? '!text-blue-400' : ''}
@@ -591,7 +600,7 @@ function App() {
           >
             {overlay ? <Pin className="w-4 h-4" /> : <PinOff className="w-4 h-4" />}
           </IconButton>
-          <IconButton onClick={() => { setSettingsStart(undefined); setIsSettingsOpen(true); }} title={t('Settings (resume, answers, account) · Profile: {profile}', { profile: profileName })}>
+          <IconButton data-tour="settings" onClick={() => { setSettingsStart(undefined); setIsSettingsOpen(true); }} title={t('Settings (resume, answers, account) · Profile: {profile}', { profile: profileName })}>
             <Settings className="w-4 h-4" />
           </IconButton>
           <IconButton onClick={() => sendIpc('hide-app')} title={t('Hide (to system tray)')}>
@@ -619,6 +628,7 @@ function App() {
             onClose={closeDisplay}
             onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
             onMock={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsMockOpen(true); }}
+            onPeer={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsPeerOpen(true); }}
             listening={isRecording}
           />
         </div>
@@ -637,6 +647,7 @@ function App() {
       >
         <input
           ref={askInputRef}
+          data-tour="ask"
           value={askText}
           onChange={e => setAskText(e.target.value)}
           placeholder={t('Type a question...')}
@@ -647,6 +658,7 @@ function App() {
         </IconButton>
         <IconButton
           type="button"
+          data-tour="screen"
           title={t('Read the question from your screen')}
           disabled={isReadingScreen}
           onClick={readScreen}
@@ -695,6 +707,12 @@ function App() {
         </div>
       )}
 
+      {isPeerOpen && (
+        <div data-interactive>
+          <PeerPractice onClose={() => setIsPeerOpen(false)} />
+        </div>
+      )}
+
       {isMockOpen && (
         <div data-interactive>
           <MockInterview initialQuestions={mockQuestions} onClose={() => { setIsMockOpen(false); setMockQuestions(undefined); }} />
@@ -718,6 +736,7 @@ function App() {
         onPrep={() => { setSettingsStart({ tab: 'answers', prep: true }); setIsSettingsOpen(true); }}
       />
       <UpdatePrompt paused={isRecording || isMockOpen || isCheckOpen} />
+      <GuidedTour listening={isRecording} blocked={isSettingsOpen || isMockOpen || isCheckOpen || isHistoryOpen || !!reviewId} />
     </div>
   );
 }

@@ -17,16 +17,21 @@ const named = <K extends string>(load: () => Promise<Record<K, React.ComponentTy
 const AccountOverview = named(() => import('./pages/account/Overview'), 'AccountOverview');
 const Buy = named(() => import('./pages/account/Buy'), 'Buy');
 const AccountSettings = named(() => import('./pages/account/Settings'), 'AccountSettings');
+const AccountBilling = named(() => import('./pages/account/Billing'), 'AccountBilling');
+const AdminInvoices = named(() => import('./pages/admin/Invoices'), 'AdminInvoices');
 const AccountDevices = named(() => import('./pages/account/Devices'), 'AccountDevices');
 const AccountInvite = named(() => import('./pages/account/Invite'), 'AccountInvite');
 const AccountSupport = named(() => import('./pages/account/Support'), 'AccountSupport');
 const AccountQuestions = named(() => import('./pages/account/Questions'), 'AccountQuestions');
 const AccountProgress = named(() => import('./pages/account/Progress'), 'AccountProgress');
+const AccountCareerTools = named(() => import('./pages/account/CareerTools'), 'AccountCareerTools');
 const AccountOrganization = named(() => import('./pages/account/Organization'), 'AccountOrganization');
 const Join = named(() => import('./pages/Join'), 'Join');
 const Colleges = named(() => import('./pages/Colleges'), 'Colleges');
 const QuestionLibrary = named(() => import('./pages/Questions'), 'QuestionLibrary');
 const QuestionPage = named(() => import('./pages/Questions'), 'QuestionPage');
+const CompanyList = named(() => import('./pages/CompanyQuestions'), 'CompanyList');
+const CompanyQuestions = named(() => import('./pages/CompanyQuestions'), 'CompanyQuestions');
 const AdminQuestions = named(() => import('./pages/admin/Questions'), 'AdminQuestions');
 const BlogIndex = named(() => import('./pages/Blog'), 'BlogIndex');
 const BlogPostPage = named(() => import('./pages/Blog'), 'BlogPostPage');
@@ -90,6 +95,8 @@ export const App: React.FC = () => (
       <Route path="/colleges" element={<Colleges />} />
       <Route path="/join/:code" element={<Join />} />
       <Route path="/interview-questions" element={<QuestionLibrary />} />
+      <Route path="/interview-questions/companies" element={<CompanyList />} />
+      <Route path="/interview-questions/companies/:slug" element={<CompanyQuestions />} />
       <Route path="/interview-questions/:category" element={<QuestionLibrary />} />
       <Route path="/interview-questions/:category/:slug" element={<QuestionPage />} />
       <Route path="/blog" element={<BlogIndex />} />
@@ -98,12 +105,14 @@ export const App: React.FC = () => (
       <Route path="/account" element={<RequireAuth><AccountOverview /></RequireAuth>} />
       <Route path="/account/buy" element={<RequireAuth><Buy /></RequireAuth>} />
       <Route path="/account/settings" element={<RequireAuth><AccountSettings /></RequireAuth>} />
+      <Route path="/account/billing" element={<RequireAuth><AccountBilling /></RequireAuth>} />
       <Route path="/account/devices" element={<RequireAuth><AccountDevices /></RequireAuth>} />
       <Route path="/account/invite" element={<RequireAuth><AccountInvite /></RequireAuth>} />
       <Route path="/account/support" element={<RequireAuth><AccountSupport /></RequireAuth>} />
       <Route path="/account/support/:id" element={<RequireAuth><AccountSupport /></RequireAuth>} />
       <Route path="/account/questions" element={<RequireAuth><AccountQuestions /></RequireAuth>} />
       <Route path="/account/progress" element={<RequireAuth><AccountProgress /></RequireAuth>} />
+      <Route path="/account/tools" element={<RequireAuth><AccountCareerTools /></RequireAuth>} />
       <Route path="/account/organization" element={<RequireAuth><AccountOrganization /></RequireAuth>} />
 
       <Route path="/admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
@@ -111,6 +120,7 @@ export const App: React.FC = () => (
         <Route path="users" element={<AdminUsers />} />
         <Route path="users/:id" element={<AdminUserDetail />} />
         <Route path="payments" element={<AdminPayments />} />
+        <Route path="invoices" element={<AdminInvoices />} />
         <Route path="plans" element={<AdminPlans />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="coupons" element={<AdminCoupons />} />

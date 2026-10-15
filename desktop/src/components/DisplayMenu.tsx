@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Compass, Minus, Plus } from 'lucide-react';
 import { setUiLanguage, t, uiLanguage, UI_LANGUAGES } from '../i18n';
+import { replayTour } from '../services/tour';
 import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, WINDOW_SIZES, ZOOMS, type Display, type EnglishStyle, type Layout } from '../services/storage';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
   onClose: () => void;
   onCheck?: () => void; // Open the pre-interview check (not while listening)
   onMock?: () => void;  // Open the mock interview (not while listening)
+  onPeer?: () => void;  // Open "Practise with a friend" (not while listening)
   listening?: boolean;  // The app's language can't change while listening (every screen is drawn again)
 }
 
@@ -92,7 +94,7 @@ const STYLES: { id: Layout; label: string; title: string; preview: React.ReactNo
 const stepButton = 'p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-30';
 
 // Display options and shortcuts; changes apply right away
-export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock, listening }) => {
+export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock, onPeer, listening }) => {
   const ref = useRef<HTMLDivElement>(null);
   const patch = (changes: Partial<Display>) => onChange({ ...display, ...changes });
   // Answer English: 'broken' adds small everyday slips (applies to the next answer)
@@ -239,6 +241,14 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
         >
           {t('Mock interview')}
         </button>
+        <button
+          onClick={onPeer}
+          disabled={!onPeer}
+          title={onPeer ? t('Interview each other with a friend on any call app, with AI scores') : t('Stop listening first')}
+          className="col-span-2 rounded-md border border-slate-700 py-1.5 text-[11px] font-medium text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
+        >
+          {t('Practise with a friend')}
+        </button>
       </div>
 
       <div className="border-t border-slate-800 pt-2.5">
@@ -253,6 +263,14 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
             </li>
           ))}
         </ul>
+        <button
+          onClick={() => { onClose(); replayTour(); }}
+          disabled={listening}
+          title={listening ? t('Stop listening first') : t('A quick look at the main buttons')}
+          className="mt-2 inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-slate-400 hover:text-slate-100 disabled:opacity-40"
+        >
+          <Compass className="h-3 w-3" /> {t('Replay tour')}
+        </button>
       </div>
     </div>
   );

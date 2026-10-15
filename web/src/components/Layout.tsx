@@ -5,6 +5,7 @@ import { LogoMark } from './Logo';
 import { SITE } from '../api';
 import { useAuth } from '../auth';
 import { AnnouncementBar } from './AnnouncementBar';
+import { useBlock } from '../siteContent';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-lg px-3 py-1.5 text-sm ${isActive ? 'bg-slate-800 text-white' : 'text-slate-300 hover:text-white'}`;
@@ -20,6 +21,7 @@ const PUBLIC_LINKS = [
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, signOut } = useAuth();
+  const footer = useBlock('footer');
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
   const [menuPath, setMenuPath] = useState(pathname);
@@ -71,7 +73,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <div className="flex items-center gap-2 font-semibold text-slate-300">
               <LogoMark className="h-5 w-5" /> Recallr
             </div>
-            <p className="mt-2 text-xs leading-relaxed">Your AI interview assistant, from preparation to the last question.</p>
+            <p className="mt-2 text-xs leading-relaxed">{footer.tagline}</p>
           </div>
           <div className="flex flex-col gap-1.5 text-xs">
             <Link to="/pricing" className="hover:text-slate-300">Pricing</Link>
@@ -80,6 +82,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <Link to="/interview-questions" className="hover:text-slate-300">Interview questions</Link>
             <Link to="/blog" className="hover:text-slate-300">Blog</Link>
             <Link to="/colleges" className="hover:text-slate-300">For colleges and bootcamps</Link>
+            <Link to="/ambassadors" className="hover:text-slate-300">College ambassadors</Link>
             <Link to="/contact" className="hover:text-slate-300">Contact</Link>
           </div>
           <div className="flex flex-col gap-1.5 text-xs">

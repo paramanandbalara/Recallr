@@ -314,7 +314,7 @@ ipcMain.handle('token:set', async (_event, token: string) => {
 
 // ---------- Session history ----------
 interface SavedTurn { question?: string; answer?: string }
-interface SavedSession { id: string; title: string; profileName: string; startedAt: number; updatedAt: number; turns: SavedTurn[]; review?: unknown }
+interface SavedSession { id: string; title: string; profileName: string; startedAt: number; updatedAt: number; turns: SavedTurn[]; review?: unknown; replay?: unknown }
 
 const sessionsDir = () => path.join(app.getPath('userData'), 'sessions')
 const sessionFile = (id: string) => {
@@ -333,8 +333,13 @@ const readSession = async (file: string): Promise<SavedSession | null> => {
 ipcMain.handle('sessions:save', async (_event, incoming: SavedSession) => {
   const file = sessionFile(incoming.id)
   await fs.mkdir(sessionsDir(), { recursive: true })
-  const existing = incoming.review ? null : await readSession(file)
-  const session = existing?.review ? { ...incoming, review: existing.review } : incoming
+  // The review and the answer replay are written later, on their own: kept when the conversation is saved without them
+  const existing = incoming.review && incoming.replay ? null : await readSession(file)
+  const session = {
+    ...incoming,
+    ...(!incoming.review && existing?.review ? { review: existing.review } : {}),
+    ...(!incoming.replay && existing?.replay ? { replay: existing.replay } : {}),
+  }
   const temp = `${file}.${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`
   await fs.writeFile(temp, JSON.stringify(session))
   await fs.rename(temp, file)
@@ -349,7 +354,7 @@ ipcMain.handle('sessions:list', async (_event, query: string) => {
     .filter(s => !needle || [s.title, s.profileName, ...s.turns.flatMap(t => [t.question, t.answer])]
       .some(text => typeof text === 'string' && text.toLowerCase().includes(needle)))
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .map(({ turns, review, ...summary }) => ({ ...summary, questionCount: turns.filter(t => t.answer).length, hasReview: !!review }))
+    .map(({ turns, review, ...summary }) => ({ ...summary, replay: undefined, questionCount: turns.filter(t => t.answer).length, hasReview: !!review }))
 })
 
 ipcMain.handle('sessions:get', (_event, id: string) => readSession(sessionFile(id)))

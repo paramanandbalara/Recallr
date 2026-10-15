@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, RotateCcw, Copy, Check, FileText, FileDown, Loader2 } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Copy, Check, FileText, FileDown, Loader2, AudioLines } from 'lucide-react';
 import { reviewInterview } from '../services/ai';
 import { describeAiError } from '../services/llm';
 import { loadSession, saveSession, type Session } from '../services/sessions';
@@ -7,6 +7,7 @@ import { exportSession } from '../services/exportSession';
 import { settingsForProfile } from '../services/storage';
 import { t } from '../i18n';
 import { Button, IconButton } from './ui';
+import { AnswerReplay } from './AnswerReplay';
 
 interface Props {
   sessionId: string;
@@ -44,6 +45,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [writing, setWriting] = useState(false);
   const [error, setError] = useState('');
+  const [replayOpen, setReplayOpen] = useState(false);
 
   const write = useCallback(async (target: Session) => {
     setWriting(true);
@@ -113,6 +115,23 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
         )}
         {error && !writing && <p className="text-xs text-red-300">{error}</p>}
 
+        {session && !writing && (
+          <button
+            onClick={() => setReplayOpen(true)}
+            className="flex w-full items-center gap-2.5 rounded-lg border border-blue-500/30 bg-blue-500/5 p-2.5 text-left hover:border-blue-500/60"
+          >
+            <AudioLines className="h-4 w-4 shrink-0 text-blue-300" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-slate-100">{t('Answer replay')}</span>
+              <span className="block text-[11px] leading-relaxed text-slate-400">
+                {session.turns.some(turn => turn.spoken)
+                  ? t('What you said next to a stronger version, then say it again and compare.')
+                  : t('Practise this interview’s questions again and get a score for each answer.')}
+              </span>
+            </span>
+          </button>
+        )}
+
         {review && !writing && (
           <>
             <p className="text-[11px] leading-relaxed text-slate-500">
@@ -171,6 +190,8 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
           </>
         )}
       </div>
+
+      {replayOpen && session && <AnswerReplay session={session} onSaved={setSession} onClose={() => setReplayOpen(false)} />}
     </div>
   );
 };

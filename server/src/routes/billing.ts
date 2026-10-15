@@ -115,7 +115,7 @@ export const billingRoutes = (getRazorpay: () => Promise<RazorpayGateway | null>
     const payments = await db.payment.findMany({
       where: { userId: req.user!.id, status: { not: 'CREATED' } },
       orderBy: { createdAt: 'desc' },
-      include: { plan: { select: { name: true } } },
+      include: { plan: { select: { name: true } }, invoice: { select: { id: true, number: true } } },
     });
     res.json({ payments });
   }));

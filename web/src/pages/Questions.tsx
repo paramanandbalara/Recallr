@@ -76,6 +76,11 @@ export const QuestionLibrary: React.FC = () => {
         <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search questions" className="pl-9" />
       </form>
+      {!page && (
+        <Link to="/interview-questions/companies" className="mt-3 inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200">
+          Questions asked at specific companies <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
 
       {data && !page && !query && (
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

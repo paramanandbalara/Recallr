@@ -73,7 +73,7 @@ export const AdminPayments: React.FC = () => {
           Open the user under Users and use <strong className="text-slate-200">Record a payment</strong>.
         </p>
       )}
-      {payments && <PaymentTable payments={payments} showUser actions={p => <ReviewButtons payment={p} onDone={load} />} />}
+      {payments && <PaymentTable payments={payments} showUser admin actions={p => <ReviewButtons payment={p} onDone={load} />} />}
       {payments && total > 0 && <p className="mt-3 text-right text-sm text-slate-400">Paid in this list: <strong className="text-slate-200">{rupees(total)}</strong></p>}
     </>
   );

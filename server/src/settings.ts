@@ -65,6 +65,7 @@ export const SETTINGS = {
   whatsappTemplateReminder: { label: 'Reminder template name', group: 'whatsapp', default: 'interview_reminder', hint: 'An approved template with 2 variables: {{1}} the interview, {{2}} when.' },
   whatsappTemplateDaily: { label: 'Question of the day template name', group: 'whatsapp', default: 'daily_question', hint: 'An approved template with 2 variables: {{1}} the question, {{2}} the link to answer it.' },
   whatsappTemplateLanguage: { label: 'Template language', group: 'whatsapp', default: 'en' },
+  whatsappTemplateCode: { label: 'Verification code template name', group: 'whatsapp', default: 'verify_code', hint: 'An approved Authentication template with a "Copy code" button. Users get their 6-digit code with it when they add their number.' },
   ambassadorBonusMinutes: { label: 'Ambassador bonus (minutes)', group: 'referrals', number: true, default: '60', hint: 'What an approved college ambassador gets for each friend who pays, instead of the normal bonus.' },
 } satisfies Record<string, Definition>;
 

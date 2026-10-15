@@ -272,7 +272,7 @@ describe('AI with plan limits', () => {
     .send({ tier: 'fast', system: 'sys', user: 'What is Redis?', maxTokens: 500 });
   const transcribe = (seconds: number) => request(app).post('/api/ai/transcribe').set(auth(desktop))
     .field('language', 'en').field('seconds', String(seconds))
-    .attach('audio', Buffer.from('fake audio'), { filename: 'audio.webm', contentType: 'audio/webm' });
+    .attach('audio', Buffer.alloc(200_000), { filename: 'audio.webm', contentType: 'audio/webm' }); // Big enough for 300 s
 
   const givePlan = async () => {
     const userId = (await me(user)).user.id;
@@ -455,7 +455,7 @@ describe('emails', () => {
     await request(app).post(`/api/admin/users/${userId}/grant`).set(auth(admin)).send({ planId }).expect(201); // 10 minutes
     const desktop = await appToken('user@example.com');
     const listen = (seconds: number) => request(app).post('/api/ai/transcribe').set(auth(desktop))
-      .field('seconds', String(seconds)).attach('audio', Buffer.from('x'), { filename: 'a.webm', contentType: 'audio/webm' });
+      .field('seconds', String(seconds)).attach('audio', Buffer.alloc(200_000), { filename: 'a.webm', contentType: 'audio/webm' });
     await listen(120).expect(200); // 8 left
     await settle();
     expect(sent('low_minutes')).toHaveLength(0);

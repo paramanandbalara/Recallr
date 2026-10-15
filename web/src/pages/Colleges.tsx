@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { BarChart3, CheckCircle2, GraduationCap, Link2, ShieldCheck, Target, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, BarChart3, CheckCircle2, GraduationCap, Link2, ShieldCheck, Target, Users } from 'lucide-react';
 import { api } from '../api';
 import { Reveal } from '../components/Showcase';
 import { Button, Card, ErrorText, Field, Input, TextArea } from '../components/ui';
 import { usePageMeta } from '../seo';
+import { useBlock } from '../siteContent';
 
 const POINTS = [
   { icon: Link2, title: 'One invite link', text: 'We set up seats for your group. Share one link: each student creates an account and gets their pack straight away.' },
@@ -17,6 +19,7 @@ const STEPS = ['Tell us about your group below', 'We agree seats, listening time
 // /colleges: plans for colleges, bootcamps and placement cells, with an enquiry form
 export const Colleges: React.FC = () => {
   usePageMeta('Recallr for colleges and bootcamps', 'Interview practice for your students: mock interviews with scores and speaking feedback, one invite link, and a coach dashboard.');
+  const intro = useBlock('colleges');
   const [form, setForm] = useState({ name: '', email: '', phone: '', organization: '', size: '', message: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -44,15 +47,14 @@ export const Colleges: React.FC = () => {
         <div className="blob pointer-events-none -right-24 -top-24 h-96 w-96 bg-violet-600" aria-hidden />
         <div className="relative mx-auto max-w-4xl px-4 pb-14 pt-20 text-center">
           <Reveal>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
-              <GraduationCap className="h-3.5 w-3.5 text-blue-300" /> For colleges, bootcamps and placement cells
-            </span>
-            <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">Get every student <span className="gradient-text">interview-ready</span></h1>
-            <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">
-              Give your students Recallr for placement season: realistic mock interviews with scores and speaking feedback, and a dashboard
-              for coaches to see who is ready.
-            </p>
-            <a href="#enquire" className="mt-8 inline-block rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-500">Ask for a group plan</a>
+            {intro.badge && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
+                <GraduationCap className="h-3.5 w-3.5 text-blue-300" /> {intro.badge}
+              </span>
+            )}
+            <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-5xl">{intro.headline}{intro.highlight && <> <span className="gradient-text">{intro.highlight}</span></>}</h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-400">{intro.subtitle}</p>
+            <a href="#enquire" className="mt-8 inline-block rounded-xl bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-500">{intro.button}</a>
           </Reveal>
         </div>
       </section>
@@ -82,6 +84,11 @@ export const Colleges: React.FC = () => {
             <Users className="mb-2 h-5 w-5 text-blue-400" />
             Pricing depends on the number of students and how long you need it. Seats can be added later.
           </div>
+          <Link to="/ambassadors" className="group mt-4 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 text-sm text-slate-400 hover:border-slate-700">
+            <GraduationCap className="h-5 w-5 shrink-0 text-violet-300" />
+            <span className="flex-1"><span className="font-medium text-slate-200">A student?</span> Become a college ambassador: share Recallr with classmates and get bonus listening time for each friend who joins and pays.</span>
+            <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+          </Link>
         </Reveal>
 
         <Reveal delay={120}>

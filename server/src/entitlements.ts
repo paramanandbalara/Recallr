@@ -49,6 +49,20 @@ export const recordUsage = async (usage: {
   if (usage.kind === 'TRANSCRIBE' && purchase.listeningMinutes !== null && !purchase.notifiedLow) await warnIfLow(usage.userId);
 };
 
+// Listening time is billed on the audio's length as the transcription provider measured it. The app's own
+// figure is used only within a second above that (rounding), never below it. When the provider gives no length,
+// the app's figure is used, capped by how long the upload could possibly be (even very quiet Opus audio is
+// over 500 bytes a second) and by 10 minutes.
+const MIN_AUDIO_BYTES_PER_SECOND = 500;
+const MAX_CHUNK_SECONDS = 600;
+export const listeningSecondsToBill = ({ appSeconds, providerSeconds, audioBytes }: { appSeconds: number; providerSeconds?: number; audioBytes: number }) => {
+  const app = Number.isFinite(appSeconds) ? Math.max(0, appSeconds) : 0;
+  const seconds = providerSeconds !== undefined
+    ? Math.max(Math.min(app, providerSeconds + 1), providerSeconds)
+    : Math.min(app, audioBytes / MIN_AUDIO_BYTES_PER_SECOND + 1, MAX_CHUNK_SECONDS);
+  return Math.round(seconds * 10) / 10;
+};
+
 // Usage is written after the answer has been sent, so saving never slows an answer down. Tests wait with usageSaved().
 const pendingUsage = new Set<Promise<void>>();
 export const recordUsageAfter = (usage: Parameters<typeof recordUsage>[0]) => {

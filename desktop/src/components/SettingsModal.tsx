@@ -11,6 +11,7 @@ import { PrepPack } from './PrepPack';
 import { CompanyResearch } from './CompanyResearch';
 import { StoryBankEditor } from './StoryBankEditor';
 import { InterviewCalendar } from './InterviewCalendar';
+import { InterviewerInsightsPanel, ResumeCheck } from './CareerChecks';
 import { t } from '../i18n';
 import { Button, IconButton, Label, Select, TextArea, TextInput } from './ui';
 
@@ -111,6 +112,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
             <div>
               <Label hint={t('Answers are built only from facts in your resume.')}>{t('Resume')}</Label>
               <ResumeInput cv={settings.cv} fileName={settings.cvFileName} onChange={(cv, cvFileName) => patch({ cv, cvFileName })} />
+              <ResumeCheck settings={settings} />
             </div>
             <div>
               <Label hint={t('Fills "[company name]" in your prepared answers.')}>{t('Company name')}</Label>
@@ -142,6 +144,11 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onSaved, onPractise, s
                 onChange={e => patch({ interviewer: e.target.value })}
                 placeholder={t('e.g. Engineering manager, 10 yrs Java, second technical round')}
                 className="h-16 text-xs"
+              />
+              <InterviewerInsightsPanel
+                settings={settings}
+                onAddQuestions={added => setSettings(prev => ({ ...prev, answers: [...prev.answers, ...added] }))}
+                onUseSummary={interviewer => patch({ interviewer })}
               />
             </div>
             <div>

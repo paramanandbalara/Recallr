@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, BookMarked, BookOpen, Briefcase, Building2, CalendarClock, Check, ChevronDown, Clock, CloudUpload, Ear, GraduationCap, History, Keyboard,
-  Languages, LayoutTemplate, ListChecks, MonitorSmartphone, Mic, ScanText, ShieldCheck, Smile, Sparkles,
+  Languages, LayoutTemplate, ListChecks, Mic, Quote, ScanText, ShieldCheck, Smile, Sparkles,
   MailCheck, RefreshCw, Stethoscope, Target, Users, Zap,
 } from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
@@ -10,17 +10,11 @@ import { LogoMark } from '../components/Logo';
 import { HeroBadges, NewFeatures, ScrollProgress } from '../components/Modern';
 import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
 import { useAuth } from '../auth';
-
-const QUESTION_KINDS = ['a coding round', 'system design', 'an HR round', 'a follow-up', 'a hard question'];
+import { iconFor, useBlock, type Blocks } from '../siteContent';
 
 const WORKS_WITH = ['Zoom', 'Google Meet', 'Microsoft Teams', 'Webex', 'Skype', 'Slack huddles', 'Phone calls on your computer', 'Any app with sound'];
 
-const HIGHLIGHTS = [
-  { icon: Zap, value: '≈ 1 s', label: 'to the first words: the fastest AI answers each time' },
-  { icon: Smile, value: 'Sounds like you', label: 'short sentences and everyday words, scored on every answer' },
-  { icon: Languages, value: 'Many languages', label: 'including Hindi with Hinglish answers' },
-  { icon: MonitorSmartphone, value: 'Windows & macOS', label: 'one account, your computers' },
-];
+// The hero, highlights, use cases, testimonials and questions are edited in Admin → Website content (siteContent.ts)
 
 // Real screens of the app, each with what it shows
 const SHOWCASE = [
@@ -86,20 +80,15 @@ const STEPS = [
   { title: 'Start listening', text: 'Click the microphone. Answers appear as the questions are asked.' },
 ];
 
-const FAQ = [
-  { q: 'Is there a free trial?', a: 'Yes. Your free trial starts the first time you sign in to the app on your computer, so none of it is wasted before you install. One trial per person and per computer. No card needed.' },
-  { q: 'What does “listening time” mean?', a: 'The time Recallr spends turning speech into text. It only counts while someone is speaking, not silence, so an hour-long interview usually uses less than an hour.' },
-  { q: 'What are “AI answers”?', a: 'Each suggested answer, key-point summary or feedback uses AI. Plans include plenty for their listening time; the number shown is a typical estimate.' },
-  { q: 'Which call apps does it work with?', a: 'Any app that plays sound on your computer: Zoom, Google Meet, Microsoft Teams, Webex, Skype and others. Recallr listens to your computer’s audio, so there’s nothing to install in the call app.' },
-  { q: 'Can I pay by UPI or bank transfer?', a: 'Yes. Pay online by card, UPI or netbanking with Razorpay, or pay us directly and enter the reference. Offline payments unlock once we confirm them, usually within a few hours.' },
-  { q: 'What happens when my plan runs out?', a: 'The app asks you to buy a plan or top-up. Your profiles, answers and history are kept; nothing is lost.' },
-  { q: 'Where is my data kept?', a: 'Your profiles (resume, job details, notes, prepared answers and stories) are in the app on your computer, and an encrypted copy is kept on your Recallr account so they can be restored and we can improve Recallr. You can turn that off in settings, which deletes the copy. Conversation history stays on your computer. The questions you’re asked, with Recallr’s answers, are saved to your account so you can review them under My questions; only you can see them, and you can turn this off or delete them at any time.' },
-];
-
 export const Home: React.FC = () => {
   const { user } = useAuth();
+  const hero = useBlock('hero');
+  const highlights = useBlock('highlights');
+  const faq = useBlock('faq');
+  const useCases = useBlock('useCases');
+  const testimonials = useBlock('testimonials');
   const startLink = user ? '/download' : '/register';
-  const startLabel = user ? 'Download the app' : 'Start your free trial';
+  const startLabel = user ? hero.primaryLabelSignedIn : hero.primaryLabel;
   return (
     <>
       <ScrollProgress />
@@ -110,22 +99,23 @@ export const Home: React.FC = () => {
         <div className="blob blob-2 pointer-events-none right-0 top-40 h-80 w-80 bg-violet-600" aria-hidden />
         <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-24 pt-16 sm:pt-24 lg:grid-cols-[1.05fr_1fr]">
           <div className="text-center lg:text-left">
-            <Reveal>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
-                <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Free trial included with every account
-              </span>
-            </Reveal>
+            {hero.badge && (
+              <Reveal>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/60 px-3 py-1 text-xs text-slate-300">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" /> {hero.badge}
+                </span>
+              </Reveal>
+            )}
             <Reveal delay={80}>
               <h1 className="mt-6 text-4xl font-bold tracking-tight text-white sm:text-6xl">
-                Never get stuck on
-                <RotatingWord words={QUESTION_KINDS} className="gradient-text" />
-                again
+                {hero.headlineStart}
+                <RotatingWord words={hero.rotating} className="gradient-text" />
+                {hero.headlineEnd}
               </h1>
             </Reveal>
             <Reveal delay={160}>
               <p className="mx-auto mt-5 max-w-xl text-lg text-slate-400 lg:mx-0">
-                Recallr listens to your interview and quietly suggests answers built from your own resume and the answers you
-                prepared, in about a second.
+                {hero.subtitle}
               </p>
             </Reveal>
             <Reveal delay={240}>
@@ -133,10 +123,10 @@ export const Home: React.FC = () => {
                 <Link to={startLink} className="group inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white shadow-lg shadow-blue-600/25 hover:bg-blue-500">
                   {startLabel} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Link>
-                <a href="#see-it" className="rounded-xl border border-slate-700 px-6 py-3 font-medium text-slate-200 hover:bg-slate-800">See it in action</a>
+                <a href="#see-it" className="rounded-xl border border-slate-700 px-6 py-3 font-medium text-slate-200 hover:bg-slate-800">{hero.secondaryLabel}</a>
               </div>
               <ul className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-slate-400 lg:justify-start">
-                {['No card needed', 'Windows and macOS', 'Set up in five minutes'].map(item => (
+                {hero.points.map(item => (
                   <li key={item} className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-emerald-400" /> {item}</li>
                 ))}
               </ul>
@@ -165,13 +155,16 @@ export const Home: React.FC = () => {
       {/* Highlights */}
       <section className="mx-auto max-w-6xl px-4 pt-16">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {HIGHLIGHTS.map(({ icon: Icon, value, label }, i) => (
-            <Reveal key={value} delay={i * 80} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+          {highlights.items.map(({ icon, value, label }, i) => {
+            const Icon = iconFor(icon);
+            return (
+            <Reveal key={i} delay={i * 80} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
               <Icon className="h-5 w-5 text-blue-400" />
               <div className="mt-3 text-2xl font-bold text-white">{value}</div>
               <div className="mt-1 text-sm text-slate-400">{label}</div>
             </Reveal>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -244,6 +237,9 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Who it's for: illustrative situations, not reviews */}
+      <UseCases block={useCases} />
+
       {/* Everything else */}
       <section id="features" className="mx-auto max-w-6xl px-4 py-16">
         <Reveal className="text-center">
@@ -303,14 +299,17 @@ export const Home: React.FC = () => {
         </Reveal>
       </section>
 
+      {/* What users say: real testimonials only, hidden until the admin publishes one */}
+      <Testimonials block={testimonials} />
+
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-4 py-16">
         <Reveal className="text-center">
           <h2 className="text-3xl font-bold text-white sm:text-4xl">Questions</h2>
         </Reveal>
         <div className="mt-8 space-y-3">
-          {FAQ.map((item, i) => (
-            <Reveal key={item.q} delay={i * 40}>
+          {faq.items.map((item, i) => (
+            <Reveal key={i} delay={i * 40}>
               <details className="group rounded-xl border border-slate-800 bg-slate-900/60 px-5 py-4 open:border-slate-700">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-slate-100">
                   {item.q}
@@ -346,5 +345,77 @@ export const Home: React.FC = () => {
         </Reveal>
       </section>
     </>
+  );
+};
+
+// Example situations (edited in Admin → Website content). Each card says it's an example, so no one takes it for a review.
+const UseCases: React.FC<{ block: Blocks['useCases'] }> = ({ block }) => {
+  if (!block.items.length) return null;
+  return (
+    <section id="who-its-for" className="relative mx-auto max-w-6xl scroll-mt-20 px-4 py-16">
+      <Reveal className="mx-auto max-w-2xl text-center">
+        <span className="text-sm font-semibold uppercase tracking-wider text-blue-400">Use cases</span>
+        <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{block.title}</h2>
+        {block.subtitle && <p className="mt-3 text-slate-400">{block.subtitle}</p>}
+      </Reveal>
+      <div className="mt-10 grid gap-5 md:grid-cols-2">
+        {block.items.map((item, i) => {
+          const Icon = iconFor(item.icon);
+          return (
+            <Reveal key={i} delay={(i % 2) * 120} className="card-lift group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-6 hover:border-slate-700 hover:bg-slate-900">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500/20 to-violet-500/10 blur-2xl transition-opacity duration-500 group-hover:opacity-100 sm:opacity-60" aria-hidden />
+              <div className="relative flex items-start gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 ring-1 ring-blue-400/20 transition-transform duration-300 group-hover:scale-105">
+                  <Icon className="h-5 w-5 text-blue-300" />
+                </div>
+                <div className="min-w-0">
+                  <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-400">Example</span>
+                  <h3 className="mt-2 font-semibold text-slate-100">{item.title}</h3>
+                </div>
+              </div>
+              <p className="relative mt-4 text-sm leading-relaxed text-slate-400">{item.story}</p>
+              {item.points.length > 0 && (
+                <ul className="relative mt-4 flex flex-wrap gap-2">
+                  {item.points.map(point => (
+                    <li key={point} className="flex items-center gap-1.5 rounded-full bg-slate-800/70 px-2.5 py-1 text-xs text-slate-300">
+                      <Check className="h-3 w-3 text-emerald-400" /> {point}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Reveal>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+// Real users' words, published by the admin with their permission. Nothing shows until there's one.
+const Testimonials: React.FC<{ block: Blocks['testimonials'] }> = ({ block }) => {
+  if (!block.items.length) return null;
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-16">
+      <Reveal className="text-center">
+        <h2 className="text-3xl font-bold text-white sm:text-4xl">{block.title}</h2>
+      </Reveal>
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {block.items.map((item, i) => (
+          <Reveal key={i} delay={(i % 3) * 80} className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+            <Quote className="h-5 w-5 text-violet-300" />
+            <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-slate-300">{item.quote}</blockquote>
+            <div className="mt-5 flex items-center gap-3">
+              {item.photoUrl
+                ? <img src={item.photoUrl} alt="" loading="lazy" className="h-9 w-9 rounded-full object-cover" />
+                : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500/15 text-sm font-semibold text-blue-300">{item.name.slice(0, 1)}</span>}
+              <span>
+                <span className="block text-sm font-medium text-slate-100">{item.name}</span>
+                {item.role && <span className="block text-xs text-slate-500">{item.role}</span>}
+              </span>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
   );
 };

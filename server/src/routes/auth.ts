@@ -10,6 +10,7 @@ import { allowance } from '../entitlements.js';
 import { env } from '../env.js';
 import { HttpError, route } from '../http.js';
 import { deleteUserProfiles, exportProfiles } from '../profiles.js';
+import { exportCareerReports } from './career.js';
 import { queueEmail } from '../mailer.js';
 import { getSettings, numberSetting } from '../settings.js';
 
@@ -106,7 +107,7 @@ authRoutes.post('/password', requireUser, limiter, route(async (req, res) => {
 // Everything Recallr keeps about the user, as one JSON file (never the password)
 authRoutes.get('/me/export', requireUser, route(async (req, res) => {
   const id = req.user!.id;
-  const [purchases, payments, savedAnswers, practice, devices, tickets, memberships, profiles] = await Promise.all([
+  const [purchases, payments, savedAnswers, practice, devices, tickets, memberships, profiles, interviews] = await Promise.all([
     db.purchase.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' } }),
     db.payment.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { amountPaise: true, currency: true, method: true, status: true, reference: true, createdAt: true, paidAt: true, plan: { select: { name: true } } } }),
     db.savedAnswer.findMany({ where: { userId: id }, orderBy: { createdAt: 'asc' }, select: { questionText: true, category: true, answer: true, source: true, createdAt: true } }),
@@ -115,11 +116,12 @@ authRoutes.get('/me/export', requireUser, route(async (req, res) => {
     db.ticket.findMany({ where: { userId: id }, include: { messages: { select: { fromAdmin: true, body: true, createdAt: true } } } }),
     db.organizationMember.findMany({ where: { userId: id }, include: { organization: { select: { name: true } } } }),
     exportProfiles(id),
+    db.userInterview.findMany({ where: { userId: id }, orderBy: { startsAt: 'asc' }, select: { title: true, startsAt: true, notes: true, createdAt: true, updatedAt: true } }),
   ]);
   res.setHeader('Content-Disposition', `attachment; filename="recallr-my-data-${new Date().toISOString().slice(0, 10)}.json"`);
   res.json({
     exportedAt: new Date(), account: publicUser(req.user!), profiles, purchases, payments, savedAnswers, mockInterviews: practice, devices,
-    supportTickets: tickets, organizations: memberships.map(m => ({ name: m.organization.name, role: m.role, joinedAt: m.createdAt })),
+    interviews, supportTickets: tickets, careerReports: await exportCareerReports(id), organizations: memberships.map(m => ({ name: m.organization.name, role: m.role, joinedAt: m.createdAt })),
   });
 }));
 
@@ -141,6 +143,9 @@ authRoutes.post('/me/delete', requireUser, limiter, route(async (req, res) => {
     db.organizationMember.deleteMany({ where: { userId: user.id } }),
     db.passwordReset.deleteMany({ where: { userId: user.id } }),
     db.ticket.deleteMany({ where: { userId: user.id } }),
+    db.careerReport.deleteMany({ where: { userId: user.id } }), // The user row is kept (anonymised), so no cascade
+    db.userInterview.deleteMany({ where: { userId: user.id } }),
+    db.ambassador.deleteMany({ where: { userId: user.id } }),
     db.user.update({
       where: { id: user.id },
       data: {

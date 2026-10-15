@@ -1,5 +1,8 @@
 import { createAiFromSettings, type AiGateway } from './ai.js';
 import { postDailyBlog } from './blog.js';
+import { createDailyQuestion } from './daily.js';
+import { cleanupPeerRooms } from './routes/peer.js';
+import { sendDailyQuestionMessages, sendInterviewReminders } from './whatsapp.js';
 import { db } from './db.js';
 import { emails } from './emails.js';
 import { getSettings } from './settings.js';
@@ -60,8 +63,13 @@ export const sendWeeklyEmails = async (now = new Date()) => {
 export const startJobs = (ai: AiGateway = createAiFromSettings(getSettings)) => {
   const run = () => {
     void postDailyBlog(ai); // The day's AI blog post (logs its own failures)
+    // The question of the day (from 00:05 India time), then its WhatsApp messages (from 09:00)
+    void createDailyQuestion(ai).then(() => sendDailyQuestionMessages()).catch(error => console.error('Daily question job failed:', error));
+    void cleanupPeerRooms().catch(error => console.error('Peer room cleanup failed:', error));
     return Promise.all([sendEndingSoonEmails(), sendWeeklyEmails()]).catch(error => console.error('Job failed:', error));
   };
   setTimeout(run, 60_000).unref();
   setInterval(run, EVERY_MS).unref();
+  // WhatsApp interview reminders (the evening before, and about an hour before) are checked more often
+  setInterval(() => { sendInterviewReminders().catch(error => console.error('WhatsApp reminders failed:', error)); }, 5 * 60 * 1000).unref();
 };

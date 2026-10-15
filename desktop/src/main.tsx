@@ -5,6 +5,7 @@ import { installWindowDrag } from './windowDrag'
 import { installWindowResize } from './windowResize'
 import { initAccount } from './services/account'
 import { startProfileSync } from './services/profileSync'
+import { startInterviewSync } from './services/interviewSync'
 import { Root } from './Root'
 
 installWindowDrag()
@@ -18,4 +19,5 @@ initAccount().finally(() => {
     </StrictMode>,
   )
   startProfileSync() // Keeps a copy of the profiles on the account, in the background
+  startInterviewSync() // ...and the interview calendar, for reminders and the website
 })

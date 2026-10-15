@@ -35,7 +35,22 @@ export interface TranscribeResult {
   text: string;
   provider: ProviderId;
   model: string;
+  durationSeconds?: number; // Length of the audio as the provider measured it (what listening time is billed on)
 }
+
+// Without counts from the provider, estimate: about 4 characters per token, and a screenshot about as much as
+// the providers charge for one (OpenAI ~1,100 for a 1080p screen in high detail, Claude ~1,600, Llama 4 similar)
+export const IMAGE_TOKEN_ESTIMATE = 1600;
+export const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+export const estimateInputTokens = (req: Pick<ChatRequest, 'system' | 'user' | 'images'>) =>
+  estimateTokens(req.system + req.user) + IMAGE_TOKEN_ESTIMATE * (req.images?.length ?? 0);
+
+// Whisper's verbose_json has `duration`; some models report `usage: { type: 'duration', seconds }` instead
+export const reportedDuration = (result: { duration?: unknown; usage?: { type?: string; seconds?: unknown } }) => {
+  const seconds = typeof result.duration === 'number' ? result.duration
+    : result.usage?.type === 'duration' && typeof result.usage.seconds === 'number' ? result.usage.seconds : undefined;
+  return seconds !== undefined && Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+};
 
 export interface AiGateway {
   streamChat: (req: ChatRequest, onText: (delta: string, provider: ProviderId) => void, signal: AbortSignal) => Promise<ChatResult>;
@@ -105,14 +120,14 @@ export const createAi = (
   keys: Partial<Record<ProviderId, string>>,
   order: ProviderId[] = PROVIDER_IDS,
   claudeModels: ClaudeModels = CLAUDE_DEFAULT_MODELS,
-  { routing = 'speed', tracker = createLatencyTracker() }: { routing?: Routing; tracker?: LatencyTracker } = {},
+  { routing = 'speed', tracker = createLatencyTracker(), fetch }: { routing?: Routing; tracker?: LatencyTracker; fetch?: typeof globalThis.fetch } = {},
 ): AiGateway => {
   const providers = order.filter(p => keys[p]);
   const transcribers = providers.filter((p): p is OpenAiCompatible => p !== 'claude');
   const claude = keys.claude ? createClaude(keys.claude, claudeModels) : null;
   const clients = new Map<OpenAiCompatible, OpenAI>();
   const client = (provider: OpenAiCompatible) => {
-    if (!clients.has(provider)) clients.set(provider, new OpenAI({ apiKey: keys[provider], baseURL: BASE_URLS[provider], maxRetries: 1 }));
+    if (!clients.has(provider)) clients.set(provider, new OpenAI({ apiKey: keys[provider], baseURL: BASE_URLS[provider], maxRetries: 1, ...(fetch ? { fetch } : {}) }));
     return clients.get(provider)!;
   };
 
@@ -175,12 +190,11 @@ export const createAi = (
           }
           usage = chunk.usage ?? (chunk as { x_groq?: { usage?: typeof usage } }).x_groq?.usage ?? usage;
         }
-        // Without counts from the provider, estimate (about 4 characters per token)
-        const estimate = (s: string) => Math.ceil(s.length / 4);
+        // The providers' prompt_tokens include the screenshots' tokens; without counts, estimate them too
         return {
           text, provider, model,
-          inputTokens: usage?.prompt_tokens ?? estimate(req.system + req.user),
-          outputTokens: usage?.completion_tokens ?? estimate(text),
+          inputTokens: usage?.prompt_tokens ?? estimateInputTokens(req),
+          outputTokens: usage?.completion_tokens ?? estimateTokens(text),
         };
       } catch (error) {
         if (signal.aborted) throw error;
@@ -241,15 +255,18 @@ export const createAi = (
         const candidates = transcribeCache.has(provider) ? [transcribeCache.get(provider)!] : TRANSCRIBE_MODELS[provider];
         for (const model of candidates) {
           try {
-            const result = await client(provider).audio.transcriptions.create({
+            // Whisper models: verbose_json, which has the audio's duration (listening time is billed on it).
+            // OpenAI's gpt-4o transcribe models only have json (no duration).
+            const params = {
               file, model,
               ...(language === 'auto' ? {} : { language }),
               ...(language === 'en' ? { prompt: options.keepFillers ? FILLER_HINT : ENGLISH_HINT } : {}),
-              response_format: 'json',
+              response_format: /whisper/.test(model) ? 'verbose_json' : 'json',
               ...(provider === 'groq' ? { temperature: 0 } : {}),
-            });
+            } as OpenAI.Audio.TranscriptionCreateParamsNonStreaming;
+            const result = await client(provider).audio.transcriptions.create(params) as { text: string; duration?: number; usage?: { type?: string; seconds?: number } };
             transcribeCache.set(provider, model);
-            return { text: result.text.trim(), provider, model };
+            return { text: result.text.trim(), provider, model, durationSeconds: reportedDuration(result) };
           } catch (error) {
             lastError = error;
             if (!(error instanceof OpenAI.APIError && (error.status === 404 || (error.status === 400 && /model/i.test(error.message))))) break;

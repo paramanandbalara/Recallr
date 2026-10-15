@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, BookOpen, CreditCard, GraduationCap, History, LayoutDashboard, LifeBuoy, Megaphone, Newspaper, Package, Settings, Ticket, Users } from 'lucide-react';
+import { BarChart3, BookOpen, CreditCard, FileText, GraduationCap, History, LayoutDashboard, LifeBuoy, Megaphone, Newspaper, Package, Settings, Ticket, Users } from 'lucide-react';
 
 const LINKS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
+  { to: '/admin/invoices', label: 'Invoices', icon: FileText },
   { to: '/admin/support', label: 'Support', icon: LifeBuoy },
   { to: '/admin/plans', label: 'Plans', icon: Package },
   { to: '/admin/coupons', label: 'Coupons', icon: Ticket },

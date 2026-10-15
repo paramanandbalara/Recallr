@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw, Gauge, MessageCircleWarning, Timer, ExternalLink, Sparkles, Keyboard, AlertTriangle, ListChecks } from 'lucide-react';
+import { X, Mic, Square, SkipForward, Volume2, Loader2, RotateCcw, Gauge, MessageCircleWarning, Timer, ExternalLink, Sparkles, Keyboard, AlertTriangle, ListChecks, BadgeIndianRupee, History } from 'lucide-react';
 import { mockInterviewQuestions, resumeInterviewQuestions, scoreMockAnswer, type MockFeedback } from '../services/ai';
 import { describeAiError } from '../services/llm';
 import { loadActiveProfile, loadSettings } from '../services/storage';
@@ -11,6 +11,9 @@ import {
   type ResumeInterview,
 } from '../services/resumeInterview';
 import { speakEnglish } from '../services/voice';
+import { fetchCompanyPack, type CompanyPack } from '../services/questionBank';
+import { scoreChange, type ReplayBaseline } from '../services/answerReplay';
+import { SalaryPractice } from './SalaryPractice';
 import { useAudioCapture } from '../hooks/useAudioCapture';
 import { useAccount } from '../hooks/useAccount';
 import { t } from '../i18n';
@@ -19,10 +22,11 @@ import { Button, IconButton } from './ui';
 interface Props {
   onClose: () => void;
   initialQuestions?: string[]; // From the prep pack
+  replay?: ReplayBaseline[]; // "Say it again" after a real interview: its questions, with what was said then
 }
 
 type Phase = 'setup' | 'preparing' | 'asking' | 'answering' | 'scoring' | 'feedback' | 'summary';
-type Source = 'resume' | 'new' | 'past' | 'prep'; // From my resume, resume & job, real ones from History, the prep pack's
+type Source = 'resume' | 'new' | 'past' | 'prep' | 'company' | 'replay'; // ...the company's pack, a real interview's again
 
 interface Result {
   question: string;
@@ -94,10 +98,25 @@ const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
   </div>
 );
 
+// "Say it again": the score and words from the real interview next to the new try
+const BeforeAfter: React.FC<{ before: ReplayBaseline; after?: number }> = ({ before, after }) => {
+  const change = scoreChange(before.score, after);
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
+      <div className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        {t('In the real interview')}
+        {typeof before.score === 'number' && <span className={`tabular-nums ${scoreColor(before.score)}`}>{before.score} / 10</span>}
+        {change && <span className={`ml-auto tabular-nums ${change.startsWith('+') ? 'text-emerald-400' : change.startsWith('−') ? 'text-red-400' : 'text-slate-400'}`}>{t('Now {change}', { change })}</span>}
+      </div>
+      {before.said && <p className="text-[11px] leading-relaxed text-slate-500 select-text">{before.said}</p>}
+    </div>
+  );
+};
+
 // Practice: questions are read out loud, you answer by voice (or type), and each answer gets scored.
 // Everything counts against the plan through the normal server calls: the questions and scores as AI tokens
 // (/api/ai/chat), spoken answers as listening time (/api/ai/transcribe, with each recording's real length).
-export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) => {
+export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions, replay }) => {
   const { allowance } = useAccount();
   const [settings] = useState(() => loadSettings());
   const [keys] = useState(() => ({ ...settings, keepFillers: true })); // Keep "um", "uh"... for speaking feedback
@@ -108,7 +127,9 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
   const [count, setCount] = useState(5);
   const [readAloud, setReadAloud] = useState(true);
   const readAloudRef = useRef(true);
-  const [source, setSource] = useState<Source>(initialQuestions?.length ? 'prep' : 'new');
+  const [source, setSource] = useState<Source>(replay?.length ? 'replay' : initialQuestions?.length ? 'prep' : 'new');
+  const [salaryOpen, setSalaryOpen] = useState(false);
+  const [pack, setPack] = useState<CompanyPack | null>(null); // Questions asked at the profile's company, when there are enough
   const [questions, setQuestions] = useState<string[]>([]);
   const [resumePlan, setResumePlan] = useState<ResumeInterview | null>(null); // Level, role and kinds, for "From my resume"
   const [index, setIndex] = useState(0);
@@ -128,6 +149,12 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
   const outOfMinutesRef = useRef(outOfMinutes);
   useEffect(() => { outOfMinutesRef.current = outOfMinutes; }, [outOfMinutes]);
   const estimate = estimateListeningMinutes(RESUME_TEST_QUESTIONS);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCompanyPack(settings.company).then(found => { if (!cancelled) setPack(found); });
+    return () => { cancelled = true; };
+  }, [settings.company]);
 
   const onText = useCallback((text: string) => {
     transcriptRef.current = transcriptRef.current ? `${transcriptRef.current} ${text}` : text;
@@ -201,6 +228,8 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
         setResumePlan(plan);
         list = plan.questions.map(q => q.question);
       } else if (from === 'prep') list = initialQuestions!.slice(0, n);
+      else if (from === 'replay') list = (replay ?? []).map(r => r.question).slice(0, n);
+      else if (from === 'company') list = (pack?.questions ?? []).map(q => q.text).slice(0, n);
       else if (from === 'past') list = await pastInterviewQuestions(n);
       else list = await mockInterviewQuestions(settings, n);
       if (run !== runRef.current) return;
@@ -332,6 +361,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
   }));
   const workOn = phase === 'summary' ? whatToWorkOn(testAnswers, t) : [];
   const retry = phase === 'summary' ? questionsToRetry(testAnswers) : [];
+  const beforeOf = (question: string) => replay?.find(r => r.question === question && (r.said || typeof r.score === 'number'));
 
   return (
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
@@ -357,6 +387,16 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
 
         {phase === 'setup' && (
           <div className="space-y-4">
+            {!!replay?.length && (
+              <div className="space-y-2 rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-3">
+                <Button variant="primary" icon={<History className="w-4 h-4" />} onClick={() => begin('replay', replay.length)} disabled={outOfTokens} className="w-full">
+                  {t('Say it again: {n} questions from your interview', { n: replay.length })}
+                </Button>
+                <p className="text-[11px] leading-relaxed text-slate-400">
+                  {t('The same questions, read out loud. Answer by voice (or type) and see your new score next to the one from the real interview.')}
+                </p>
+              </div>
+            )}
             <div className="space-y-2 rounded-xl border border-blue-500/40 bg-blue-500/5 p-3">
               <Button variant="primary" icon={<Sparkles className="w-4 h-4" />} onClick={testFromResume} disabled={!hasResume || outOfTokens} className="w-full">
                 {t('Test interview from my resume')}
@@ -420,8 +460,19 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
               {source === 'resume' && (
                 <p className="mt-1.5 text-[11px] text-slate-500">{t('Tailored to you: your named projects, your skills and your experience level.')}</p>
               )}
+              {pack && (
+                <button
+                  onClick={() => setSource('company')}
+                  className={`mt-1.5 rounded-md border px-3 py-1 text-xs ${source === 'company' ? 'border-blue-500 bg-blue-500/10 text-slate-100' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                >
+                  {t('Questions asked at {company}', { company: pack.company.name })}
+                </button>
+              )}
               {source === 'past' && (
                 <p className="mt-1.5 text-[11px] text-slate-500">{t('Real questions from History, starting with the weak spots from your interview reviews.')}</p>
+              )}
+              {source === 'company' && pack && (
+                <p className="mt-1.5 text-[11px] text-slate-500">{t('{n} questions people were really asked in interviews at {company}, most asked first. Only questions are shared, never anyone’s answers or names.', { n: pack.questions.length, company: pack.company.name })}</p>
               )}
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-300">
@@ -429,6 +480,13 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
               {t('Read the questions out loud')}
             </label>
             <Button icon={<Mic className="w-4 h-4" />} onClick={() => begin(source, count)} disabled={outOfTokens}>{t('Start')}</Button>
+
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 p-3">
+              <p className="text-[11px] leading-relaxed text-slate-400">{t('Got an offer? Practise negotiating it with an AI recruiter.')}</p>
+              <Button size="sm" icon={<BadgeIndianRupee className="w-3.5 h-3.5" />} onClick={() => setSalaryOpen(true)} disabled={outOfTokens} className="shrink-0">
+                {t('Practise salary talk')}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -500,6 +558,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
 
             {phase === 'feedback' && current && (
               <>
+                {beforeOf(current.question) && <BeforeAfter before={beforeOf(current.question)!} after={current.feedback?.score} />}
                 {current.answer && (
                   <p className="text-[11px] leading-relaxed text-slate-500 select-text"><span className="font-semibold">{t('You said: ')}</span>{current.answer}</p>
                 )}
@@ -550,6 +609,9 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
                 <li key={i} className="rounded-lg border border-slate-800 px-3 py-2">
                   <div className="flex items-start gap-2">
                     <span className="min-w-0 flex-1 text-xs text-slate-200">{r.question}</span>
+                    {typeof beforeOf(r.question)?.score === 'number' && (
+                      <span className="shrink-0 text-[11px] tabular-nums text-slate-500" title={t('Your score in the real interview')}>{beforeOf(r.question)!.score} →</span>
+                    )}
                     <span className={`shrink-0 text-xs font-semibold tabular-nums ${r.feedback ? scoreColor(r.feedback.score) : 'text-slate-600'}`}>
                       {r.feedback ? r.feedback.score : t('skipped')}
                     </span>
@@ -601,6 +663,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
           )}
         </div>
       </div>
+      {salaryOpen && <SalaryPractice onBack={() => setSalaryOpen(false)} onClose={onClose} />}
     </div>
   );
 };

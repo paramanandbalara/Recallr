@@ -127,7 +127,7 @@ adminRoutes.get('/users/:id', route(async (req, res) => {
   if (!user) throw new HttpError(404, 'User not found.');
   const [purchases, payments, usage, devices, emailLog, referredBy, referrals, backup, practice, savedAnswers, memberships, profiles] = await Promise.all([
     db.purchase.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
-    db.payment.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, include: { plan: { select: { name: true } } } }),
+    db.payment.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, include: { plan: { select: { name: true } }, invoice: { select: { id: true, number: true } } } }),
     db.usageEvent.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
     activeDevices(user.id),
     db.emailLog.findMany({ where: { userId: user.id }, orderBy: { id: 'desc' }, take: 50 }),
@@ -224,7 +224,7 @@ adminRoutes.get('/payments', route(async (req, res) => {
     where: status ? { status } : { status: { not: 'CREATED' } },
     orderBy: { createdAt: 'desc' },
     take: 300,
-    include: { plan: { select: { name: true } }, user: { select: { email: true, name: true } } },
+    include: { plan: { select: { name: true } }, user: { select: { email: true, name: true } }, invoice: { select: { id: true, number: true } } },
   });
   res.json({ payments });
 }));

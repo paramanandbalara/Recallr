@@ -39,10 +39,15 @@ export const emails = {
     'The link works for 1 hour. If it wasn\'t you, ignore this email: your password stays the same.',
   ], ['Choose a new password', `/reset-password?token=${encodeURIComponent(token)}`]),
 
-  paymentReceived: (u: To, planName: string, amountPaise: number, expiresAt: Date) => build(u.email, `Payment received: ${planName}`, first(u.name), [
+  paymentReceived: (u: To, planName: string, amountPaise: number, expiresAt: Date, invoiceNumber?: string) => build(u.email, `Payment received: ${planName}`, first(u.name), [
     `We received ${rupees(amountPaise)} for ${planName}. It's active now, until ${date(expiresAt)}.`,
     'If the app is open, click "I\'ve paid, check again" or restart it.',
+    ...(invoiceNumber ? [`Your invoice ${invoiceNumber} is attached. You can also download it any time from your account, under Billing.`] : []),
   ], ['See your plan', '/account']),
+
+  invoiceCopy: (u: To, invoiceNumber: string, amountPaise: number, issuedAt: Date) => build(u.email, `Your Recallr invoice ${invoiceNumber}`, first(u.name), [
+    `Here is a copy of invoice ${invoiceNumber} for ${rupees(amountPaise)}, dated ${date(issuedAt)}. It's attached as a PDF.`,
+  ], ['See your invoices', '/account/billing']),
 
   offlineSubmitted: (u: To, planName: string, amountPaise: number, reference: string) => build(u.email, 'We got your payment details', first(u.name), [
     `Thanks. We'll check your payment of ${rupees(amountPaise)} for ${planName} (reference ${reference}) and confirm it, usually within a few hours.`,
@@ -106,4 +111,29 @@ export const emails = {
     `${organization} gave you a Recallr pack for ${days} days. It's on your account now.`,
     'Download the app and sign in with this email to start practising. Your coach sees your mock interview scores, never your answers.',
   ], ['Download Recallr', '/download']),
+
+  // College ambassadors
+  ambassadorAppliedForAdmin: (to: string, a: { name: string; email: string; college: string; city: string; course: string; why: string }) =>
+    build(to, `Ambassador application: ${a.college}`, 'there', [
+      `${a.name} (${a.email}) applied to be a college ambassador for ${a.college}${a.city ? `, ${a.city}` : ''}${a.course ? ` (${a.course})` : ''}.`,
+      ...(a.why ? [a.why.slice(0, 1000)] : []),
+    ], ['Review it', '/admin/referrals']),
+
+  ambassadorApproved: (u: To, college: string, bonusMinutes: number, note: string) => build(u.email, 'You’re a Recallr college ambassador', first(u.name), [
+    `Your application for ${college} was approved.`,
+    `Share your invite link with classmates. For each friend who signs up with it and makes their first payment, you get ${minutes(bonusMinutes)} of bonus listening time, and they get the usual welcome bonus too.`,
+    'When you share it, say that you’re a Recallr ambassador and get a bonus for invites, so friends know.',
+    ...(note ? [note] : []),
+  ], ['Get your invite link', '/account/invite']),
+
+  ambassadorRejected: (u: To, note: string) => build(u.email, 'About your Recallr ambassador application', first(u.name), [
+    'Thank you for applying to be a Recallr college ambassador. We can’t take your application forward right now.',
+    ...(note ? [note] : []),
+    'You can still invite friends with your own link and both get a bonus when they make their first payment.',
+  ], ['Invite friends', '/account/invite']),
+
+  ambassadorReward: (u: To, friend: string, bonusMinutes: number) => build(u.email, 'You earned your ambassador bonus', first(u.name), [
+    `${friend} joined Recallr with your invite and made their first payment, so you get ${minutes(bonusMinutes)} of bonus listening time as a college ambassador.`,
+    'See where you are on this month’s leaderboard on your account page.',
+  ], ['See your invites', '/account/invite']),
 };

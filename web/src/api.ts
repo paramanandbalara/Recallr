@@ -104,6 +104,7 @@ export interface Payment {
   paidAt: string | null;
   plan: { name: string };
   user?: { email: string; name: string };
+  invoice?: { id: string; number: string } | null;
 }
 
 // ---------- Site settings (Admin → Settings), loaded once before the first page shows ----------

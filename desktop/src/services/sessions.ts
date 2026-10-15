@@ -1,5 +1,6 @@
 import type { Turn } from '../components/ConversationFeed';
 import type { InterviewReview } from './ai';
+import type { ReplayItem } from './answerReplay';
 import { isRestoring } from './storage';
 
 // Past conversations, saved as files by the main process (see electron/main.ts)
@@ -13,9 +14,10 @@ export interface Session {
   updatedAt: number;
   turns: Turn[];
   review?: InterviewReview; // Kept when the conversation is saved again without it
+  replay?: ReplayItem[];    // Answer replay: stronger versions of what was said (written on demand, then kept)
 }
 
-export type SessionSummary = Omit<Session, 'turns' | 'review'> & { questionCount: number; hasReview: boolean };
+export type SessionSummary = Omit<Session, 'turns' | 'review' | 'replay'> & { questionCount: number; hasReview: boolean };
 
 const invoke = async <T>(channel: string, ...args: unknown[]): Promise<T | undefined> =>
   // @ts-expect-error ipcRenderer is injected by the preload script

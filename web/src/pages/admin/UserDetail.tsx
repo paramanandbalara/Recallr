@@ -360,7 +360,7 @@ export const AdminUserDetail: React.FC = () => {
       </div>
 
       <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-100">Payments</h2>
-      <PaymentTable payments={detail.payments} />
+      <PaymentTable payments={detail.payments} admin />
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card>

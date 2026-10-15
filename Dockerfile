@@ -28,6 +28,7 @@ WORKDIR /app/server
 COPY --from=server --chown=node:node /app/server/dist ./dist
 COPY --from=server --chown=node:node /app/server/node_modules ./node_modules
 COPY --from=server --chown=node:node /app/server/prisma ./prisma
+COPY --from=server --chown=node:node /app/server/assets ./assets
 COPY --from=server --chown=node:node /app/server/package.json ./
 COPY --from=web --chown=node:node /app/web/dist /app/web-dist
 USER node
