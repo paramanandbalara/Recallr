@@ -587,6 +587,7 @@ function App() {
             onClose={closeDisplay}
             onCheck={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsCheckOpen(true); }}
             onMock={isRecording ? undefined : () => { setIsDisplayOpen(false); setIsMockOpen(true); }}
+            listening={isRecording}
           />
         </div>
       )}

@@ -6,6 +6,7 @@ import { PROVIDERS, type ProviderId } from '../services/llm';
 import type { Layout } from '../services/storage';
 import { scoreAnswer } from '../services/answerScore';
 import { AnswerText } from './AnswerText';
+import { t } from '../i18n';
 
 export interface Turn {
   id: string;
@@ -44,11 +45,11 @@ const chipClass = 'inline-flex items-center gap-1 rounded-md border border-slate
 
 const AnswerControls: React.FC<{ onAdjust: (mode: AdjustMode) => void }> = ({ onAdjust }) => (
   <div className="mt-2 flex flex-wrap gap-1">
-    <button className={chipClass} title="Write a different answer" onClick={() => onAdjust('regenerate')}>
-      <RotateCcw className="w-2.5 h-2.5" /> Regenerate
+    <button className={chipClass} title={t('Write a different answer')} onClick={() => onAdjust('regenerate')}>
+      <RotateCcw className="w-2.5 h-2.5" /> {t('Regenerate')}
     </button>
     {ADJUST_BUTTONS.map(b => (
-      <button key={b.mode} className={chipClass} onClick={() => onAdjust(b.mode)}>{b.label}</button>
+      <button key={b.mode} className={chipClass} onClick={() => onAdjust(b.mode)}>{t(b.label)}</button>
     ))}
   </div>
 );
@@ -70,7 +71,7 @@ const FollowUps: React.FC<{ items: FollowUp[]; startOpen: boolean }> = ({ items,
   return (
     <div className="mt-2">
       <button onClick={() => setOpen(!isOpen)} className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-300">
-        <ChevronRight className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} /> Likely follow-ups ({items.length})
+        <ChevronRight className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} /> {t('Likely follow-ups ({n})', { n: items.length })}
       </button>
       {isOpen && (
         <ul className="mt-1 space-y-1.5 select-text">
@@ -93,16 +94,16 @@ const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
 // How natural and simple the finished answer sounds out loud; a low score offers a simpler version
 const NaturalScore: React.FC<{ answer: string; question: string; onSimpler: () => void }> = ({ answer, question, onSimpler }) => {
-  const { score, issues } = scoreAnswer(answer, question);
+  const { score, issues } = scoreAnswer(answer, question, t);
   const tone = score >= 8 ? 'text-emerald-300 bg-emerald-500/10' : score >= 6 ? 'text-slate-300 bg-slate-700/40' : 'text-amber-300 bg-amber-500/10';
-  const title = `Sounds natural and simple: ${score}/10${issues.length ? `\n${issues.join('\n')}` : '\nShort sentences, everyday words.'}${score < 6 ? '\nClick for a simpler version.' : ''}`;
+  const title = `${t('Sounds natural and simple: {score}/10', { score })}${issues.length ? `\n${issues.join('\n')}` : `\n${t('Short sentences, everyday words.')}`}${score < 6 ? `\n${t('Click for a simpler version.')}` : ''}`;
   return (
     <button
       onClick={score < 6 ? onSimpler : undefined}
       title={title}
       className={`rounded px-1.5 py-px text-[10px] font-semibold tabular-nums ${tone} ${score < 6 ? 'hover:brightness-125' : 'cursor-default'}`}
     >
-      {score < 6 ? 'Simplify' : 'Natural'} {score}/10
+      {score < 6 ? t('Simplify') : t('Natural')} {score}/10
     </button>
   );
 };
@@ -111,7 +112,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      title="Copy answer"
+      title={t('Copy answer')}
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
@@ -189,19 +190,19 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
           <div className="flex flex-col items-center justify-center gap-2 pt-16 text-center">
             <Ear className="w-6 h-6 text-slate-600" />
             <p className="text-sm text-slate-400">
-              {isRecording ? 'Listening... answers will appear here.' : 'Press the mic to start listening.'}
+              {isRecording ? t('Listening... answers will appear here.') : t('Press the mic to start listening.')}
             </p>
             {!isRecording && (
               <div className="mt-1 flex gap-3 text-[11px] font-medium">
-                <button onClick={onCheck} className="text-blue-400 hover:text-blue-300">Pre-interview check</button>
-                <button onClick={onMock} className="text-blue-400 hover:text-blue-300">Mock interview</button>
+                <button onClick={onCheck} className="text-blue-400 hover:text-blue-300">{t('Pre-interview check')}</button>
+                <button onClick={onMock} className="text-blue-400 hover:text-blue-300">{t('Mock interview')}</button>
               </div>
             )}
           </div>
         )}
 
         {hidden > 0 && (
-          <p className="text-[10px] text-slate-600">{hidden} earlier {hidden === 1 ? 'question' : 'questions'} in this conversation (Classic style shows them all)</p>
+          <p className="text-[10px] text-slate-600">{hidden === 1 ? t('1 earlier question in this conversation (Classic style shows them all)') : t('{n} earlier questions in this conversation (Classic style shows them all)', { n: hidden })}</p>
         )}
         {turns.slice(hidden).map((turn, shownIndex) => {
           const index = shownIndex + hidden;
@@ -214,12 +215,12 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
           <div key={turn.id} ref={isLatest ? latestRef : undefined} className={`group turn-in ${turn.status === 'skipped' ? 'opacity-40' : ''}`}>
             {/* What was heard */}
             <p className="text-slate-400 leading-relaxed select-text" style={{ fontSize: 'calc(var(--answer-size) * 0.86)' }}>
-              <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? 'Read from your screen' : undefined}>
-                {turn.origin === 'screen' ? 'Screen · ' : 'Q · '}
+              <span className="font-semibold text-slate-500" title={turn.origin === 'screen' ? t('Read from your screen') : undefined}>
+                {turn.origin === 'screen' ? t('Screen · ') : t('Q · ')}
               </span>
               {turn.kind && KIND_BADGES[turn.kind] && (
                 <span className={`mr-1.5 inline-block rounded px-1.5 py-px align-[1px] text-[9px] font-semibold uppercase tracking-wide ${KIND_BADGES[turn.kind]!.className}`}>
-                  {KIND_BADGES[turn.kind]!.label}
+                  {t(KIND_BADGES[turn.kind]!.label)}
                 </span>
               )}
               {turn.question}
@@ -239,16 +240,16 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
               <div className={`mt-2 border-l-2 pl-3 ${turn.source === 'prepared' ? 'border-emerald-500/60' : 'border-blue-500/60'}`}>
                 <div className="flex items-center gap-1.5 mb-1">
                   {turn.source === 'prepared' && (
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] font-medium text-emerald-300" title="From your prepared answer">
-                      <BookOpen className="w-3 h-3" /> Prepared
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] font-medium text-emerald-300" title={t('From your prepared answer')}>
+                      <BookOpen className="w-3 h-3" /> {t('Prepared')}
                     </span>
                   )}
-                  {turn.notes && <span className="min-w-0 text-[10px] text-amber-300/80 truncate" title={turn.notes}>Tip: {turn.notes}</span>}
+                  {turn.notes && <span className="min-w-0 text-[10px] text-amber-300/80 truncate" title={turn.notes}>{t('Tip:')} {turn.notes}</span>}
                   <span className="ml-auto flex items-center gap-1 shrink-0">
                     {turn.firstTextMs !== undefined && (
                       <span
                         className="text-[10px] tabular-nums text-slate-600"
-                        title="How long the answer took to start"
+                        title={t('How long the answer took to start')}
                       >
                         {formatSeconds(turn.firstTextMs)}{turn.provider && ` · ${PROVIDERS[turn.provider].label}`}
                       </span>
@@ -270,7 +271,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
                     onClick={() => toggleExpanded(turn.id)}
                     className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-blue-400 hover:text-blue-300"
                   >
-                    {showFull ? <><ChevronUp className="w-3 h-3" /> Hide full answer</> : <><ChevronDown className="w-3 h-3" /> Show full answer</>}
+                    {showFull ? <><ChevronUp className="w-3 h-3" /> {t('Hide full answer')}</> : <><ChevronDown className="w-3 h-3" /> {t('Show full answer')}</>}
                   </button>
                 )}
                 {turn.error && <p className="mt-1 text-[11px] text-red-300">{turn.error}</p>}
@@ -286,7 +287,7 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
             )}
             {turn.spoken && (
               <p className="mt-2 pl-3 leading-relaxed text-slate-400 select-text" style={{ fontSize: 'calc(var(--answer-size) * 0.86)' }}>
-                <span className="font-semibold text-sky-400">You said · </span>{turn.spoken}
+                <span className="font-semibold text-sky-400">{t('You said · ')}</span>{turn.spoken}
               </p>
             )}
           </div>

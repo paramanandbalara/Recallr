@@ -30,9 +30,14 @@ const FILLERS: [string, RegExp][] = [
   ['so yeah', /\bso yeah\b/gi],
 ];
 
+// The notes are shown in the app's language: the caller passes its t() (from i18n). The default keeps English and
+// fills in {placeholders}, so this file doesn't need the browser-only i18n module (and its tests run in node).
+export type Translate = (text: string, vars?: Record<string, string | number>) => string;
+export const english: Translate = (text, vars) => (vars ? text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match)) : text);
+
 const formatLength = (seconds: number) => (seconds < 60 ? `${Math.round(seconds)} s` : `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`);
 
-export const analyzeSpeech = (transcript: string, seconds: number): SpeakingFeedback => {
+export const analyzeSpeech = (transcript: string, seconds: number, t: Translate = english): SpeakingFeedback => {
   const text = transcript.trim();
   const words = text ? text.split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w)).length : 0;
   const wordsPerMinute = seconds >= 10 && words >= 15 ? Math.round(words / (seconds / 60)) : null;
@@ -44,11 +49,11 @@ export const analyzeSpeech = (transcript: string, seconds: number): SpeakingFeed
   const perMinute = seconds > 0 ? fillers / (seconds / 60) : 0;
 
   const notes: string[] = [];
-  if (wordsPerMinute !== null && wordsPerMinute < PACE.slow) notes.push(`A little slow (${wordsPerMinute} words a minute). Aim for ${PACE.slow}–${PACE.fast}: shorter pauses, and say the main point first.`);
-  if (wordsPerMinute !== null && wordsPerMinute > PACE.fast) notes.push(`A little fast (${wordsPerMinute} words a minute). Slow down and pause between points; aim for ${PACE.slow}–${PACE.fast}.`);
-  if (fillers >= 3 && perMinute >= 3) notes.push(`${fillers} filler words (most: “${fillerWords[0].word}”). A short silent pause sounds more confident than a filler.`);
-  if (words > 0 && seconds < LENGTH.short) notes.push(`Short answer (${formatLength(seconds)}). Add an example or a result to show what you did.`);
-  if (seconds > LENGTH.long) notes.push(`Long answer (${formatLength(seconds)}). Keep most answers under 2 minutes; lead with the point.`);
+  if (wordsPerMinute !== null && wordsPerMinute < PACE.slow) notes.push(t('A little slow ({wpm} words a minute). Aim for {slow}–{fast}: shorter pauses, and say the main point first.', { wpm: wordsPerMinute, slow: PACE.slow, fast: PACE.fast }));
+  if (wordsPerMinute !== null && wordsPerMinute > PACE.fast) notes.push(t('A little fast ({wpm} words a minute). Slow down and pause between points; aim for {slow}–{fast}.', { wpm: wordsPerMinute, slow: PACE.slow, fast: PACE.fast }));
+  if (fillers >= 3 && perMinute >= 3) notes.push(t('{n} filler words (most: “{word}”). A short silent pause sounds more confident than a filler.', { n: fillers, word: fillerWords[0].word }));
+  if (words > 0 && seconds < LENGTH.short) notes.push(t('Short answer ({length}). Add an example or a result to show what you did.', { length: formatLength(seconds) }));
+  if (seconds > LENGTH.long) notes.push(t('Long answer ({length}). Keep most answers under 2 minutes; lead with the point.', { length: formatLength(seconds) }));
   return { seconds: Math.round(seconds), words, wordsPerMinute, fillers, fillerWords, notes };
 };
 

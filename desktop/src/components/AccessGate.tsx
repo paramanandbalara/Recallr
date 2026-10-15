@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { X, Minus, MessageSquareQuote, Loader2, Ban, WifiOff, CreditCard, ExternalLink, Laptop, Download } from 'lucide-react';
 import { ApiError, appVersion, downloadUrl, fetchAccount, fetchVersionInfo, isOlder, isSignedIn, openUrl, openWebsite, PLAN_EVENT, signIn, signOut, takeSignedOutNotice, type Allowance, type SignedInDevice, type TrialResult, type User, type VersionInfo } from '../services/account';
 import { AccountContext } from '../hooks/useAccount';
+import { setUiLanguage, t, uiLanguage, uiLocale, UI_LANGUAGES } from '../i18n';
 import { Button, IconButton, Label, TextInput } from './ui';
 
 // The app opens only for a signed-in user with an active plan (a free trial counts).
@@ -30,8 +31,8 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
         <MessageSquareQuote className="w-3.5 h-3.5 text-blue-400" /> Recallr
       </span>
       <div className="flex items-center gap-0.5">
-        <IconButton onClick={() => sendIpc('hide-app')} title="Hide"><Minus className="w-4 h-4" /></IconButton>
-        <IconButton onClick={() => sendIpc('quit-app')} title="Quit" tone="danger"><X className="w-4 h-4" /></IconButton>
+        <IconButton onClick={() => sendIpc('hide-app')} title={t('Hide')}><Minus className="w-4 h-4" /></IconButton>
+        <IconButton onClick={() => sendIpc('quit-app')} title={t('Quit')} tone="danger"><X className="w-4 h-4" /></IconButton>
       </div>
     </div>
     <div className="flex flex-1 flex-col justify-center overflow-y-auto px-6 py-6">{children}</div>
@@ -44,6 +45,22 @@ const Notice: React.FC<{ icon: React.ReactNode; title: string; text: string; chi
     <h1 className="text-sm font-semibold text-slate-100">{title}</h1>
     {text && <p className="max-w-[300px] whitespace-pre-line text-xs leading-relaxed text-slate-400">{text}</p>}
     {children && <div className="mt-2 flex flex-wrap justify-center gap-2">{children}</div>}
+  </div>
+);
+
+// App language, so a Hindi speaker can switch before signing in
+const LanguageToggle: React.FC = () => (
+  <div className="flex rounded-md border border-slate-700 p-0.5">
+    {UI_LANGUAGES.map(l => (
+      <button
+        key={l.id}
+        type="button"
+        onClick={() => setUiLanguage(l.id)}
+        className={`rounded px-2 py-0.5 text-[11px] font-medium ${uiLanguage() === l.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+      >
+        {l.label}
+      </button>
+    ))}
   </div>
 );
 
@@ -61,7 +78,7 @@ const LoginForm: React.FC<{ onDone: (trial: TrialResult) => void; notice?: strin
     try {
       onDone(await signIn(email, password));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not sign in.');
+      setMessage(error instanceof Error ? error.message : t('Could not sign in.'));
       if (error instanceof ApiError && error.code === 'DEVICE_LIMIT') setDevices(error.data.devices as SignedInDevice[]);
     } finally {
       setBusy(false);
@@ -70,17 +87,20 @@ const LoginForm: React.FC<{ onDone: (trial: TrialResult) => void; notice?: strin
 
   return (
     <form onSubmit={e => { e.preventDefault(); submit(); }} className="space-y-3">
+      <div className="flex justify-center">
+        <LanguageToggle />
+      </div>
       <div className="text-center">
-        <h1 className="text-sm font-semibold text-slate-100">Sign in to Recallr</h1>
-        <p className="mt-1 text-[11px] text-slate-500">Use the email and password of your Recallr account.</p>
+        <h1 className="text-sm font-semibold text-slate-100">{t('Sign in to Recallr')}</h1>
+        <p className="mt-1 text-[11px] text-slate-500">{t('Use the email and password of your Recallr account.')}</p>
       </div>
       {notice && <p className="rounded-md bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-200">{notice}</p>}
       <div>
-        <Label>Email</Label>
+        <Label>{t('Email')}</Label>
         <TextInput type="email" autoFocus value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
       </div>
       <div>
-        <Label>Password</Label>
+        <Label>{t('Password')}</Label>
         <TextInput type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
       </div>
       {message && <p className="text-[11px] text-amber-300">{message}</p>}
@@ -89,27 +109,27 @@ const LoginForm: React.FC<{ onDone: (trial: TrialResult) => void; notice?: strin
           {devices.map(d => (
             <div key={d.id} className="flex items-center gap-1.5 text-[11px] text-slate-300">
               <Laptop className="w-3.5 h-3.5 text-slate-500" /> {d.name}
-              <span className="text-slate-500">· last used {new Date(d.lastSeenAt).toLocaleDateString()}</span>
+              <span className="text-slate-500">{t('· last used {date}', { date: new Date(d.lastSeenAt).toLocaleDateString(uiLocale()) })}</span>
             </div>
           ))}
           <Button type="button" size="sm" className="w-full" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/devices')}>
-            Remove one on the website
+            {t('Remove one on the website')}
           </Button>
         </div>
       )}
       <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!email.trim() || !password}>
-        Sign in
+        {t('Sign in')}
       </Button>
       <div className="space-y-1 text-center text-[11px] text-slate-500">
         <p>
-          No account yet?{' '}
+          {t('No account yet?')}{' '}
           <button type="button" onClick={() => openWebsite('/register')} className="text-blue-400 hover:text-blue-300">
-            Create one free
-          </button>{' '}(your free trial starts on first sign-in)
+            {t('Create one free')}
+          </button>{' '}{t('(your free trial starts on first sign-in)')}
         </p>
         <p>
           <button type="button" onClick={() => openWebsite('/forgot-password')} className="text-slate-400 hover:text-slate-300">
-            Forgot your password?
+            {t('Forgot your password?')}
           </button>
         </p>
       </div>
@@ -142,12 +162,12 @@ export const AccessGate: React.FC<{ children: React.ReactNode }> = ({ children }
       setGate({ state: 'ready', user, allowance, lowMinutesWarning });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
-        if (error.code === 'DEVICE_REMOVED') setNotice('This computer was signed out from your account (on the website, or after a password change). Sign in again to continue.');
+        if (error.code === 'DEVICE_REMOVED') setNotice(t('This computer was signed out from your account (on the website, or after a password change). Sign in again to continue.'));
         setGate({ state: 'signed-out' });
       }
       else if (error instanceof ApiError && error.code === 'BLOCKED') setGate({ state: 'blocked', message: error.message });
       else {
-        const message = error instanceof Error ? error.message : 'Could not check your account.';
+        const message = error instanceof Error ? error.message : t('Could not check your account.');
         // A failed background check never interrupts someone already using the app
         setGate(previous => (previous.state === 'ready' ? previous : { state: 'offline', message }));
       }
@@ -182,36 +202,38 @@ export const AccessGate: React.FC<{ children: React.ReactNode }> = ({ children }
 
   return (
     <Shell>
-      {gate.state === 'loading' && <Notice icon={<Loader2 className="w-5 h-5 animate-spin text-blue-400" />} title="Checking your account..." text="" />}
+      {gate.state === 'loading' && <Notice icon={<Loader2 className="w-5 h-5 animate-spin text-blue-400" />} title={t('Checking your account...')} text="" />}
       {gate.state === 'signed-out' && <LoginForm notice={notice} onDone={result => { setTrial(result); setNotice(''); refresh(); }} />}
       {gate.state === 'update' && (
-        <Notice icon={<Download className="w-6 h-6 text-blue-400" />} title="Update Recallr to continue"
-          text={`This version (${appVersion()}) is no longer supported. Install version ${gate.info.latest ?? gate.info.minimum} to keep using Recallr. Your profiles and history are kept.${gate.info.notes ? `\n\nWhat's new: ${gate.info.notes}` : ''}`}>
-          <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={() => openUrl(downloadUrl(gate.info))}>Download the update</Button>
+        <Notice icon={<Download className="w-6 h-6 text-blue-400" />} title={t('Update Recallr to continue')}
+          text={`${t('This version ({current}) is no longer supported. Install version {version} to keep using Recallr. Your profiles and history are kept.', { current: appVersion(), version: gate.info.latest ?? gate.info.minimum ?? '' })}${gate.info.notes ? `\n\n${t("What's new: {notes}", { notes: gate.info.notes })}` : ''}`}>
+          <Button size="sm" variant="primary" icon={<Download className="w-3.5 h-3.5" />} onClick={() => openUrl(downloadUrl(gate.info))}>{t('Download the update')}</Button>
         </Notice>
       )}
       {gate.state === 'offline' && (
-        <Notice icon={<WifiOff className="w-6 h-6 text-amber-400" />} title="Can't check your account" text={gate.message}>
-          <Button size="sm" variant="primary" onClick={refresh} loading={checking}>Try again</Button>
-          <Button size="sm" variant="ghost" onClick={leave}>Sign out</Button>
+        <Notice icon={<WifiOff className="w-6 h-6 text-amber-400" />} title={t("Can't check your account")} text={gate.message}>
+          <Button size="sm" variant="primary" onClick={refresh} loading={checking}>{t('Try again')}</Button>
+          <Button size="sm" variant="ghost" onClick={leave}>{t('Sign out')}</Button>
         </Notice>
       )}
       {gate.state === 'blocked' && (
-        <Notice icon={<Ban className="w-6 h-6 text-red-400" />} title="Access turned off" text={`${gate.message} Contact support if you think this is a mistake.`}>
-          <Button size="sm" variant="ghost" onClick={leave}>Sign out</Button>
+        <Notice icon={<Ban className="w-6 h-6 text-red-400" />} title={t('Access turned off')} text={`${gate.message} ${t('Contact support if you think this is a mistake.')}`}>
+          <Button size="sm" variant="ghost" onClick={leave}>{t('Sign out')}</Button>
         </Notice>
       )}
       {gate.state === 'ready' && (
         <Notice
           icon={<CreditCard className="w-6 h-6 text-blue-400" />}
-          title="Choose a plan to continue"
+          title={t('Choose a plan to continue')}
           text={`${trial === 'computer_used'
-            ? 'This computer has already used a free trial (with another account), so there is no trial for this one. '
-            : ''}${gate.user.email} has no active plan${trial === 'had_trial' ? ': the free trial is over' : ' (or it has ended)'}. Buy one on the website: Recallr opens as soon as it's paid, or once an offline payment is confirmed.`}
+            ? `${t('This computer has already used a free trial (with another account), so there is no trial for this one.')} `
+            : ''}${trial === 'had_trial'
+            ? t('{email} has no active plan: the free trial is over.', { email: gate.user.email })
+            : t('{email} has no active plan (or it has ended).', { email: gate.user.email })} ${t("Buy one on the website: Recallr opens as soon as it's paid, or once an offline payment is confirmed.")}`}
         >
-          <Button size="sm" variant="primary" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/buy')}>See plans</Button>
-          <Button size="sm" onClick={refresh} loading={checking}>I've paid, check again</Button>
-          <Button size="sm" variant="ghost" onClick={leave}>Sign out</Button>
+          <Button size="sm" variant="primary" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={() => openWebsite('/account/buy')}>{t('See plans')}</Button>
+          <Button size="sm" onClick={refresh} loading={checking}>{t("I've paid, check again")}</Button>
+          <Button size="sm" variant="ghost" onClick={leave}>{t('Sign out')}</Button>
         </Notice>
       )}
     </Shell>

@@ -1,4 +1,5 @@
 import { ApiError, request } from './account';
+import { t } from '../i18n';
 
 // AI answers come from the Recallr server, which picks the provider and model (Groq, OpenAI or Claude,
 // in the order set in Admin → Settings) and counts the tokens against the user's plan.
@@ -69,7 +70,7 @@ export const completeChat = (req: ChatRequest) => streamChat(req, () => {});
 // Turn any error into a message the user can act on
 export const describeAiError = (error: unknown): string => {
   if (error instanceof ApiError) {
-    return error.status === 402 ? `${error.message} Open Settings → Account to buy more.` : error.message;
+    return error.status === 402 ? `${error.message} ${t('Open Settings → Account to buy more.')}` : error.message;
   }
-  return error instanceof Error ? error.message : 'Unknown error talking to the AI.';
+  return error instanceof Error ? error.message : t('Unknown error talking to the AI.');
 };

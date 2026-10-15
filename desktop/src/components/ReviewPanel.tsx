@@ -5,6 +5,7 @@ import { describeAiError } from '../services/llm';
 import { loadSession, saveSession, type Session } from '../services/sessions';
 import { exportSession } from '../services/exportSession';
 import { settingsForProfile } from '../services/storage';
+import { t } from '../i18n';
 import { Button, IconButton } from './ui';
 
 interface Props {
@@ -32,7 +33,7 @@ const CopyEmail: React.FC<{ text: string }> = ({ text }) => {
         setTimeout(() => setCopied(false), 1200);
       }}
     >
-      {copied ? 'Copied' : 'Copy email'}
+      {copied ? t('Copied') : t('Copy email')}
     </Button>
   );
 };
@@ -49,8 +50,8 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
     setError('');
     try {
       const turns = target.turns
-        .filter(t => t.status !== 'skipped')
-        .map(t => ({ question: t.question, answer: t.status === 'done' ? t.answer : '', spoken: t.spoken }));
+        .filter(turn => turn.status !== 'skipped')
+        .map(turn => ({ question: turn.question, answer: turn.status === 'done' ? turn.answer : '', spoken: turn.spoken }));
       const review = await reviewInterview(turns, settingsForProfile(target.profileId));
       const updated = { ...target, review: { ...review, createdAt: Date.now() } };
       await saveSession(updated);
@@ -68,7 +69,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
     loadSession(sessionId).then(saved => {
       if (cancelled) return;
       if (!saved) {
-        setError('This conversation could not be loaded.');
+        setError(t('This conversation could not be loaded.'));
         return;
       }
       setSession(saved);
@@ -83,20 +84,20 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
   return (
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center gap-2 px-2 py-2.5 border-b border-slate-800 shrink-0">
-        <IconButton onClick={onClose} title="Back to history"><ArrowLeft className="w-4 h-4" /></IconButton>
+        <IconButton onClick={onClose} title={t('Back to history')}><ArrowLeft className="w-4 h-4" /></IconButton>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold text-slate-100">Interview review</h2>
+          <h2 className="text-sm font-semibold text-slate-100">{t('Interview review')}</h2>
           {session && <p className="truncate text-[10px] text-slate-500">{session.title}</p>}
         </div>
         {session && (
           <>
-            <IconButton title="Write the review again" disabled={writing} onClick={() => write(session)}>
+            <IconButton title={t('Write the review again')} disabled={writing} onClick={() => write(session)}>
               <RotateCcw className="w-4 h-4" />
             </IconButton>
-            <IconButton title="Export as Markdown (with the review)" disabled={writing} onClick={() => exportSession(session, 'md')}>
+            <IconButton title={t('Export as Markdown (with the review)')} disabled={writing} onClick={() => exportSession(session, 'md')}>
               <FileText className="w-4 h-4" />
             </IconButton>
-            <IconButton title="Export as PDF (with the review)" disabled={writing} onClick={() => exportSession(session, 'pdf')}>
+            <IconButton title={t('Export as PDF (with the review)')} disabled={writing} onClick={() => exportSession(session, 'pdf')}>
               <FileDown className="w-4 h-4" />
             </IconButton>
           </>
@@ -107,7 +108,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
         {writing && (
           <div className="flex flex-col items-center gap-2 pt-12 text-center">
             <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-            <p className="text-xs text-slate-400">Reviewing the interview...</p>
+            <p className="text-xs text-slate-400">{t('Reviewing the interview...')}</p>
           </div>
         )}
         {error && !writing && <p className="text-xs text-red-300">{error}</p>}
@@ -115,12 +116,12 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
         {review && !writing && (
           <>
             <p className="text-[11px] leading-relaxed text-slate-500">
-              {session?.turns.some(t => t.spoken)
-                ? 'Based on the questions asked and what you actually said (heard on your microphone).'
-                : 'Based on the questions asked and the answers Recallr suggested. Use "Call + mic" next time so the review can judge what you actually said.'}
+              {session?.turns.some(turn => turn.spoken)
+                ? t('Based on the questions asked and what you actually said (heard on your microphone).')
+                : t('Based on the questions asked and the answers Recallr suggested. Use "Call + mic" next time so the review can judge what you actually said.')}
             </p>
 
-            <Section title="Summary">
+            <Section title={t('Summary')}>
               <p className="text-[13px] leading-relaxed text-slate-200">{review.summary}</p>
               {review.topics.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -132,13 +133,13 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
             </Section>
 
             {review.weakSpots.length > 0 && (
-              <Section title="Weak spots">
+              <Section title={t('Weak spots')}>
                 <ul className="space-y-2.5">
                   {review.weakSpots.map((w, i) => (
                     <li key={i} className="rounded-lg border border-slate-800 p-2.5">
                       <p className="text-xs font-medium text-slate-200">{w.question}</p>
                       <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{w.why}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-emerald-300">Next time: {w.fix}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-emerald-300">{t('Next time:')} {w.fix}</p>
                     </li>
                   ))}
                 </ul>
@@ -146,7 +147,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
             )}
 
             {review.prepareNext.length > 0 && (
-              <Section title="Prepare next">
+              <Section title={t('Prepare next')}>
                 <ul className="space-y-1.5">
                   {review.prepareNext.map((item, i) => (
                     <li key={i} className="flex gap-2 text-xs leading-relaxed text-slate-300">
@@ -159,7 +160,7 @@ export const ReviewPanel: React.FC<Props> = ({ sessionId, onClose }) => {
             )}
 
             {email && (
-              <Section title="Thank-you email">
+              <Section title={t('Thank-you email')}>
                 <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
                   <p className="text-xs font-medium text-slate-200">{review.email.subject}</p>
                   <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-slate-300">{review.email.body}</p>

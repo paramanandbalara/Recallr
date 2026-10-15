@@ -2,6 +2,8 @@
 // and counts usage against the user's plan. The sign-in token is kept encrypted by the OS (see
 // "Sign-in token" in electron/main.ts), with localStorage as the fallback outside Electron.
 
+import { t } from '../i18n';
+
 const env = import.meta.env as Record<string, string | undefined>;
 const trimSlash = (url: string) => url.replace(/\/+$/, '');
 
@@ -117,7 +119,7 @@ export const initAccount = async () => {
   }
   if (token && !tokenHasDevice(token)) {
     saveToken('');
-    signedOutNotice = NEEDS_DEVICE_NOTICE;
+    signedOutNotice = needsDeviceNotice();
   }
 };
 
@@ -139,7 +141,7 @@ export const isSignedIn = () => !!token;
 
 // AI requests need a sign-in tied to this computer ("did" in the token). A sign-in from before that, or from
 // the website, can't use them, so it's dropped and the user signs in again once.
-const NEEDS_DEVICE_NOTICE = 'Please sign in again. Recallr now links your sign-in to this computer, and this one was made before that.';
+const needsDeviceNotice = () => t('Please sign in again. Recallr now links your sign-in to this computer, and this one was made before that.');
 let signedOutNotice = '';
 
 const tokenHasDevice = (value: string) => {
@@ -173,15 +175,15 @@ export const request = async (path: string, init: RequestInit = {}) => {
     });
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') throw error;
-    throw new ApiError(0, "Can't reach Recallr. Check your internet connection.", 'OFFLINE');
+    throw new ApiError(0, t("Can't reach Recallr. Check your internet connection."), 'OFFLINE');
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     const needsDevice = res.status === 403 && data.code === 'APP_ONLY';
     if (res.status === 401 || needsDevice) saveToken('');
-    if (needsDevice) signedOutNotice = NEEDS_DEVICE_NOTICE;
+    if (needsDevice) signedOutNotice = needsDeviceNotice();
     if ((res.status === 402 || res.status === 401 || needsDevice) && typeof window !== 'undefined') window.dispatchEvent(new Event(PLAN_EVENT));
-    throw new ApiError(res.status, data.error ?? `Recallr's server had a problem (${res.status}).`, data.code, data);
+    throw new ApiError(res.status, data.error ?? t("Recallr's server had a problem ({status}).", { status: res.status }), data.code, data);
   }
   return res;
 };

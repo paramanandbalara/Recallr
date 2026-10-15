@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MessageSquareQuote, ArrowRight, ArrowLeft, Check, FileText, BookOpen } from 'lucide-react';
 import { loadSettings, saveSettings, type Settings } from '../services/storage';
 import { useAccount } from '../hooks/useAccount';
+import { setUiLanguage, t, uiLanguage, UI_LANGUAGES } from '../i18n';
 import { ResumeInput } from './ResumeInput';
 import { AnswerBankEditor } from './AnswerBankEditor';
 import { Button, Label, TextArea, TextInput } from './ui';
@@ -10,20 +11,37 @@ interface Props {
   onComplete: () => void;
 }
 
-const STEPS = [
-  { title: 'Resume & job', icon: FileText },
-  { title: 'Answers', icon: BookOpen },
+const steps = () => [
+  { title: t('Resume & job'), icon: FileText },
+  { title: t('Answers'), icon: BookOpen },
 ];
+
+// App language, so a Hindi speaker can switch before going further
+const LanguageToggle: React.FC = () => (
+  <div className="flex rounded-md border border-slate-700 p-0.5">
+    {UI_LANGUAGES.map(l => (
+      <button
+        key={l.id}
+        type="button"
+        onClick={() => setUiLanguage(l.id)}
+        className={`rounded px-2 py-0.5 text-[11px] font-medium ${uiLanguage() === l.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+      >
+        {l.label}
+      </button>
+    ))}
+  </div>
+);
 
 export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
 
   const { user, allowance } = useAccount();
+  const stepList = steps();
 
   const patch = (changes: Partial<Settings>) => setSettings(prev => ({ ...prev, ...changes }));
 
-  const isLast = step === STEPS.length - 1;
+  const isLast = step === stepList.length - 1;
 
   const finish = () => {
     saveSettings(settings);
@@ -39,13 +57,16 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
         </div>
         <div>
           <h1 className="text-sm font-semibold text-slate-100 leading-tight">Recallr</h1>
-          <p className="text-[11px] text-slate-500 leading-tight">Setup · step {step + 1} of {STEPS.length}</p>
+          <p className="text-[11px] text-slate-500 leading-tight">{t('Setup · step {step} of {total}', { step: step + 1, total: stepList.length })}</p>
+        </div>
+        <div className="ml-auto">
+          <LanguageToggle />
         </div>
       </div>
 
       {/* Stepper */}
       <div className="flex items-center gap-1.5 px-4 pt-3 shrink-0">
-        {STEPS.map((s, i) => (
+        {stepList.map((s, i) => (
           <div key={s.title} className="flex-1">
             <div className={`h-1 rounded-full transition-colors ${i <= step ? 'bg-blue-500' : 'bg-slate-700'}`} />
             <div className={`mt-1.5 flex items-center gap-1 text-[10px] ${i === step ? 'text-slate-200' : 'text-slate-500'}`}>
@@ -60,14 +81,14 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
         {step === 0 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-slate-50">Welcome, {user.name.split(' ')[0]}</h2>
+              <h2 className="text-lg font-semibold text-slate-50">{t('Welcome, {name}', { name: user.name.split(' ')[0] })}</h2>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Recallr listens to the conversation and suggests answers based on your resume and the answers you prepared.
-                {allowance.onTrial && ' Your free trial is active: try it with a "Mock interview" first (in the main window after setup).'}
+                {t('Recallr listens to the conversation and suggests answers based on your resume and the answers you prepared.')}
+                {allowance.onTrial && ` ${t('Your free trial is active: try it with a "Mock interview" first (in the main window after setup).')}`}
               </p>
             </div>
             <div>
-              <Label hint="Answers are built only from facts in your resume.">Your resume</Label>
+              <Label hint={t('Answers are built only from facts in your resume.')}>{t('Your resume')}</Label>
               <ResumeInput
                 cv={settings.cv}
                 fileName={settings.cvFileName}
@@ -75,15 +96,15 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
               />
             </div>
             <div>
-              <Label hint='Fills "[company name]" in your prepared answers.'>Company name</Label>
-              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder="e.g. Shopify" />
+              <Label hint={t('Fills "[company name]" in your prepared answers.')}>{t('Company name')}</Label>
+              <TextInput value={settings.company} onChange={e => patch({ company: e.target.value })} placeholder={t('e.g. Shopify')} />
             </div>
             <div>
-              <Label>Job description</Label>
+              <Label>{t('Job description')}</Label>
               <TextArea
                 value={settings.job}
                 onChange={e => patch({ job: e.target.value })}
-                placeholder="Paste the job description here..."
+                placeholder={t('Paste the job description here...')}
                 className="h-28 text-xs"
               />
             </div>
@@ -92,8 +113,8 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
 
         {step === 1 && (
           <div className="space-y-3">
-            <Label hint="Add the answers you've prepared, like “Tell me about yourself”. Optional, you can do this later in Settings.">
-              Prepared answers
+            <Label hint={t("Add the answers you've prepared, like “Tell me about yourself”. Optional, you can do this later in Settings.")}>
+              {t('Prepared answers')}
             </Label>
             <AnswerBankEditor answers={settings.answers} onChange={answers => patch({ answers })} settings={settings} />
           </div>
@@ -103,18 +124,18 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
       {/* Footer */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-800 bg-slate-900/80 shrink-0">
         {step > 0 ? (
-          <Button variant="ghost" icon={<ArrowLeft className="w-4 h-4" />} onClick={() => setStep(step - 1)}>Back</Button>
+          <Button variant="ghost" icon={<ArrowLeft className="w-4 h-4" />} onClick={() => setStep(step - 1)}>{t('Back')}</Button>
         ) : <span />}
 
         <div className="flex items-center gap-2">
           {step === 0 && !settings.cv && (
-            <Button variant="ghost" onClick={() => setStep(step + 1)}>Skip</Button>
+            <Button variant="ghost" onClick={() => setStep(step + 1)}>{t('Skip')}</Button>
           )}
           {isLast ? (
-            <Button variant="primary" icon={<Check className="w-4 h-4" />} onClick={finish}>Finish setup</Button>
+            <Button variant="primary" icon={<Check className="w-4 h-4" />} onClick={finish}>{t('Finish setup')}</Button>
           ) : (
             <Button variant="primary" onClick={() => setStep(step + 1)}>
-              Next <ArrowRight className="w-4 h-4" />
+              {t('Next')} <ArrowRight className="w-4 h-4" />
             </Button>
           )}
         </div>

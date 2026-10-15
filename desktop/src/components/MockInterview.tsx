@@ -7,6 +7,7 @@ import { openWebsite, request } from '../services/account';
 import { analyzeSpeech, formatLength, PACE, type SpeakingFeedback } from '../services/speaking';
 import { pastInterviewQuestions } from '../services/sessions';
 import { useAudioCapture } from '../hooks/useAudioCapture';
+import { t } from '../i18n';
 import { Button, IconButton } from './ui';
 
 interface Props {
@@ -52,24 +53,24 @@ const paceTone = (wpm: number | null) => (wpm === null ? 'text-slate-300' : wpm 
 // Pace, filler words and length of one answer, with what to work on
 const Speaking: React.FC<{ speaking: SpeakingFeedback }> = ({ speaking }) => (
   <div className="space-y-2 rounded-lg border border-slate-800 p-2.5">
-    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">How you spoke</div>
+    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('How you spoke')}</div>
     <div className="grid grid-cols-3 gap-2 text-center">
       <div>
         <Gauge className="mx-auto h-3.5 w-3.5 text-slate-500" />
         <div className={`mt-0.5 text-sm font-semibold tabular-nums ${paceTone(speaking.wordsPerMinute)}`}>{speaking.wordsPerMinute ?? '–'}</div>
-        <div className="text-[10px] text-slate-500">words / min</div>
+        <div className="text-[10px] text-slate-500">{t('words / min')}</div>
       </div>
       <div>
         <MessageCircleWarning className="mx-auto h-3.5 w-3.5 text-slate-500" />
         <div className={`mt-0.5 text-sm font-semibold tabular-nums ${speaking.fillers >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{speaking.fillers}</div>
         <div className="text-[10px] text-slate-500" title={speaking.fillerWords.map(f => `${f.word} ×${f.count}`).join(', ')}>
-          {speaking.fillerWords.length ? speaking.fillerWords.slice(0, 2).map(f => `${f.word} ×${f.count}`).join(', ') : 'filler words'}
+          {speaking.fillerWords.length ? speaking.fillerWords.slice(0, 2).map(f => `${f.word} ×${f.count}`).join(', ') : t('filler words')}
         </div>
       </div>
       <div>
         <Timer className="mx-auto h-3.5 w-3.5 text-slate-500" />
         <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-200">{formatLength(speaking.seconds)}</div>
-        <div className="text-[10px] text-slate-500">{speaking.words} words</div>
+        <div className="text-[10px] text-slate-500">{t('{n} words', { n: speaking.words })}</div>
       </div>
     </div>
     {speaking.notes.map(note => <p key={note} className="text-[11px] leading-relaxed text-slate-400">• {note}</p>)}
@@ -87,11 +88,11 @@ const Feedback: React.FC<{ feedback: MockFeedback }> = ({ feedback }) => (
       <span className={`text-2xl font-semibold tabular-nums ${scoreColor(feedback.score)}`}>{feedback.score}</span>
       <span className="text-xs text-slate-500">/ 10</span>
     </div>
-    {feedback.good && <p className="text-xs leading-relaxed text-slate-300"><span className="font-semibold text-emerald-300">What worked: </span>{feedback.good}</p>}
-    {feedback.improve && <p className="text-xs leading-relaxed text-slate-300"><span className="font-semibold text-amber-300">To improve: </span>{feedback.improve}</p>}
+    {feedback.good && <p className="text-xs leading-relaxed text-slate-300"><span className="font-semibold text-emerald-300">{t('What worked: ')}</span>{feedback.good}</p>}
+    {feedback.improve && <p className="text-xs leading-relaxed text-slate-300"><span className="font-semibold text-amber-300">{t('To improve: ')}</span>{feedback.improve}</p>}
     {feedback.better && (
       <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">A stronger answer</div>
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('A stronger answer')}</div>
         <p className="text-xs leading-relaxed text-slate-200 select-text">{feedback.better}</p>
       </div>
     )}
@@ -154,7 +155,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
       const list = source === 'prep' ? initialQuestions!.slice(0, count) : source === 'past' ? await pastInterviewQuestions(count) : await mockInterviewQuestions(settings, count);
       if (run !== runRef.current) return;
       if (list.length === 0) {
-        throw new Error(source === 'past' ? 'No past interview questions yet. They come from conversations saved in History.' : 'No questions came back. Try again.');
+        throw new Error(source === 'past' ? t('No past interview questions yet. They come from conversations saved in History.') : t('No questions came back. Try again.'));
       }
       setQuestions(list);
       ask(list, 0);
@@ -198,7 +199,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
     const seconds = (performance.now() - answerStartedRef.current) / 1000; // Until "Done answering"
     await stopRecording(true); // Wait for the last words to be transcribed
     const answer = transcriptRef.current.trim();
-    const speaking = analyzeSpeech(answer, seconds);
+    const speaking = analyzeSpeech(answer, seconds, t);
     try {
       const feedback = await scoreMockAnswer(questions[index], answer, settings);
       if (run !== runRef.current) return;
@@ -239,12 +240,12 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
     <div className="panel-in absolute inset-0 z-50 flex flex-col bg-slate-900">
       <div className="drag-area flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">Mock interview</h2>
+          <h2 className="text-sm font-semibold text-slate-100">{t('Mock interview')}</h2>
           {['asking', 'answering', 'scoring', 'feedback'].includes(phase) && (
-            <p className="text-[10px] text-slate-500">Question {index + 1} of {questions.length}</p>
+            <p className="text-[10px] text-slate-500">{t('Question {n} of {total}', { n: index + 1, total: questions.length })}</p>
           )}
         </div>
-        <IconButton onClick={onClose} title="Close"><X className="w-4 h-4" /></IconButton>
+        <IconButton onClick={onClose} title={t('Close')}><X className="w-4 h-4" /></IconButton>
       </div>
 
       <div className="scrollable flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -253,11 +254,10 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
         {phase === 'setup' && (
           <div className="space-y-4">
             <p className="text-xs leading-relaxed text-slate-400">
-              Answer out loud on your microphone, then get a score
-              and a stronger version of your answer.
+              {t('Answer out loud on your microphone, then get a score and a stronger version of your answer.')}
             </p>
             <div>
-              <div className="mb-1.5 text-xs font-semibold text-slate-300">Questions</div>
+              <div className="mb-1.5 text-xs font-semibold text-slate-300">{t('Questions')}</div>
               <div className="flex gap-1.5">
                 {COUNTS.map(n => (
                   <button
@@ -271,7 +271,7 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-xs font-semibold text-slate-300">Questions from</div>
+              <div className="mb-1.5 text-xs font-semibold text-slate-300">{t('Questions from')}</div>
               <div className="flex gap-1.5">
                 {([['new', 'Resume & job'], ['past', 'My past interviews'], ...(initialQuestions?.length ? [['prep', 'Prep pack']] as const : [])] as const).map(([id, label]) => (
                   <button
@@ -279,26 +279,26 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
                     onClick={() => setSource(id)}
                     className={`rounded-md border px-3 py-1 text-xs ${source === id ? 'border-blue-500 bg-blue-500/10 text-slate-100' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
               {source === 'past' && (
-                <p className="mt-1.5 text-[11px] text-slate-500">Real questions from History, starting with the weak spots from your interview reviews.</p>
+                <p className="mt-1.5 text-[11px] text-slate-500">{t('Real questions from History, starting with the weak spots from your interview reviews.')}</p>
               )}
             </div>
             <label className="flex items-center gap-2 text-xs text-slate-300">
               <input type="checkbox" checked={readAloud} onChange={e => setReadAloud(e.target.checked)} className="accent-blue-500" />
-              Read the questions out loud
+              {t('Read the questions out loud')}
             </label>
-            <Button variant="primary" icon={<Mic className="w-4 h-4" />} onClick={start}>Start</Button>
+            <Button variant="primary" icon={<Mic className="w-4 h-4" />} onClick={start}>{t('Start')}</Button>
           </div>
         )}
 
         {phase === 'preparing' && (
           <div className="flex flex-col items-center gap-2 pt-12 text-center">
             <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-            <p className="text-xs text-slate-400">Preparing your questions...</p>
+            <p className="text-xs text-slate-400">{t('Preparing your questions...')}</p>
           </div>
         )}
 
@@ -306,35 +306,35 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
           <>
             <div className="flex gap-2">
               <p className="flex-1 text-sm font-medium leading-relaxed text-slate-100 select-text">{questions[index]}</p>
-              <IconButton title="Read it again" onClick={() => speak(questions[index])} disabled={phase !== 'answering' && phase !== 'feedback'}>
+              <IconButton title={t('Read it again')} onClick={() => speak(questions[index])} disabled={phase !== 'answering' && phase !== 'feedback'}>
                 <Volume2 className="w-4 h-4" />
               </IconButton>
             </div>
 
-            {phase === 'asking' && <p className="text-xs text-blue-300 animate-pulse">Asking...</p>}
+            {phase === 'asking' && <p className="text-xs text-blue-300 animate-pulse">{t('Asking...')}</p>}
 
             {(phase === 'answering' || phase === 'scoring') && (
               <div className="rounded-lg border border-slate-800 p-3">
                 <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   {isRecording && <span className="h-2 w-2 rounded-full bg-red-500" style={{ opacity: 0.4 + audioLevel * 0.6 }} />}
-                  Your answer
+                  {t('Your answer')}
                 </div>
                 <p className="min-h-[3em] text-xs leading-relaxed text-slate-300 select-text">
-                  {transcript || <span className="text-slate-600">{phase === 'answering' ? 'Start talking...' : ''}</span>}
+                  {transcript || <span className="text-slate-600">{phase === 'answering' ? t('Start talking...') : ''}</span>}
                 </p>
               </div>
             )}
 
             {phase === 'scoring' && (
-              <p className="flex items-center gap-1.5 text-xs text-slate-400"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scoring your answer...</p>
+              <p className="flex items-center gap-1.5 text-xs text-slate-400"><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('Scoring your answer...')}</p>
             )}
 
             {phase === 'feedback' && current && (
               <>
                 {current.answer && (
-                  <p className="text-[11px] leading-relaxed text-slate-500 select-text"><span className="font-semibold">You said: </span>{current.answer}</p>
+                  <p className="text-[11px] leading-relaxed text-slate-500 select-text"><span className="font-semibold">{t('You said: ')}</span>{current.answer}</p>
                 )}
-                {current.feedback ? <Feedback feedback={current.feedback} /> : <p className="text-xs text-slate-500">No score for this one.</p>}
+                {current.feedback ? <Feedback feedback={current.feedback} /> : <p className="text-xs text-slate-500">{t('No score for this one.')}</p>}
                 {current.speaking && current.answer && <Speaking speaking={current.speaking} />}
               </>
             )}
@@ -346,22 +346,22 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
             {scored.length > 0 ? (
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-3xl font-semibold tabular-nums ${scoreColor(averageScore)}`}>{averageScore.toFixed(1)}</span>
-                <span className="text-xs text-slate-500">/ 10 average over {scored.length} {scored.length === 1 ? 'answer' : 'answers'}</span>
+                <span className="text-xs text-slate-500">{scored.length === 1 ? t('/ 10 average over 1 answer') : t('/ 10 average over {n} answers', { n: scored.length })}</span>
               </div>
             ) : (
-              <p className="text-xs text-slate-400">No answers were scored.</p>
+              <p className="text-xs text-slate-400">{t('No answers were scored.')}</p>
             )}
             {answered.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg bg-slate-800/50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Average pace</div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">{t('Average pace')}</div>
                   <div className={`text-sm font-semibold tabular-nums ${paceTone(averagePace === null ? null : Math.round(averagePace))}`}>
-                    {averagePace === null ? '–' : `${Math.round(averagePace)} words / min`}
+                    {averagePace === null ? '–' : t('{n} words / min', { n: Math.round(averagePace) })}
                   </div>
                 </div>
                 <div className="rounded-lg bg-slate-800/50 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Filler words</div>
-                  <div className={`text-sm font-semibold tabular-nums ${totalFillers / answered.length >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{totalFillers} in {answered.length} {answered.length === 1 ? 'answer' : 'answers'}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">{t('Filler words')}</div>
+                  <div className={`text-sm font-semibold tabular-nums ${totalFillers / answered.length >= 3 ? 'text-amber-300' : 'text-emerald-300'}`}>{answered.length === 1 ? t('{fillers} in 1 answer', { fillers: totalFillers }) : t('{fillers} in {n} answers', { fillers: totalFillers, n: answered.length })}</div>
                 </div>
               </div>
             )}
@@ -371,13 +371,13 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
                   <div className="flex items-start gap-2">
                     <span className="min-w-0 flex-1 text-xs text-slate-200">{r.question}</span>
                     <span className={`shrink-0 text-xs font-semibold tabular-nums ${r.feedback ? scoreColor(r.feedback.score) : 'text-slate-600'}`}>
-                      {r.feedback ? r.feedback.score : 'skipped'}
+                      {r.feedback ? r.feedback.score : t('skipped')}
                     </span>
                   </div>
                   {r.feedback?.improve && <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{r.feedback.improve}</p>}
                   {r.speaking && r.answer && (
                     <p className="mt-1 text-[10px] tabular-nums text-slate-500">
-                      {r.speaking.wordsPerMinute ?? '–'} wpm · {r.speaking.fillers} fillers · {formatLength(r.speaking.seconds)}
+                      {t('{wpm} wpm · {fillers} fillers · {length}', { wpm: r.speaking.wordsPerMinute ?? '–', fillers: r.speaking.fillers, length: formatLength(r.speaking.seconds) })}
                     </p>
                   )}
                 </li>
@@ -385,11 +385,11 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
             </ul>
             {saved !== 'no' && (
               <p className="flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
-                {saved === 'saving' && 'Saving to your progress…'}
-                {saved === 'failed' && 'Could not save to your progress.'}
+                {saved === 'saving' && t('Saving to your progress…')}
+                {saved === 'failed' && t('Could not save to your progress.')}
                 {saved === 'yes' && (
-                  <>Saved to your progress.
-                    <button onClick={() => openWebsite('/account/progress')} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300">See it over time <ExternalLink className="h-3 w-3" /></button>
+                  <>{t('Saved to your progress.')}
+                    <button onClick={() => openWebsite('/account/progress')} className="inline-flex items-center gap-0.5 text-blue-400 hover:text-blue-300">{t('See it over time')} <ExternalLink className="h-3 w-3" /></button>
                   </>
                 )}
               </p>
@@ -400,20 +400,20 @@ export const MockInterview: React.FC<Props> = ({ onClose, initialQuestions }) =>
 
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-800 shrink-0">
         {['asking', 'answering', 'scoring', 'feedback'].includes(phase) ? (
-          <Button size="sm" variant="ghost" onClick={endEarly}>End</Button>
+          <Button size="sm" variant="ghost" onClick={endEarly}>{t('End')}</Button>
         ) : <span />}
         <div className="flex gap-2">
           {phase === 'answering' && (
             <>
-              <Button size="sm" variant="ghost" icon={<SkipForward className="w-3.5 h-3.5" />} onClick={skip}>Skip</Button>
-              <Button size="sm" variant="primary" icon={<Square className="w-3.5 h-3.5" />} onClick={finishAnswer}>Done answering</Button>
+              <Button size="sm" variant="ghost" icon={<SkipForward className="w-3.5 h-3.5" />} onClick={skip}>{t('Skip')}</Button>
+              <Button size="sm" variant="primary" icon={<Square className="w-3.5 h-3.5" />} onClick={finishAnswer}>{t('Done answering')}</Button>
             </>
           )}
           {phase === 'feedback' && (
-            <Button size="sm" variant="primary" onClick={next}>{index + 1 < questions.length ? 'Next question' : 'See results'}</Button>
+            <Button size="sm" variant="primary" onClick={next}>{index + 1 < questions.length ? t('Next question') : t('See results')}</Button>
           )}
           {phase === 'summary' && (
-            <Button size="sm" variant="primary" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={() => setPhase('setup')}>Practise again</Button>
+            <Button size="sm" variant="primary" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={() => setPhase('setup')}>{t('Practise again')}</Button>
           )}
         </div>
       </div>

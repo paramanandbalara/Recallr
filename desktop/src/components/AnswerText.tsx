@@ -18,6 +18,7 @@ import php from 'highlight.js/lib/languages/php';
 import ruby from 'highlight.js/lib/languages/ruby';
 import kotlin from 'highlight.js/lib/languages/kotlin';
 import rust from 'highlight.js/lib/languages/rust';
+import { t } from '../i18n';
 
 // Only the languages interview questions usually need, to keep the app small
 const LANGUAGES = { sql, javascript, typescript, python, java, csharp, cpp, go, bash, json, yaml, xml, css, php, ruby, kotlin, rust };
@@ -77,9 +78,9 @@ const CodeBlock: React.FC<{ code: string; language: string }> = ({ code, languag
   return (
     <div className="overflow-hidden rounded-lg border border-slate-700/70 bg-slate-950/70">
       <div className="flex items-center justify-between border-b border-slate-800 px-2.5 py-1">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{language || 'code'}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{language || t('code')}</span>
         <button
-          title="Copy code"
+          title={t('Copy code')}
           onClick={async () => {
             await navigator.clipboard.writeText(code);
             setCopied(true);

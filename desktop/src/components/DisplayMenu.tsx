@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { setUiLanguage, uiLanguage, UI_LANGUAGES } from '../i18n';
 import { loadEnglishStyle, saveEnglishStyle, TEXT_SIZES, WINDOW_SIZES, ZOOMS, type Display, type EnglishStyle, type Layout } from '../services/storage';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
   onClose: () => void;
   onCheck?: () => void; // Open the pre-interview check (not while listening)
   onMock?: () => void;  // Open the mock interview (not while listening)
+  listening?: boolean;  // The app's language can't change while listening (every screen is drawn again)
 }
 
 const isMac = /Mac/i.test(navigator.platform);
@@ -88,7 +90,7 @@ const STYLES: { id: Layout; label: string; title: string; preview: React.ReactNo
 const stepButton = 'p-1 rounded text-slate-400 hover:bg-slate-700 hover:text-slate-100 disabled:opacity-30';
 
 // Display options and shortcuts; changes apply right away
-export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock }) => {
+export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onCheck, onMock, listening }) => {
   const ref = useRef<HTMLDivElement>(null);
   const patch = (changes: Partial<Display>) => onChange({ ...display, ...changes });
   // Answer English: 'broken' adds small everyday slips (applies to the next answer)
@@ -202,6 +204,12 @@ export const DisplayMenu: React.FC<Props> = ({ display, onChange, onClose, onChe
             saveEnglishStyle(style);
           }}
         />
+      </Row>
+
+      <Row label="App language">
+        <div title={listening ? 'Stop listening first' : undefined} className={listening ? 'pointer-events-none opacity-40' : ''}>
+          <Segmented value={uiLanguage()} options={UI_LANGUAGES} onChange={setUiLanguage} />
+        </div>
       </Row>
 
       <Row label="Theme">
