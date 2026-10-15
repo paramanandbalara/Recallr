@@ -194,10 +194,23 @@ describe('panels', () => {
     expect(data.savedAnswers).toEqual([expect.objectContaining({ answer: 'A key to value store.', category: 'CONCEPT' })]);
     expect(JSON.stringify(data)).not.toContain('passwordHash');
 
+    // Newer personal data: WhatsApp number and log, billing details, a daily answer, a practice room
+    const leaving = await db.user.update({ where: { email: 'leaving@example.com' }, data: { phone: '+919876543210', whatsappDaily: true, billingName: 'Leaving Person', gstin: '27AAPFU0939F1ZV' } });
+    const daily = await db.dailyQuestion.create({ data: { date: '2026-01-01', text: 'Tell me about yourself.' } });
+    await db.dailyAnswer.create({ data: { userId: leaving.id, dailyQuestionId: daily.id, answer: 'I build APIs.' } });
+    await db.whatsAppLog.create({ data: { userId: leaving.id, to: '+919876543210', template: 'daily_question', status: 'sent' } });
+    await db.peerRoom.create({ data: { code: 'LEAVE1', hostId: leaving.id, state: '{}', expiresAt: new Date(Date.now() + 3_600_000) } });
+
     expect((await request(app).post('/api/auth/me/delete').set(auth(token)).send({ password: 'wrong' })).status).toBe(400);
     await request(app).post('/api/auth/me/delete').set(auth(token)).send({ password: 'password123' }).expect(200);
     expect(await db.user.findUnique({ where: { email: 'leaving@example.com' } })).toBeNull();
     expect(await db.savedAnswer.count()).toBe(0);
+    const closed = await db.user.findUniqueOrThrow({ where: { id: leaving.id } });
+    expect(closed).toMatchObject({ phone: '', whatsappDaily: false, billingName: '', gstin: '' });
+    expect(await db.dailyAnswer.count({ where: { userId: leaving.id } })).toBe(0);
+    expect(await db.whatsAppLog.count({ where: { userId: leaving.id } })).toBe(0);
+    expect(await db.peerRoom.count({ where: { hostId: leaving.id } })).toBe(0);
+    await db.dailyQuestion.delete({ where: { id: daily.id } });
     expect((await request(app).post('/api/auth/login').send({ email: 'leaving@example.com', password: 'password123' })).status).toBe(401);
     expect((await request(app).post('/api/auth/me/delete').set(auth(admin)).send({ password: 'password123' })).body.error).toMatch(/only admin/);
   });

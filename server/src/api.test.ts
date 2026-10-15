@@ -5,7 +5,7 @@ import { createApp } from './app.js';
 import { db } from './db.js';
 import { razorpaySignature, type RazorpayGateway } from './razorpay.js';
 import { clearSettingsCache, getSettings } from './settings.js';
-import { testOutbox } from './mailer.js';
+import { emailsSent, testOutbox } from './mailer.js';
 import { sendEndingSoonEmails } from './jobs.js';
 import { usageSaved } from './entitlements.js';
 
@@ -50,7 +50,7 @@ const appToken = async (email: string, fingerprint?: string) => {
   return res.body.token as string;
 };
 // Emails are sent after the response; give them a moment
-const settle = () => new Promise(resolve => setTimeout(resolve, 50));
+const settle = async () => { await new Promise(resolve => setTimeout(resolve, 50)); await emailsSent(); }; // Invoice PDFs take a moment
 const sent = (kind: string) => testOutbox.filter(e => e.kind === kind);
 
 let admin: string;
@@ -73,6 +73,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  await emailsSent(); // Nothing from the last test lands in this one's outbox
   testOutbox.length = 0;
   await db.ticket.deleteMany();
   await db.backup.deleteMany();

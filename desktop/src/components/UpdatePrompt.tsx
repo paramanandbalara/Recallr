@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePopupTurn } from '../services/popupQueue';
 import { Download, RotateCw, Sparkles, X } from 'lucide-react';
 import {
   appVersion, canUpdateInApp, downloadUrl, fetchVersionInfo, installUpdate, onUpdateStatus, openUrl, REMIND_LATER_MS, startUpdate, updateToOffer,
@@ -81,9 +82,9 @@ export const UpdatePrompt: React.FC<{ paused: boolean }> = ({ paused }) => {
   };
 
   // Hidden downloads and "Later" keep going quietly; a finished download asks again when not in an interview
-  if (paused || !info) return null;
-  if (phase.step === 'offer' && !latest) return null;
-  if ((phase.step === 'downloading' || phase.step === 'ready') && phase.hidden) return null;
+  const wants = !paused && !!info && !(phase.step === 'offer' && !latest) && !((phase.step === 'downloading' || phase.step === 'ready') && phase.hidden);
+  const turn = usePopupTurn('update', wants);
+  if (!turn || !info) return null;
 
   const version = phase.step === 'ready' ? phase.version : latest ?? info.latest;
   const close = () => {

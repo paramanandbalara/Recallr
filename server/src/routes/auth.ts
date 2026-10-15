@@ -146,10 +146,15 @@ authRoutes.post('/me/delete', requireUser, limiter, route(async (req, res) => {
     db.careerReport.deleteMany({ where: { userId: user.id } }), // The user row is kept (anonymised), so no cascade
     db.userInterview.deleteMany({ where: { userId: user.id } }),
     db.ambassador.deleteMany({ where: { userId: user.id } }),
+    db.dailyAnswer.deleteMany({ where: { userId: user.id } }),
+    db.peerRoom.deleteMany({ where: { hostId: user.id } }),
+    db.whatsAppLog.deleteMany({ where: { userId: user.id } }),
     db.user.update({
       where: { id: user.id },
       data: {
         email: `deleted-${user.id}@deleted.invalid`, name: 'Deleted user', status: 'BLOCKED', referralCode: null, saveAnswers: false, profileSync: false,
+        // Invoices keep their own copy of the billing details (they must be kept), so the account's copy can go
+        weeklyEmail: false, phone: '', whatsappReminders: false, whatsappDaily: false, billingName: '', billingAddress: '', billingState: '', gstin: '',
         passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
       },
     }),

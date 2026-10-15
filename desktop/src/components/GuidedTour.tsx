@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { usePopupTurn } from '../services/popupQueue';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { markTourSeen, placeCard, spotlightRect, TOUR_EVENT, TOUR_MARGIN, TOUR_STEPS, tourSeen, type Rect } from '../services/tour';
 import { t } from '../i18n';
@@ -64,7 +65,7 @@ export const GuidedTour: React.FC<Props> = ({ listening, blocked }) => {
     return () => window.removeEventListener(TOUR_EVENT, replay);
   }, [listening, start]);
 
-  const visible = open && !listening && !blocked;
+  const visible = usePopupTurn('tour', open && !listening && !blocked);
 
   // Find the control, and follow it when the window changes size
   useLayoutEffect(() => {

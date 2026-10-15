@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePopupTurn } from '../services/popupQueue';
 import { ShieldCheck } from 'lucide-react';
 import { fetchAccount, isSignedIn, SIGNED_IN_EVENT } from '../services/account';
 import { setProfileSync } from '../services/profileSync';
@@ -51,7 +52,8 @@ export const ProfileCopyNotice: React.FC<{ paused: boolean }> = ({ paused }) => 
     };
   }, []);
 
-  if (!show || paused) return null;
+  const turn = usePopupTurn('profile-copy', show && !paused);
+  if (!turn) return null;
 
   const close = () => {
     markSeen();

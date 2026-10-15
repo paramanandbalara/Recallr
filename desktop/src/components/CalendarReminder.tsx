@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { usePopupTurn } from '../services/popupQueue';
 import { CalendarClock, ListChecks, Undo2, X } from 'lucide-react';
 import { CALENDAR_EVENT, loadInterviews, nextAction, updateInterview, whenLabel, type CalendarAction, type Interview } from '../services/calendar';
 import { loadActiveProfile, loadProfiles, setActiveProfile } from '../services/storage';
@@ -77,7 +78,8 @@ export const CalendarReminder: React.FC<Props> = ({ paused, onPrep, onProfileCha
     if (!paused) window.dispatchEvent(new Event(CALENDAR_EVENT));
   }, [paused]);
 
-  if (paused) return null;
+  const turn = usePopupTurn('calendar', !paused && (!!switched || action?.kind === 'prep'));
+  if (!turn) return null;
 
   if (switched) {
     const undo = () => {

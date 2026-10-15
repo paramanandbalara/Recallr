@@ -74,6 +74,7 @@ const year = financialYear(new Date());
 beforeAll(async () => { await db.$connect(); });
 
 beforeEach(async () => {
+  await emailsSent(); // Emails still being sent from the last test mustn't land in this one's outbox
   testOutbox.length = 0;
   await db.emailLog.deleteMany();
   await db.auditLog.deleteMany();
@@ -183,7 +184,8 @@ describe('invoices', () => {
     expect(await db.invoice.count()).toBe(1);
     expect(await db.purchase.count({ where: { userId: user.id } })).toBe(1);
     await emailsSent();
-    expect(testOutbox.filter(e => e.kind === 'payment_received')).toHaveLength(1);
+    const invoice = await db.invoice.findFirstOrThrow();
+    expect(testOutbox.filter(e => e.kind === 'payment_received').map(e => e.text.includes(invoice.number))).toEqual([true]);
   });
 
   it('charges GST with a GSTIN: CGST + SGST in the seller’s state, IGST to another state', async () => {
