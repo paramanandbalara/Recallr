@@ -61,6 +61,22 @@ model User {
   profileSync        Boolean              @default(true) @map("profile_sync")
   profiles           UserProfile[]
   blogPosts          BlogPost[]
+  // Billing details for invoices (a GSTIN gets a B2B tax invoice)
+  billingName        String               @default("") @map("billing_name") @db.VarChar(200)
+  billingAddress     String               @default("") @map("billing_address") @db.VarChar(500)
+  billingState       String               @default("") @map("billing_state") @db.VarChar(60) // Indian state, for GST place of supply
+  gstin              String               @default("") @db.VarChar(15)
+  // WhatsApp: number in international form (+91...), and what the user agreed to receive
+  phone              String               @default("") @db.VarChar(20)
+  whatsappReminders  Boolean              @default(false) @map("whatsapp_reminders")
+  whatsappDaily      Boolean              @default(false) @map("whatsapp_daily")
+  invoices           Invoice[]
+  interviews         UserInterview[]
+  dailyAnswers       DailyAnswer[]
+  reports            CareerReport[]
+  ambassador         Ambassador?
+  hostedRooms        PeerRoom[]           @relation("PeerHost")
+  joinedRooms        PeerRoom[]           @relation("PeerGuest")
 
   @@map("users")
 }
@@ -161,6 +177,7 @@ model Payment {
   recordedBy        User?         @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
   coupon            Coupon?       @relation(fields: [couponId], references: [id])
   purchase          Purchase?
+  invoice           Invoice?
 
   @@index([status, createdAt])
   @@map("payments")
@@ -438,6 +455,7 @@ model SavedAnswer {
   questionText String           @map("question_text") @db.VarChar(500)
   category     QuestionCategory @default(OTHER)
   answer       String           @db.Text
+  company      String           @default("") @db.VarChar(200) // The profile's company when it was asked (company question packs)
   source       AnswerSource     @default(AI)
   provider     String           @default("")
   createdAt    DateTime         @default(now()) @map("created_at")
@@ -447,6 +465,7 @@ model SavedAnswer {
 
   @@index([userId, createdAt])
   @@index([userId, category])
+  @@index([company])
   @@map("saved_answers")
 }
 
@@ -607,4 +626,211 @@ enum BlogStatus {
 enum BlogSource {
   ADMIN
   AI
+}
+
+// One invoice per paid payment. A tax invoice (GST) when the business has a GSTIN in Admin → Settings, otherwise a
+// bill. Numbered per Indian financial year (April to March) without gaps.
+model Invoice {
+  id                 String      @id @default(cuid())
+  number             String      @unique @db.VarChar(40)
+  financialYear      String      @map("financial_year") @db.VarChar(9) // e.g. "2026-27"
+  sequence           Int
+  kind               InvoiceKind
+  paymentId          String      @unique @map("payment_id")
+  userId             String      @map("user_id")
+  // Seller and buyer exactly as printed, so later changes to settings or the account don't change old invoices
+  sellerName         String      @map("seller_name") @db.VarChar(200)
+  sellerAddress      String      @default("") @map("seller_address") @db.VarChar(500)
+  sellerState        String      @default("") @map("seller_state") @db.VarChar(60)
+  sellerGstin        String      @default("") @map("seller_gstin") @db.VarChar(15)
+  buyerName          String      @map("buyer_name") @db.VarChar(200)
+  buyerEmail         String      @map("buyer_email") @db.VarChar(254)
+  buyerAddress       String      @default("") @map("buyer_address") @db.VarChar(500)
+  buyerState         String      @default("") @map("buyer_state") @db.VarChar(60)
+  buyerGstin         String      @default("") @map("buyer_gstin") @db.VarChar(15)
+  description        String      @db.VarChar(300)
+  sacCode            String      @default("") @map("sac_code") @db.VarChar(10)
+  totalPaise         Int         @map("total_paise")
+  taxablePaise       Int         @map("taxable_paise")
+  cgstPaise          Int         @default(0) @map("cgst_paise")
+  sgstPaise          Int         @default(0) @map("sgst_paise")
+  igstPaise          Int         @default(0) @map("igst_paise")
+  gstRateBasisPoints Int         @default(0) @map("gst_rate_basis_points") // 1800 = 18%
+  issuedAt           DateTime    @default(now()) @map("issued_at")
+  emailedAt          DateTime?   @map("emailed_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @default(now()) @updatedAt @map("updated_at")
+  payment            Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([financialYear, sequence])
+  @@index([userId, issuedAt])
+  @@map("invoices")
+}
+
+enum InvoiceKind {
+  TAX_INVOICE
+  BILL
+}
+
+// Gap-free counters (invoice numbers per financial year)
+model Counter {
+  key       String   @id @db.VarChar(60)
+  value     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("counters")
+}
+
+// Editable parts of the website (Admin → Website content): hero text, FAQ, user stories... as JSON per block
+model SiteBlock {
+  key       String   @id @db.VarChar(60)
+  data      String   @db.MediumText
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("site_blocks")
+}
+
+// The app's interview calendar, kept on the account (dashboard "Next interview", WhatsApp reminders)
+model UserInterview {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  clientId        String    @map("client_id") @db.VarChar(40)
+  title           String    @db.VarChar(200)
+  startsAt        DateTime  @map("starts_at")
+  profileClientId String    @default("") @map("profile_client_id") @db.VarChar(40)
+  notes           String    @default("") @db.VarChar(1000)
+  remindedDayAt   DateTime? @map("reminded_day_at")
+  remindedSoonAt  DateTime? @map("reminded_soon_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([startsAt])
+  @@map("user_interviews")
+}
+
+// Question of the day (one per date, from the question bank or written by the AI) and the users' answers
+model DailyQuestion {
+  id        String           @id @default(cuid())
+  date      String           @unique @db.VarChar(10) // YYYY-MM-DD, India time
+  text      String           @db.VarChar(500)
+  category  QuestionCategory @default(OTHER)
+  sentAt    DateTime?        @map("sent_at") // WhatsApp messages went out
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+  answers   DailyAnswer[]
+
+  @@map("daily_questions")
+}
+
+model DailyAnswer {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  dailyQuestionId String        @map("daily_question_id")
+  answer          String        @db.Text
+  score           Int? // 0 to 10
+  feedback        String?       @db.Text // JSON from the AI
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at")
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyQuestion   DailyQuestion @relation(fields: [dailyQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dailyQuestionId])
+  @@map("daily_answers")
+}
+
+// Results of the career tools (resume score and ATS check, rewrite for a job, LinkedIn review, cover letter,
+// interviewer insights, salary practice), kept so the user can see them again
+model CareerReport {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  kind      CareerReportKind
+  title     String           @default("") @db.VarChar(200)
+  input     String?          @db.MediumText // What was checked (the resume, job...), for "run again"
+  result    String           @db.MediumText // JSON
+  score     Int?
+  model     String           @default("") @db.VarChar(80)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@map("career_reports")
+}
+
+enum CareerReportKind {
+  RESUME_SCORE
+  RESUME_REWRITE
+  LINKEDIN_REVIEW
+  COVER_LETTER
+  INTERVIEWER_INSIGHTS
+  SALARY_PRACTICE
+}
+
+// College ambassadors: students who bring their classmates, with their own bonus
+model Ambassador {
+  id         String           @id @default(cuid())
+  userId     String           @unique @map("user_id")
+  college    String           @db.VarChar(200)
+  city       String           @default("") @db.VarChar(100)
+  course     String           @default("") @db.VarChar(200)
+  why        String           @default("") @db.VarChar(1000)
+  status     AmbassadorStatus @default(APPLIED)
+  note       String           @default("") @db.VarChar(1000) // Admin's note
+  approvedAt DateTime?        @map("approved_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at")
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("ambassadors")
+}
+
+enum AmbassadorStatus {
+  APPLIED
+  APPROVED
+  REJECTED
+}
+
+// Peer practice: one person interviews another; the candidate's app scores each answer
+model PeerRoom {
+  id        String         @id @default(cuid())
+  code      String         @unique @db.VarChar(12)
+  hostId    String         @map("host_id")
+  guestId   String?        @map("guest_id")
+  status    PeerRoomStatus @default(WAITING)
+  state     String         @db.MediumText // JSON: roles, questions, current question, answers and scores
+  expiresAt DateTime       @map("expires_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at")
+  host      User           @relation("PeerHost", fields: [hostId], references: [id], onDelete: Cascade)
+  guest     User?          @relation("PeerGuest", fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([hostId])
+  @@map("peer_rooms")
+}
+
+enum PeerRoomStatus {
+  WAITING
+  ACTIVE
+  ENDED
+}
+
+// WhatsApp messages sent (reminders, question of the day)
+model WhatsAppLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  to        String   @db.VarChar(20)
+  template  String   @db.VarChar(100)
+  status    String   @db.VarChar(20) // sent, failed, skipped
+  error     String   @default("") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("whatsapp_logs")
 }

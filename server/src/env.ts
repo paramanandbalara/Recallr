@@ -27,6 +27,8 @@ const schema = z.object({
   // Optional: the built website (apps/web/dist) to serve from this server, for a one-server setup
   WEB_DIST: z.string().optional(),
   S3_BUCKET: z.string().optional(),
+  WHATSAPP_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),

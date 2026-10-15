@@ -7,7 +7,7 @@ import { AdminTitle } from './AdminLayout';
 interface Setting {
   key: string;
   label: string;
-  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog';
+  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog' | 'invoices' | 'whatsapp';
   hint: string;
   secret: boolean;
   source: 'database' | 'environment' | 'default' | 'unset';
@@ -36,6 +36,8 @@ const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what
   { id: 'website', title: 'Website', text: 'Shown in the footer, the legal pages, the guide and the Download page.' },
   { id: 'storage', title: 'File storage (S3)', text: 'Copies of users’ profiles and their resume files. Use a private bucket (Block all public access on). Without it, profiles are kept in the database.' },
   { id: 'blog', title: 'Blog', text: 'Posts are written in Admin → Blog. The AI can also draft one post a day.' },
+  { id: 'invoices', title: 'Invoices and GST', text: 'Every confirmed payment gets an invoice, emailed as a PDF and shown under the user’s Billing. With a GSTIN it is a tax invoice with GST; without one, a bill without GST.' },
+  { id: 'whatsapp', title: 'WhatsApp', text: 'Interview reminders and the question of the day, for users who turn them on. Needs the Meta WhatsApp Cloud API and approved message templates. Empty: no WhatsApp messages.' },
 ];
 
 const SOURCE: Record<Setting['source'], { label: string; tone: 'green' | 'blue' | 'slate' | 'amber' }> = {

@@ -7,7 +7,7 @@ import { env } from './env.js';
 
 interface Definition {
   label: string;
-  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog';
+  group: 'ai' | 'razorpay' | 'payments' | 'email' | 'accounts' | 'referrals' | 'app' | 'website' | 'storage' | 'blog' | 'invoices' | 'whatsapp';
   number?: boolean;        // Must be a whole number
   secret?: boolean;        // Encrypted in the database, never sent back in full
   public?: boolean;        // Shown on the website (/api/site)
@@ -53,6 +53,19 @@ export const SETTINGS = {
   s3Endpoint: { label: 'Endpoint (not AWS)', group: 'storage', env: 'S3_ENDPOINT', hint: 'Only for S3-compatible storage such as Cloudflare R2: https://<account>.r2.cloudflarestorage.com' },
   blogAutoPost: { label: 'Daily AI post', group: 'blog', default: 'draft', hint: '"draft": the AI writes one post a day for you to check and publish. "publish": it goes live at once. "off": none.' },
   blogTopics: { label: 'Topics to write about', group: 'blog', default: '', hint: 'One per line (optional). Empty: the AI picks interview topics that haven’t been covered yet.' },
+  sellerLegalName: { label: 'Name on invoices', group: 'invoices', hint: 'Your legal or trade name, e.g. "Recallr (Paramanand Balara)". Empty: the business name.' },
+  sellerAddress: { label: 'Address on invoices', group: 'invoices', hint: 'Your business address, printed on every invoice.' },
+  sellerState: { label: 'Your state', group: 'invoices', default: '', hint: 'e.g. Rajasthan. With a GSTIN: same state as the buyer → CGST + SGST, other state → IGST.' },
+  sellerGstin: { label: 'GSTIN', group: 'invoices', default: '', hint: 'Only if you are registered for GST. Set: every payment gets a tax invoice with GST. Empty: a bill without GST.' },
+  gstRatePercent: { label: 'GST rate (%)', group: 'invoices', number: true, default: '18', hint: 'Used only with a GSTIN. Plan prices already include it.' },
+  sacCode: { label: 'SAC code', group: 'invoices', default: '998431', hint: 'Service code printed on tax invoices. Confirm the right one for your service with your accountant.' },
+  invoicePrefix: { label: 'Invoice number prefix', group: 'invoices', default: 'RCL', hint: 'Invoices are numbered RCL/2026-27/0001, RCL/2026-27/0002...' },
+  whatsappToken: { label: 'WhatsApp access token', group: 'whatsapp', secret: true, env: 'WHATSAPP_TOKEN', hint: 'Meta WhatsApp Cloud API: a permanent system-user token. Empty: no WhatsApp messages.' },
+  whatsappPhoneNumberId: { label: 'Phone number ID', group: 'whatsapp', env: 'WHATSAPP_PHONE_NUMBER_ID', hint: 'From WhatsApp Manager → API setup.' },
+  whatsappTemplateReminder: { label: 'Reminder template name', group: 'whatsapp', default: 'interview_reminder', hint: 'An approved template with 2 variables: {{1}} the interview, {{2}} when.' },
+  whatsappTemplateDaily: { label: 'Question of the day template name', group: 'whatsapp', default: 'daily_question', hint: 'An approved template with 2 variables: {{1}} the question, {{2}} the link to answer it.' },
+  whatsappTemplateLanguage: { label: 'Template language', group: 'whatsapp', default: 'en' },
+  ambassadorBonusMinutes: { label: 'Ambassador bonus (minutes)', group: 'referrals', number: true, default: '60', hint: 'What an approved college ambassador gets for each friend who pays, instead of the normal bonus.' },
 } satisfies Record<string, Definition>;
 
 export type SettingKey = keyof typeof SETTINGS;

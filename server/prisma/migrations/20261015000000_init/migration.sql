@@ -19,6 +19,13 @@ CREATE TABLE `users` (
     `weekly_email` BOOLEAN NOT NULL DEFAULT true,
     `last_weekly_email_at` DATETIME(3) NULL,
     `profile_sync` BOOLEAN NOT NULL DEFAULT true,
+    `billing_name` VARCHAR(200) NOT NULL DEFAULT '',
+    `billing_address` VARCHAR(500) NOT NULL DEFAULT '',
+    `billing_state` VARCHAR(60) NOT NULL DEFAULT '',
+    `gstin` VARCHAR(15) NOT NULL DEFAULT '',
+    `phone` VARCHAR(20) NOT NULL DEFAULT '',
+    `whatsapp_reminders` BOOLEAN NOT NULL DEFAULT false,
+    `whatsapp_daily` BOOLEAN NOT NULL DEFAULT false,
 
     UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_referral_code_key`(`referral_code`),
@@ -340,6 +347,7 @@ CREATE TABLE `saved_answers` (
     `question_text` VARCHAR(500) NOT NULL,
     `category` ENUM('ABOUT_YOU', 'EXPERIENCE', 'CODING', 'SYSTEM_DESIGN', 'CONCEPT', 'OTHER') NOT NULL DEFAULT 'OTHER',
     `answer` TEXT NOT NULL,
+    `company` VARCHAR(200) NOT NULL DEFAULT '',
     `source` ENUM('AI', 'PREPARED') NOT NULL DEFAULT 'AI',
     `provider` VARCHAR(191) NOT NULL DEFAULT '',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -347,6 +355,7 @@ CREATE TABLE `saved_answers` (
 
     INDEX `saved_answers_user_id_created_at_idx`(`user_id`, `created_at`),
     INDEX `saved_answers_user_id_category_idx`(`user_id`, `category`),
+    INDEX `saved_answers_company_idx`(`company`),
     PRIMARY KEY (`id`),
     CONSTRAINT `saved_answers_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT `saved_answers_question_id_fkey` FOREIGN KEY (`question_id`) REFERENCES `questions`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
@@ -449,4 +458,187 @@ CREATE TABLE `blog_posts` (
     INDEX `blog_posts_status_published_at_idx`(`status`, `published_at`),
     PRIMARY KEY (`id`),
     CONSTRAINT `blog_posts_author_id_fkey` FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `invoices` (
+    `id` VARCHAR(191) NOT NULL,
+    `number` VARCHAR(40) NOT NULL,
+    `financial_year` VARCHAR(9) NOT NULL,
+    `sequence` INTEGER NOT NULL,
+    `kind` ENUM('TAX_INVOICE', 'BILL') NOT NULL,
+    `payment_id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `seller_name` VARCHAR(200) NOT NULL,
+    `seller_address` VARCHAR(500) NOT NULL DEFAULT '',
+    `seller_state` VARCHAR(60) NOT NULL DEFAULT '',
+    `seller_gstin` VARCHAR(15) NOT NULL DEFAULT '',
+    `buyer_name` VARCHAR(200) NOT NULL,
+    `buyer_email` VARCHAR(254) NOT NULL,
+    `buyer_address` VARCHAR(500) NOT NULL DEFAULT '',
+    `buyer_state` VARCHAR(60) NOT NULL DEFAULT '',
+    `buyer_gstin` VARCHAR(15) NOT NULL DEFAULT '',
+    `description` VARCHAR(300) NOT NULL,
+    `sac_code` VARCHAR(10) NOT NULL DEFAULT '',
+    `total_paise` INTEGER NOT NULL,
+    `taxable_paise` INTEGER NOT NULL,
+    `cgst_paise` INTEGER NOT NULL DEFAULT 0,
+    `sgst_paise` INTEGER NOT NULL DEFAULT 0,
+    `igst_paise` INTEGER NOT NULL DEFAULT 0,
+    `gst_rate_basis_points` INTEGER NOT NULL DEFAULT 0,
+    `issued_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `emailed_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `invoices_number_key`(`number`),
+    UNIQUE INDEX `invoices_payment_id_key`(`payment_id`),
+    INDEX `invoices_user_id_issued_at_idx`(`user_id`, `issued_at`),
+    UNIQUE INDEX `invoices_financial_year_sequence_key`(`financial_year`, `sequence`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `invoices_payment_id_fkey` FOREIGN KEY (`payment_id`) REFERENCES `payments`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `invoices_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `counters` (
+    `key` VARCHAR(60) NOT NULL,
+    `value` INTEGER NOT NULL DEFAULT 0,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`key`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `site_blocks` (
+    `key` VARCHAR(60) NOT NULL,
+    `data` MEDIUMTEXT NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    PRIMARY KEY (`key`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `user_interviews` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `client_id` VARCHAR(40) NOT NULL,
+    `title` VARCHAR(200) NOT NULL,
+    `starts_at` DATETIME(3) NOT NULL,
+    `profile_client_id` VARCHAR(40) NOT NULL DEFAULT '',
+    `notes` VARCHAR(1000) NOT NULL DEFAULT '',
+    `reminded_day_at` DATETIME(3) NULL,
+    `reminded_soon_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `user_interviews_starts_at_idx`(`starts_at`),
+    UNIQUE INDEX `user_interviews_user_id_client_id_key`(`user_id`, `client_id`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `user_interviews_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `daily_questions` (
+    `id` VARCHAR(191) NOT NULL,
+    `date` VARCHAR(10) NOT NULL,
+    `text` VARCHAR(500) NOT NULL,
+    `category` ENUM('ABOUT_YOU', 'EXPERIENCE', 'CODING', 'SYSTEM_DESIGN', 'CONCEPT', 'OTHER') NOT NULL DEFAULT 'OTHER',
+    `sent_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `daily_questions_date_key`(`date`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `daily_answers` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `daily_question_id` VARCHAR(191) NOT NULL,
+    `answer` TEXT NOT NULL,
+    `score` INTEGER NULL,
+    `feedback` TEXT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `daily_answers_user_id_daily_question_id_key`(`user_id`, `daily_question_id`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `daily_answers_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `daily_answers_daily_question_id_fkey` FOREIGN KEY (`daily_question_id`) REFERENCES `daily_questions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `career_reports` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `kind` ENUM('RESUME_SCORE', 'RESUME_REWRITE', 'LINKEDIN_REVIEW', 'COVER_LETTER', 'INTERVIEWER_INSIGHTS', 'SALARY_PRACTICE') NOT NULL,
+    `title` VARCHAR(200) NOT NULL DEFAULT '',
+    `input` MEDIUMTEXT NULL,
+    `result` MEDIUMTEXT NOT NULL,
+    `score` INTEGER NULL,
+    `model` VARCHAR(80) NOT NULL DEFAULT '',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `career_reports_user_id_kind_created_at_idx`(`user_id`, `kind`, `created_at`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `career_reports_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ambassadors` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NOT NULL,
+    `college` VARCHAR(200) NOT NULL,
+    `city` VARCHAR(100) NOT NULL DEFAULT '',
+    `course` VARCHAR(200) NOT NULL DEFAULT '',
+    `why` VARCHAR(1000) NOT NULL DEFAULT '',
+    `status` ENUM('APPLIED', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'APPLIED',
+    `note` VARCHAR(1000) NOT NULL DEFAULT '',
+    `approved_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `ambassadors_user_id_key`(`user_id`),
+    INDEX `ambassadors_status_idx`(`status`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `ambassadors_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `peer_rooms` (
+    `id` VARCHAR(191) NOT NULL,
+    `code` VARCHAR(12) NOT NULL,
+    `host_id` VARCHAR(191) NOT NULL,
+    `guest_id` VARCHAR(191) NULL,
+    `status` ENUM('WAITING', 'ACTIVE', 'ENDED') NOT NULL DEFAULT 'WAITING',
+    `state` MEDIUMTEXT NOT NULL,
+    `expires_at` DATETIME(3) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `peer_rooms_code_key`(`code`),
+    INDEX `peer_rooms_host_id_idx`(`host_id`),
+    PRIMARY KEY (`id`),
+    CONSTRAINT `peer_rooms_host_id_fkey` FOREIGN KEY (`host_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `peer_rooms_guest_id_fkey` FOREIGN KEY (`guest_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `whatsapp_logs` (
+    `id` VARCHAR(191) NOT NULL,
+    `user_id` VARCHAR(191) NULL,
+    `to` VARCHAR(20) NOT NULL,
+    `template` VARCHAR(100) NOT NULL,
+    `status` VARCHAR(20) NOT NULL,
+    `error` VARCHAR(1000) NOT NULL DEFAULT '',
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    INDEX `whatsapp_logs_created_at_idx`(`created_at`),
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
