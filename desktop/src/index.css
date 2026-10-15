@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+:root {
+  background-color: transparent;
+  /* Set from the display options */
+  --answer-size: 14px;
+  --bg-opacity: 0.97;
+  --text-opacity: 1;
+}
+
+/* Light theme: the components are styled for dark, so the slate scale is flipped and the light accent shades
+   used for text are darkened. Soft rather than stark: warm off-white surfaces, low-contrast borders and deep
+   slate (not black) text, every text shade at least 4.5:1 on the window (WCAG AA). Mid shades (500/600, used
+   for buttons) stay as they are. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Text, strongest to faintest */
+  --color-slate-50: oklch(25.5% 0.03 262);
+  --color-slate-100: oklch(29% 0.03 262);
+  --color-slate-200: oklch(34% 0.03 260);
+  --color-slate-300: oklch(40.5% 0.03 258);
+  --color-slate-400: oklch(48.5% 0.027 257);
+  --color-slate-500: oklch(50.5% 0.03 257);
+  --color-slate-600: oklch(57% 0.024 256);
+  /* Borders and surfaces, warm */
+  --color-slate-700: oklch(88.5% 0.008 80);
+  --color-slate-800: oklch(93.4% 0.006 80);
+  --color-slate-900: oklch(97.6% 0.0045 80);
+  --color-slate-950: oklch(99.4% 0.002 80);
+
+  --color-blue-100: oklch(37% 0.12 264);
+  --color-blue-200: oklch(42% 0.15 264);
+  --color-blue-300: oklch(47% 0.18 264);
+  --color-blue-400: oklch(52% 0.2 263);
+  --color-blue-900: oklch(87% 0.04 255);
+  --color-blue-950: oklch(96.4% 0.017 255);
+  --color-sky-300: oklch(49% 0.11 242);
+  --color-sky-400: oklch(51.5% 0.12 240);
+  --color-emerald-100: oklch(36% 0.07 165);
+  --color-emerald-200: oklch(42% 0.09 165);
+  --color-emerald-300: oklch(48.5% 0.1 165);
+  --color-emerald-400: oklch(51% 0.11 163);
+  --color-amber-100: oklch(38% 0.08 55);
+  --color-amber-200: oklch(43% 0.1 55);
+  --color-amber-300: oklch(51% 0.13 55);
+  --color-amber-400: oklch(54% 0.13 58);
+  --color-amber-900: oklch(87% 0.05 80);
+  --color-amber-950: oklch(97% 0.022 85);
+  --color-violet-300: oklch(49% 0.2 293);
+  --color-red-100: oklch(38% 0.12 25);
+  --color-red-200: oklch(46% 0.17 26);
+  --color-red-300: oklch(52% 0.19 27);
+  --color-red-400: oklch(54% 0.2 27);
+  --color-red-900: oklch(88% 0.05 18);
+  --color-red-950: oklch(97% 0.014 17);
+}
+:root[data-theme="light"] body {
+  border-color: rgba(15, 23, 42, 0.1);
+}
+/* Native pickers (date, select) follow the theme, even where a field asks for dark */
+:root[data-theme="light"] input,
+:root[data-theme="light"] select { color-scheme: light; }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.3); }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.5); }
+:root[data-theme="light"] ::selection { background: oklch(88% 0.06 260); }
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: flex-start;
+  min-height: 100vh;
+  background-color: oklch(from var(--color-slate-900) l c h / var(--bg-opacity)); /* Window background, see-through as set in Display */
+  color: var(--color-slate-50);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Text and controls of the main window fade on their own, separately from the background */
+.fade-with-text {
+  opacity: var(--text-opacity);
+}
+
+/* Code in answers: a light touch of colour, readable in both themes */
+.code-block .hljs-keyword,
+.code-block .hljs-built_in,
+.code-block .hljs-literal { color: var(--color-sky-300); }
+.code-block .hljs-string,
+.code-block .hljs-regexp { color: var(--color-emerald-300); }
+.code-block .hljs-number { color: var(--color-amber-300); }
+.code-block .hljs-comment { color: var(--color-slate-500); font-style: italic; }
+.code-block .hljs-title,
+.code-block .hljs-function,
+.code-block .hljs-type,
+.code-block .hljs-class { color: var(--color-violet-300); }
+.code-block .hljs-attr,
+.code-block .hljs-attribute,
+.code-block .hljs-variable,
+.code-block .hljs-params { color: var(--color-slate-300); }
+
+/* One cursor everywhere: the normal arrow. Over buttons, text being selected, inputs, links and the resize edges it
+   stays the same, so nothing on a shared screen shows the window is there or what is being done in it. */
+*,
+*::before,
+*::after {
+  cursor: default !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.6); /* slate-700/60 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.8); /* slate-600/80 */
+}
+
+/* ---------- Motion: quick and small, so it never gets in the way during an interview.
+   All of it is off when the computer asks for reduced motion. ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .panel-in { animation: panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .menu-in { animation: menu-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: top right; }
+  .dialog-in { animation: dialog-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .backdrop-in { animation: fade-in 0.2s ease-out; }
+  .turn-in { animation: turn-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .list-in { animation: turn-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .notice-in { animation: notice-in 0.25s ease-out; }
+  .fade-in { animation: fade-in 0.3s ease-out; }
+  .listening-ring { position: relative; }
+  .listening-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+    animation: listening-ring 1.8s ease-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes panel-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes menu-in { from { opacity: 0; transform: scale(0.96) translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(0.95) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes turn-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes notice-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes listening-ring { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70%, 100% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } }
+
+/* ---------- Window styles (Display → Style) ---------- */
+
+/* Compact: less chrome, latest answer only */
+:root[data-layout="compact"] .compact-hide,
+:root[data-layout="teleprompter"] .compact-hide { display: none; }
+:root[data-layout="compact"] .answer-text { line-height: 1.5; }
+
+/* Teleprompter: large answer text to read from, extras only on hover */
+:root[data-layout="teleprompter"] .answer-text { font-size: calc(var(--answer-size) * 1.35) !important; line-height: 1.55; }
+:root[data-layout="teleprompter"] .prompter-hover { opacity: 0; transition: opacity 0.2s; }
+:root[data-layout="teleprompter"] .group:hover .prompter-hover { opacity: 1; }
+
+/* Glass: see-through, rounder and lighter; the system blurs what's behind (macOS vibrancy, Windows acrylic) */
+:root[data-layout="glass"] body {
+  background-color: oklch(from var(--color-slate-900) l c h / calc(var(--bg-opacity) * 0.55));
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+:root[data-layout="glass"] .border-slate-800 { border-color: rgba(255, 255, 255, 0.08); }
+:root[data-theme="light"][data-layout="glass"] body {
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+:root[data-theme="light"][data-layout="glass"] .border-slate-800 { border-color: rgba(15, 23, 42, 0.07); }
+
+/* ---------- First-run tour (components/GuidedTour.tsx) ---------- */
+.tour-in { border-radius: 12px; overflow: hidden; }
+:root[data-layout="glass"] .tour-in { border-radius: 18px; }
+.tour-spot { box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.58); }
+.tour-shade { background: rgba(2, 6, 23, 0.58); }
+:root[data-theme="light"] .tour-spot { box-shadow: 0 0 0 9999px rgba(30, 41, 59, 0.34); }
+:root[data-theme="light"] .tour-shade { background: rgba(30, 41, 59, 0.34); }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-in { animation: fade-in 0.25s ease-out; }
+  .tour-spot { transition: left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .tour-card { animation: dialog-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); transition: left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .tour-step-in { animation: fade-in 0.22s ease-out; }
+  .tour-dot { transition: width 0.3s ease, background-color 0.3s ease; }
+}

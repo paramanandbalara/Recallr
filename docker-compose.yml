@@ -1,0 +1,34 @@
+# Everything on one machine: MySQL and the Recallr server (with the website).
+#   cp server/.env.example server/.env   # fill in JWT_SECRET, AI keys, Razorpay...
+#   docker compose up --build
+# Then open http://localhost:4000 and run the seed once:
+#   docker compose exec app npm run db:seed:prod
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: recallr
+      MYSQL_USER: recallr
+      MYSQL_PASSWORD: recallr-password
+      MYSQL_ROOT_PASSWORD: recallr-root-password
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build: .
+    env_file: server/.env
+    environment:
+      DATABASE_URL: mysql://recallr:recallr-password@db:3306/recallr
+      WEB_ORIGIN: http://localhost:4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

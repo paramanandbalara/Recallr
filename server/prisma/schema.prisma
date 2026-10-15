@@ -1,0 +1,942 @@
+// Recallr accounts, plans, payments and usage. MySQL locally, Amazon RDS (MySQL) in production.
+// In MySQL, tables and columns are snake_case (users.created_at); in code they stay camelCase (user.createdAt) through
+// @map / @@map. Every table has created_at and updated_at.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+model User {
+  id                 String                @id @default(cuid())
+  email              String                @unique
+  name               String
+  passwordHash       String                @map("password_hash")
+  role               Role                  @default(USER)
+  status             UserStatus            @default(ACTIVE)
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt         DateTime?             @map("last_seen_at")
+  // Referrals: everyone gets a code to share; the person who invited this user, and when both got their bonus
+  referralCode       String?               @unique @map("referral_code")
+  referredById       String?               @map("referred_by_id")
+  referralRewardedAt DateTime?             @map("referral_rewarded_at")
+  referredBy         User?                 @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals          User[]                @relation("Referrals")
+  purchases          Purchase[]
+  payments           Payment[]             @relation("PaymentUser")
+  recorded           Payment[]             @relation("PaymentRecordedBy")
+  usage              UsageEvent[]
+  auditLogs          AuditLog[]
+  devices            Device[]
+  passwordResets     PasswordReset[]
+  emails             EmailLog[]
+  backup             Backup?
+  tickets            Ticket[]
+  ticketMessages     TicketMessage[]
+  // Keep the questions and answers from the app's interviews on the account (the user can turn it off)
+  saveAnswers        Boolean               @default(true) @map("save_answers")
+  // The Monday email with practice progress and one tip (the user can turn it off)
+  weeklyEmail        Boolean               @default(true) @map("weekly_email")
+  lastWeeklyEmailAt  DateTime?             @map("last_weekly_email_at")
+  savedAnswers       SavedAnswer[]
+  practiceSessions   PracticeSession[]
+  memberships        OrganizationMember[]
+  // Keep a copy of the app's profiles (resume, job, notes, answers) on the account (the user can turn it off)
+  profileSync        Boolean               @default(true) @map("profile_sync")
+  profiles           UserProfile[]
+  blogPosts          BlogPost[]
+  // Billing details for invoices (a GSTIN gets a B2B tax invoice)
+  billingName        String                @default("") @map("billing_name") @db.VarChar(200)
+  billingAddress     String                @default("") @map("billing_address") @db.VarChar(500)
+  billingState       String                @default("") @map("billing_state") @db.VarChar(60) // Indian state, for GST place of supply
+  gstin              String                @default("") @db.VarChar(15)
+  // WhatsApp: number in international form (+91...), and what the user agreed to receive
+  phone              String                @default("") @db.VarChar(20)
+  whatsappReminders  Boolean               @default(false) @map("whatsapp_reminders")
+  whatsappDaily      Boolean               @default(false) @map("whatsapp_daily")
+  // Offers and news by email from the admin (bulk emails); the user can turn it off
+  marketingEmails    Boolean               @default(true) @map("marketing_emails")
+  experiences        InterviewExperience[]
+  salaryPoints       SalaryDataPoint[]
+  invoices           Invoice[]
+  interviews         UserInterview[]
+  dailyAnswers       DailyAnswer[]
+  reports            CareerReport[]
+  ambassador         Ambassador?
+  hostedRooms        PeerRoom[]            @relation("PeerHost")
+  joinedRooms        PeerRoom[]            @relation("PeerGuest")
+
+  @@map("users")
+}
+
+// A pack the admin sells: price, how long it lasts, and what it allows
+model Plan {
+  id               String     @id @default(cuid())
+  name             String
+  description      String     @default("") @db.VarChar(1000)
+  pricePaise       Int        @map("price_paise") // Price in paise (₹1 = 100)
+  durationDays     Int        @map("duration_days")
+  listeningMinutes Int?       @map("listening_minutes") // Audio that can be transcribed; null = unlimited
+  tokenLimit       Int?       @map("token_limit") // AI tokens (in + out); null = unlimited
+  active           Boolean    @default(true) // Shown on the website and can be bought
+  isTrial          Boolean    @default(false) @map("is_trial") // The free trial: given once to every new account, never sold
+  sortOrder        Int        @default(0) @map("sort_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
+  purchases        Purchase[]
+  payments         Payment[]
+
+  @@map("plans")
+}
+
+enum PurchaseSource {
+  RAZORPAY
+  OFFLINE
+  ADMIN_GRANT
+  TRIAL
+  REFERRAL
+  COUPON
+  ORGANIZATION // A seat from a college or bootcamp
+}
+
+// One bought (or granted) pack, with its own allowance and what's been used of it.
+// The plan's limits are copied in, so editing a plan never changes packs already sold.
+model Purchase {
+  id               String         @id @default(cuid())
+  userId           String         @map("user_id")
+  planId           String?        @map("plan_id") // Empty for packs not from a plan (referral bonus)
+  planName         String         @map("plan_name")
+  startsAt         DateTime       @default(now()) @map("starts_at")
+  expiresAt        DateTime       @map("expires_at")
+  listeningMinutes Int?           @map("listening_minutes")
+  tokenLimit       Int?           @map("token_limit")
+  usedSeconds      Float          @default(0) @map("used_seconds")
+  usedTokens       Int            @default(0) @map("used_tokens")
+  source           PurchaseSource
+  paymentId        String?        @unique @map("payment_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @default(now()) @updatedAt @map("updated_at")
+  notifiedEnding   Boolean        @default(false) @map("notified_ending") // "Ends in 2 days" email sent
+  notifiedLow      Boolean        @default(false) @map("notified_low") // "Listening time almost used" email sent
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             Plan?          @relation(fields: [planId], references: [id])
+  payment          Payment?       @relation(fields: [paymentId], references: [id])
+  organizationId   String?        @map("organization_id") // For a seat from a college or bootcamp
+  organization     Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, expiresAt])
+  @@map("purchases")
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  OFFLINE
+  COUPON // Free with a 100% coupon
+}
+
+enum PaymentStatus {
+  CREATED // Razorpay order made, not paid yet
+  PENDING // Offline payment reported by the user, waiting for the admin
+  PAID
+  FAILED
+  REJECTED // Offline payment the admin couldn't confirm
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String        @map("user_id")
+  planId            String        @map("plan_id")
+  amountPaise       Int           @map("amount_paise") // What the user pays, after any coupon
+  discountPaise     Int           @default(0) @map("discount_paise")
+  couponId          String?       @map("coupon_id")
+  currency          String        @default("INR")
+  method            PaymentMethod
+  status            PaymentStatus
+  razorpayOrderId   String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+  reference         String? // Offline: UPI / bank reference given by the user or admin
+  note              String?       @db.Text
+  recordedById      String?       @map("recorded_by_id") // Admin who confirmed an offline payment
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at")
+  paidAt            DateTime?     @map("paid_at")
+  user              User          @relation("PaymentUser", fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan          @relation(fields: [planId], references: [id])
+  recordedBy        User?         @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+  purchase          Purchase?
+  invoice           Invoice?
+
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+enum UsageKind {
+  CHAT
+  TRANSCRIBE
+}
+
+model UsageEvent {
+  id           BigInt    @id @default(autoincrement())
+  userId       String    @map("user_id")
+  purchaseId   String?   @map("purchase_id")
+  kind         UsageKind
+  provider     String
+  model        String
+  inputTokens  Int       @default(0) @map("input_tokens")
+  outputTokens Int       @default(0) @map("output_tokens")
+  audioSeconds Float     @default(0) @map("audio_seconds")
+  latencyMs    Int?      @map("latency_ms") // Time to the first words of an answer
+  feature      String    @default("") @db.VarChar(40) // What it was for: answer, screen, mock, prep, career, daily... (AI cost per feature)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([feature, createdAt])
+  @@map("usage_events")
+}
+
+// Settings the admin changes in the admin panel: AI and Razorpay keys, payment details, website info.
+// Secrets are encrypted (AES-256-GCM) with ENCRYPTION_KEY before they're stored.
+model Setting {
+  key         String   @id
+  value       String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id")
+
+  @@map("settings")
+}
+
+// What admins did: approvals, blocks, plan and settings changes
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  actorId   String?  @map("actor_id")
+  action    String // e.g. "payment.approve", "settings.update"
+  target    String? // What it was done to, e.g. a user's email or a plan's name
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------- Coupons ----------
+
+enum CouponKind {
+  PERCENT // amount = percent off (1–100)
+  FIXED // amount = paise off
+}
+
+model Coupon {
+  id         String     @id @default(cuid())
+  code       String     @unique // Stored in capitals
+  kind       CouponKind
+  amount     Int
+  maxUses    Int?       @map("max_uses") // In total; null = no limit
+  usedCount  Int        @default(0) @map("used_count")
+  onePerUser Boolean    @default(true) @map("one_per_user")
+  planIds    Json?      @map("plan_ids") // Plans it works for; null = all
+  expiresAt  DateTime?  @map("expires_at")
+  active     Boolean    @default(true)
+  note       String     @default("")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
+  payments   Payment[]
+
+  @@map("coupons")
+}
+
+// ---------- Devices and trials ----------
+
+// A computer the desktop app is signed in on. Its id is in the app's sign-in token, so removing it signs that computer out.
+model Device {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  fingerprint String // Hash of the computer's identity, made by the app
+  name        String // e.g. "Paramanand's MacBook Pro"
+  platform    String
+  appVersion  String    @default("") @map("app_version")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  revokedAt   DateTime? @map("revoked_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
+  @@map("devices")
+}
+
+// Each computer gets one free trial, whatever account signs in on it
+model TrialClaim {
+  fingerprint String   @id
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("trial_claims")
+}
+
+// ---------- Email ----------
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash") // SHA-256 of the token in the emailed link
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED // Email isn't set up yet
+}
+
+model EmailLog {
+  id        BigInt      @id @default(autoincrement())
+  userId    String?     @map("user_id")
+  to        String
+  kind      String // e.g. "welcome", "payment_received"
+  subject   String
+  status    EmailStatus
+  error     String?     @db.Text
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at")
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+// ---------- Announcements ----------
+
+enum AnnouncementLevel {
+  INFO
+  WARNING
+}
+
+enum Audience {
+  ALL
+  DESKTOP
+  WEBSITE
+}
+
+model Announcement {
+  id        String            @id @default(cuid())
+  title     String
+  body      String            @db.Text
+  level     AnnouncementLevel @default(INFO)
+  audience  Audience          @default(ALL)
+  active    Boolean           @default(true)
+  startsAt  DateTime          @default(now()) @map("starts_at")
+  endsAt    DateTime?         @map("ends_at")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  @@map("announcements")
+}
+
+// ---------- Cloud backup ----------
+
+// One backup per user: the desktop app's profiles, answers and history, encrypted
+model Backup {
+  userId     String   @id @map("user_id")
+  data       String   @db.LongText
+  sizeBytes  Int      @map("size_bytes")
+  deviceName String   @default("") @map("device_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("backups")
+}
+
+// ---------- Support ----------
+
+enum TicketStatus {
+  OPEN // Waiting for us
+  ANSWERED // Waiting for the user
+  CLOSED
+}
+
+model Ticket {
+  id        String          @id @default(cuid())
+  userId    String          @map("user_id")
+  subject   String
+  status    TicketStatus    @default(OPEN)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @default(now()) @updatedAt @map("updated_at")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  TicketMessage[]
+
+  @@index([status, updatedAt])
+  @@index([userId, updatedAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String   @map("ticket_id")
+  authorId  String?  @map("author_id")
+  fromAdmin Boolean  @map("from_admin")
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@map("ticket_messages")
+}
+
+// ---------- Question bank ----------
+
+// The kind of question, as the app tags it
+enum QuestionCategory {
+  ABOUT_YOU
+  EXPERIENCE
+  CODING
+  SYSTEM_DESIGN
+  CONCEPT
+  OTHER
+}
+
+// Every interview question the app has heard, once each (no user attached), with how often it comes up.
+// Admins can publish one on the website with a general guide on how to answer it.
+model Question {
+  id          String           @id @default(cuid())
+  text        String           @db.VarChar(500)
+  textHash    String           @unique @map("text_hash") // SHA-256 of the text in lower case, without punctuation
+  category    QuestionCategory @default(OTHER)
+  timesAsked  Int              @default(1) @map("times_asked")
+  lastAskedAt DateTime         @default(now()) @map("last_asked_at")
+  published   Boolean          @default(false) // On the website's question pages
+  slug        String?          @unique // Its address on the website
+  guide       String?          @db.Text // How to answer it, for everyone (no one's personal details)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
+  answers     SavedAnswer[]
+
+  @@index([category, published])
+  @@index([timesAsked])
+  @@map("questions")
+}
+
+enum AnswerSource {
+  AI
+  PREPARED
+}
+
+// A user's own answer to a question, kept on their account (private to them)
+model SavedAnswer {
+  id           String           @id @default(cuid())
+  userId       String           @map("user_id")
+  questionId   String?          @map("question_id") // In the bank (the user's copy stays if it's removed there)
+  questionText String           @map("question_text") @db.VarChar(500)
+  category     QuestionCategory @default(OTHER)
+  answer       String           @db.Text
+  company      String           @default("") @db.VarChar(200) // The profile's company when it was asked (company question packs)
+  source       AnswerSource     @default(AI)
+  provider     String           @default("")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question     Question?        @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, category])
+  @@index([company])
+  @@map("saved_answers")
+}
+
+// ---------- Practice ----------
+
+// One mock interview: scores and speaking feedback (no recordings)
+model PracticeSession {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  role             String   @default("") // The job practised for
+  questionCount    Int      @map("question_count")
+  averageScore     Float?   @map("average_score") // Out of 10
+  wordsPerMinute   Float?   @map("words_per_minute")
+  fillersPerMinute Float?   @map("fillers_per_minute")
+  details          Json? // Per answer: question, score, pace, fillers, length
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("practice_sessions")
+}
+
+// ---------- Colleges and bootcamps ----------
+
+enum OrganizationKind {
+  COLLEGE
+  BOOTCAMP
+  COMPANY
+  OTHER
+}
+
+// A college, bootcamp or company that buys seats for its students. Each student who joins with the
+// invite link gets the member pack; coaches see their students' practice progress.
+model Organization {
+  id            String               @id @default(cuid())
+  name          String
+  kind          OrganizationKind     @default(COLLEGE)
+  seats         Int // Students who can join
+  memberMinutes Int?                 @map("member_minutes") // Listening per student; null = unlimited
+  memberTokens  Int?                 @map("member_tokens")
+  memberDays    Int                  @default(90) @map("member_days") // How long a student's pack lasts
+  inviteCode    String               @unique @map("invite_code")
+  active        Boolean              @default(true)
+  expiresAt     DateTime?            @map("expires_at") // No new students after this
+  contactEmail  String               @default("") @map("contact_email")
+  notes         String               @default("") @db.VarChar(2000)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @default(now()) @updatedAt @map("updated_at")
+  members       OrganizationMember[]
+  purchases     Purchase[]
+
+  @@map("organizations")
+}
+
+enum OrganizationRole {
+  COACH
+  STUDENT
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  role           OrganizationRole @default(STUDENT)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// "Plans for colleges and bootcamps" requests from the website
+model Enquiry {
+  id           String        @id @default(cuid())
+  name         String
+  email        String
+  phone        String        @default("")
+  organization String
+  size         Int? // Number of students
+  message      String        @default("") @db.VarChar(2000)
+  status       EnquiryStatus @default(NEW)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("enquiries")
+}
+
+// A copy of one of the app's profiles, kept on the account. The searchable details are in columns; the whole profile
+// (resume text, job, notes, answers, stories) is encrypted, in `data` or in S3 under `storageKey`.
+model UserProfile {
+  id             String      @id @default(cuid())
+  userId         String      @map("user_id")
+  clientId       String      @map("client_id") @db.VarChar(40) // The profile's id in the app
+  name           String      @db.VarChar(120)
+  company        String      @default("") @db.VarChar(200)
+  jobTitle       String      @default("") @map("job_title") @db.VarChar(200)
+  resumeFileName String      @default("") @map("resume_file_name") @db.VarChar(255)
+  resumeChars    Int         @default(0) @map("resume_chars")
+  answersCount   Int         @default(0) @map("answers_count")
+  storiesCount   Int         @default(0) @map("stories_count")
+  storage        StorageKind @default(DATABASE)
+  data           String?     @db.LongText
+  storageKey     String?     @map("storage_key") @db.VarChar(300)
+  sizeBytes      Int         @default(0) @map("size_bytes")
+  // The original resume file (PDF / Word), in S3 only
+  resumeFileKey  String?     @map("resume_file_key") @db.VarChar(300)
+  resumeFileType String?     @map("resume_file_type") @db.VarChar(100)
+  deviceName     String      @default("") @map("device_name") @db.VarChar(100)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at")
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@map("user_profiles")
+}
+
+enum StorageKind {
+  DATABASE
+  S3
+}
+
+// Posts on the website's blog: written by an admin, or drafted by the AI each day
+model BlogPost {
+  id          String     @id @default(cuid())
+  slug        String     @unique @db.VarChar(120)
+  title       String     @db.VarChar(200)
+  summary     String     @default("") @db.VarChar(400)
+  body        String     @db.MediumText // Markdown-like: "## " headings, "- " lists, paragraphs
+  tags        String     @default("") @db.VarChar(300) // Comma-separated
+  status      BlogStatus @default(DRAFT)
+  source      BlogSource @default(ADMIN)
+  authorId    String?    @map("author_id")
+  publishedAt DateTime?  @map("published_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at")
+  author      User?      @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("blog_posts")
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum BlogSource {
+  ADMIN
+  AI
+}
+
+// One invoice per paid payment. A tax invoice (GST) when the business has a GSTIN in Admin → Settings, otherwise a
+// bill. Numbered per Indian financial year (April to March) without gaps.
+model Invoice {
+  id                 String      @id @default(cuid())
+  number             String      @unique @db.VarChar(40)
+  financialYear      String      @map("financial_year") @db.VarChar(9) // e.g. "2026-27"
+  sequence           Int
+  kind               InvoiceKind
+  paymentId          String      @unique @map("payment_id")
+  userId             String      @map("user_id")
+  // Seller and buyer exactly as printed, so later changes to settings or the account don't change old invoices
+  sellerName         String      @map("seller_name") @db.VarChar(200)
+  sellerAddress      String      @default("") @map("seller_address") @db.VarChar(500)
+  sellerState        String      @default("") @map("seller_state") @db.VarChar(60)
+  sellerGstin        String      @default("") @map("seller_gstin") @db.VarChar(15)
+  buyerName          String      @map("buyer_name") @db.VarChar(200)
+  buyerEmail         String      @map("buyer_email") @db.VarChar(254)
+  buyerAddress       String      @default("") @map("buyer_address") @db.VarChar(500)
+  buyerState         String      @default("") @map("buyer_state") @db.VarChar(60)
+  buyerGstin         String      @default("") @map("buyer_gstin") @db.VarChar(15)
+  description        String      @db.VarChar(300)
+  sacCode            String      @default("") @map("sac_code") @db.VarChar(10)
+  totalPaise         Int         @map("total_paise")
+  taxablePaise       Int         @map("taxable_paise")
+  cgstPaise          Int         @default(0) @map("cgst_paise")
+  sgstPaise          Int         @default(0) @map("sgst_paise")
+  igstPaise          Int         @default(0) @map("igst_paise")
+  gstRateBasisPoints Int         @default(0) @map("gst_rate_basis_points") // 1800 = 18%
+  issuedAt           DateTime    @default(now()) @map("issued_at")
+  emailedAt          DateTime?   @map("emailed_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @default(now()) @updatedAt @map("updated_at")
+  payment            Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([financialYear, sequence])
+  @@index([userId, issuedAt])
+  @@map("invoices")
+}
+
+enum InvoiceKind {
+  TAX_INVOICE
+  BILL
+}
+
+// Gap-free counters (invoice numbers per financial year)
+model Counter {
+  key       String   @id @db.VarChar(60)
+  value     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("counters")
+}
+
+// Editable parts of the website (Admin → Website content): hero text, FAQ, user stories... as JSON per block
+model SiteBlock {
+  key       String   @id @db.VarChar(60)
+  data      String   @db.MediumText
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("site_blocks")
+}
+
+// The app's interview calendar, kept on the account (dashboard "Next interview", WhatsApp reminders)
+model UserInterview {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  clientId        String    @map("client_id") @db.VarChar(40)
+  title           String    @db.VarChar(200)
+  startsAt        DateTime  @map("starts_at")
+  profileClientId String    @default("") @map("profile_client_id") @db.VarChar(40)
+  notes           String    @default("") @db.VarChar(1000)
+  remindedDayAt   DateTime? @map("reminded_day_at")
+  remindedSoonAt  DateTime? @map("reminded_soon_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clientId])
+  @@index([startsAt])
+  @@map("user_interviews")
+}
+
+// Question of the day (one per date, from the question bank or written by the AI) and the users' answers
+model DailyQuestion {
+  id        String           @id @default(cuid())
+  date      String           @unique @db.VarChar(10) // YYYY-MM-DD, India time
+  text      String           @db.VarChar(500)
+  category  QuestionCategory @default(OTHER)
+  sentAt    DateTime?        @map("sent_at") // WhatsApp messages went out
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+  answers   DailyAnswer[]
+
+  @@map("daily_questions")
+}
+
+model DailyAnswer {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  dailyQuestionId String        @map("daily_question_id")
+  answer          String        @db.Text
+  score           Int? // 0 to 10
+  feedback        String?       @db.Text // JSON from the AI
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at")
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyQuestion   DailyQuestion @relation(fields: [dailyQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dailyQuestionId])
+  @@map("daily_answers")
+}
+
+// Results of the career tools (resume score and ATS check, rewrite for a job, LinkedIn review, cover letter,
+// interviewer insights, salary practice), kept so the user can see them again
+model CareerReport {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  kind      CareerReportKind
+  title     String           @default("") @db.VarChar(200)
+  input     String?          @db.MediumText // What was checked (the resume, job...), for "run again"
+  result    String           @db.MediumText // JSON
+  score     Int?
+  model     String           @default("") @db.VarChar(80)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@map("career_reports")
+}
+
+enum CareerReportKind {
+  RESUME_SCORE
+  RESUME_REWRITE
+  LINKEDIN_REVIEW
+  COVER_LETTER
+  INTERVIEWER_INSIGHTS
+  SALARY_PRACTICE
+}
+
+// College ambassadors: students who bring their classmates, with their own bonus
+model Ambassador {
+  id         String           @id @default(cuid())
+  userId     String           @unique @map("user_id")
+  college    String           @db.VarChar(200)
+  city       String           @default("") @db.VarChar(100)
+  course     String           @default("") @db.VarChar(200)
+  why        String           @default("") @db.VarChar(1000)
+  status     AmbassadorStatus @default(APPLIED)
+  note       String           @default("") @db.VarChar(1000) // Admin's note
+  approvedAt DateTime?        @map("approved_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @default(now()) @updatedAt @map("updated_at")
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("ambassadors")
+}
+
+enum AmbassadorStatus {
+  APPLIED
+  APPROVED
+  REJECTED
+}
+
+// Peer practice: one person interviews another; the candidate's app scores each answer
+model PeerRoom {
+  id        String         @id @default(cuid())
+  code      String         @unique @db.VarChar(12)
+  hostId    String         @map("host_id")
+  guestId   String?        @map("guest_id")
+  status    PeerRoomStatus @default(WAITING)
+  state     String         @db.MediumText // JSON: roles, questions, current question, answers and scores
+  expiresAt DateTime       @map("expires_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @default(now()) @updatedAt @map("updated_at")
+  host      User           @relation("PeerHost", fields: [hostId], references: [id], onDelete: Cascade)
+  guest     User?          @relation("PeerGuest", fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([hostId])
+  @@map("peer_rooms")
+}
+
+enum PeerRoomStatus {
+  WAITING
+  ACTIVE
+  ENDED
+}
+
+// WhatsApp messages sent (reminders, question of the day)
+model WhatsAppLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  to        String   @db.VarChar(20)
+  template  String   @db.VarChar(100)
+  status    String   @db.VarChar(20) // sent, failed, skipped
+  error     String   @default("") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("whatsapp_logs")
+}
+
+// "My interview at X": experiences users share, published after an admin checks them
+model InterviewExperience {
+  id            String            @id @default(cuid())
+  userId        String?           @map("user_id") // Kept when the account closes? No: SetNull, and the post shows as anonymous
+  slug          String            @unique @db.VarChar(140)
+  company       String            @db.VarChar(200)
+  companyKey    String            @map("company_key") @db.VarChar(200) // Normalized, for grouping with company question packs
+  role          String            @db.VarChar(200)
+  level         String            @default("") @db.VarChar(40) // fresher, junior, mid, senior
+  location      String            @default("") @db.VarChar(100)
+  interviewedOn String            @default("") @map("interviewed_on") @db.VarChar(7) // YYYY-MM
+  outcome       ExperienceOutcome @default(UNKNOWN)
+  difficulty    Int               @default(3) // 1 to 5
+  rounds        String            @db.MediumText // JSON: [{name, questions[], notes}]
+  tips          String            @default("") @db.VarChar(2000)
+  anonymous     Boolean           @default(true)
+  status        ExperienceStatus  @default(PENDING)
+  reviewNote    String            @default("") @map("review_note") @db.VarChar(1000)
+  publishedAt   DateTime?         @map("published_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at")
+  user          User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@index([companyKey])
+  @@map("interview_experiences")
+}
+
+enum ExperienceOutcome {
+  OFFER
+  REJECTED
+  WAITING
+  UNKNOWN
+}
+
+enum ExperienceStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+// Salary offers users chose to share anonymously (from salary practice or a form); shown as ranges only when a
+// role and city have enough of them
+model SalaryDataPoint {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  roleKey    String   @map("role_key") @db.VarChar(120) // Normalized role, e.g. "backend engineer"
+  role       String   @db.VarChar(200)
+  city       String   @db.VarChar(100)
+  level      String   @default("") @db.VarChar(40)
+  years      Int?
+  offerLakhs Float    @map("offer_lakhs") // Total CTC in lakhs per year (India)
+  fixedLakhs Float?   @map("fixed_lakhs")
+  company    String   @default("") @db.VarChar(200) // Never shown on its own
+  source     String   @default("form") @db.VarChar(20) // form, salary_practice
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([roleKey, city])
+  @@map("salary_data_points")
+}
+
+// Free tools on the website for visitors without an account: one use per visitor per day, and a daily total cap
+model FreeToolUse {
+  id        String   @id @default(cuid())
+  tool      String   @db.VarChar(40)
+  visitor   String   @db.VarChar(64) // Hash of the IP address (never the address itself)
+  day       String   @db.VarChar(10) // YYYY-MM-DD, India time
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([tool, visitor, day])
+  @@index([day])
+  @@map("free_tool_uses")
+}
+
+// Bulk emails from the admin to a group of users (offers, news); only to users who allow them
+model Broadcast {
+  id          String          @id @default(cuid())
+  subject     String          @db.VarChar(200)
+  body        String          @db.MediumText // Plain text with simple formatting
+  segment     String          @db.VarChar(40) // all, trial, paid, expired, inactive, college, ...
+  status      BroadcastStatus @default(DRAFT)
+  recipients  Int             @default(0)
+  sent        Int             @default(0)
+  createdById String?         @map("created_by_id")
+  sentAt      DateTime?       @map("sent_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  @@map("broadcasts")
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SENDING
+  SENT
+}

@@ -1,0 +1,110 @@
+# Builds the desktop installers (Windows .exe on Windows, macOS .dmg on a Mac) when you push a tag like v1.2.0,
+# or when you run it by hand (Actions → Desktop release → Run workflow). The files land in a draft GitHub
+# release, and also in your S3 bucket when the AWS secrets below are set. See README → "Releasing the desktop app".
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables):
+#   RECALLR_API_URL, RECALLR_WEB_URL      e.g. https://recallr.in (built into the app)
+#   S3_DOWNLOADS_PATH                      optional, e.g. my-bucket/recallr   (no s3://, no trailing slash)
+# Secrets (all optional):
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION   upload to S3
+#   CSC_LINK, CSC_KEY_PASSWORD                             macOS Developer ID certificate (.p12, base64) and password
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID   macOS notarization
+#   WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD                     Windows code-signing certificate
+name: Desktop release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, e.g. 1.2.0 (defaults to desktop/package.json)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win --x64
+          - os: macos-latest
+            target: --mac --universal
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: npm, cache-dependency-path: desktop/package-lock.json }
+      - run: npm ci
+      - name: Set the version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ] && [[ "$GITHUB_REF_NAME" == v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -n "$VERSION" ]; then npm version "$VERSION" --no-git-tag-version --allow-same-version; fi
+      - name: Point the app at your server
+        run: |
+          printf 'VITE_API_URL=%s\nVITE_WEB_URL=%s\n' "${{ vars.RECALLR_API_URL }}" "${{ vars.RECALLR_WEB_URL }}" > .env
+          test -n "${{ vars.RECALLR_API_URL }}" || { echo "Set the RECALLR_API_URL and RECALLR_WEB_URL repository variables first."; exit 1; }
+      - run: npm run build
+        env: { NODE_ENV: production }
+      - name: Build the installer
+        run: |
+          # Without a certificate the build is unsigned (users see a SmartScreen / Gatekeeper warning)
+          if [ -z "$CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD; fi
+          npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.CSC_LINK || secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.CSC_KEY_PASSWORD || secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            desktop/dist-installers/*.exe
+            desktop/dist-installers/*.dmg
+            desktop/dist-installers/*.zip
+            desktop/dist-installers/*.blockmap
+            desktop/dist-installers/latest*.yml
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - run: ls -la out
+      - name: Draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('desktop-{0}', github.run_number) }}
+          files: out/*
+      - name: Upload to S3
+        if: ${{ vars.S3_DOWNLOADS_PATH != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+        run: |
+          DEST="s3://${{ vars.S3_DOWNLOADS_PATH }}"
+          # Installers first (versioned names, cached for a long time)...
+          for f in out/*.exe out/*.dmg out/*.zip out/*.blockmap; do
+            [ -e "$f" ] && aws s3 cp "$f" "$DEST/$(basename "$f")" --cache-control "public, max-age=31536000, immutable"
+          done
+          # ...then the same installers under names that never change, for the website's download buttons...
+          EXE=$(ls out/*.exe 2>/dev/null | head -1 || true); DMG=$(ls out/*.dmg 2>/dev/null | head -1 || true)
+          [ -n "$EXE" ] && aws s3 cp "$EXE" "$DEST/Recallr-Setup.exe" --cache-control "no-cache"
+          [ -n "$DMG" ] && aws s3 cp "$DMG" "$DEST/Recallr.dmg" --cache-control "no-cache"
+          # ...and the update files last, so apps only see the new version once its files are there
+          for f in out/latest*.yml; do aws s3 cp "$f" "$DEST/$(basename "$f")" --cache-control "no-cache"; done

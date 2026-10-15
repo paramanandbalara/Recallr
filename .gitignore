@@ -23,14 +23,17 @@ dist-ssr
 *.sln
 *.sw?
 
+*.tsbuildinfo
+
 # Electron build outputs
 dist-installers
 dist-electron
 release
-build/*
-!build/icon.png
+desktop/build/*
+!desktop/build/icon.png
+!desktop/build/entitlements.mac.plist
 
-# API keys for development (never commit)
+# Secrets (never commit): each app's .env
 .env
 .env.*
 !.env.example
