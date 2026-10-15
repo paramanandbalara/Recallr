@@ -163,4 +163,5 @@ export const conversation: Record<string, string> = {
   'Give fuller answers: add one real example from your projects and its result.': 'पूरे जवाब दें: अपने प्रोजेक्ट्स से एक असली उदाहरण और उसका नतीजा जोड़ें।',
   'Keep answers shorter: lead with the point and stay under 2 minutes.': 'जवाब छोटे रखें: मुख्य बात से शुरू करें और 2 मिनट से कम रखें।',
   'Strong round. Next time, try it with a job description added to the profile for harder questions.': 'बढ़िया राउंड। अगली बार, कठिन सवालों के लिए प्रोफ़ाइल में जॉब डिस्क्रिप्शन जोड़कर आज़माएँ।',
+  'Answer this': 'इसका जवाब दें',
 };

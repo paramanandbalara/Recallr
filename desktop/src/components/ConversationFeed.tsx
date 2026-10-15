@@ -131,11 +131,12 @@ interface Props {
   isRecording: boolean;
   keyPointsView: boolean;
   onAdjust: (turnId: string, mode: AdjustMode) => void;
+  onAnswer?: (turnId: string) => void; // Answer a line that was taken as a remark
   onCheck: () => void; // Open the pre-interview check
   onMock: () => void;  // Open the mock interview
 }
 
-export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', isRecording, keyPointsView, onAdjust, onCheck, onMock }) => {
+export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', isRecording, keyPointsView, onAdjust, onAnswer, onCheck, onMock }) => {
   const latestOnly = layout === 'compact' || layout === 'teleprompter';
   const hidden = latestOnly ? Math.max(0, turns.length - 1) : 0;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -225,6 +226,11 @@ export const ConversationFeed: React.FC<Props> = ({ turns, layout = 'classic', i
               )}
               {turn.question}
               {turn.status === 'listening' && <span className="ml-1 text-slate-600 animate-pulse">…</span>}
+              {turn.status === 'skipped' && onAnswer && (
+                <button onClick={() => onAnswer(turn.id)} className="ml-2 text-[10px] font-medium text-blue-400 opacity-0 hover:text-blue-300 group-hover:opacity-100 focus:opacity-100">
+                  {t('Answer this')}
+                </button>
+              )}
             </p>
 
             {/* The typed answer */}

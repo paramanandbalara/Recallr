@@ -5,7 +5,8 @@ import { useClickThrough, useTypingFocus } from './hooks/useClickThrough';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
 import { describeAiError } from './services/llm';
 import { matchPreparedAnswer } from './services/matchAnswer';
-import { classifyQuestion, isFiller, isLikelyQuestion } from './services/questionDetect';
+import { classifyQuestion, isLikelyQuestion } from './services/questionDetect';
+import { classifyIncoming, shouldAnswerOnPause } from './services/turnRules';
 import { fillPlaceholders, isRestoring, loadActiveProfile, loadPreparedMode, loadAudioSource, loadConversation, loadCurrentSession, loadDisplay, loadOnboarded, loadOverlay, loadSettings, newId, newSession, saveAudioSource, saveConversation, saveCurrentSession, saveDisplay, saveOnboarded, saveOverlay, ZOOMS, type AudioSource, type PreparedAnswer } from './services/storage';
 import { hasAnswers, loadSession, saveSession, sessionTitle } from './services/sessions';
 import { recordAnswered } from './services/questionBank';
@@ -28,7 +29,8 @@ const PAUSE_BEFORE_ANSWER_MS = 500;
 const FILLER_TIMEOUT_MS = 5000;
 // A question ending in "?" is answered right away; if the interviewer keeps talking within this time, it was
 // part of the same question, so the answer restarts with all of it
-const CONTINUE_MS = 2500;
+const CONTINUE_MS = 4000; // A piece that carries on the question within this time is joined to it
+const MAX_ANSWERING = 2;  // Answers streaming at once; a newer question no longer cancels the one before it
 const SAVE_DELAY_MS = 600;
 
 // An answered question goes to the question bank once it has stayed answered this long (it may still be continuing)
@@ -230,13 +232,22 @@ function App() {
     return () => clearInterval(timer);
   }, [turns]);
 
-  const stopAnswer = useCallback((id: string) => {
+  // Stops an answer; a new one keeps the words already written (marked as cut short) instead of vanishing
+  const stopAnswer = useCallback((id: string, { keepPartial = false } = {}) => {
     const running = inFlightRef.current.get(id);
     if (!running) return;
     running.controller.abort();
     inFlightRef.current.delete(id);
-    patchTurn(id, running.restore);
+    const partial = turnsRef.current.find(t => t.id === id)?.answer.trim();
+    if (keepPartial && partial && running.restore.status === 'skipped') patchTurn(id, { status: 'done', answer: `${partial} …` });
+    else patchTurn(id, running.restore);
   }, [patchTurn]);
+
+  // Before a new answer starts: earlier answers keep streaming, up to MAX_ANSWERING at once (the oldest stops)
+  const makeRoom = useCallback((exceptId: string) => {
+    const others = [...inFlightRef.current.keys()].filter(id => id !== exceptId);
+    for (const id of others.slice(0, Math.max(0, others.length - (MAX_ANSWERING - 1)))) stopAnswer(id, { keepPartial: true });
+  }, [stopAnswer]);
 
   const addExtras = useCallback((turnId: string, question: string, answer: string) => {
     answerExtras(question, answer, loadSettings())
@@ -252,7 +263,8 @@ function App() {
     if (adjust) {
       stopAnswer(turnId);
     } else {
-      for (const id of [...inFlightRef.current.keys()]) stopAnswer(id);
+      stopAnswer(turnId);
+      makeRoom(turnId);
     }
     const controller = new AbortController();
     const previous = adjust?.previous;
@@ -308,7 +320,7 @@ function App() {
     } finally {
       if (inFlightRef.current.get(turnId)?.controller === controller) inFlightRef.current.delete(turnId);
     }
-  }, [patchTurn, stopAnswer, addExtras]);
+  }, [patchTurn, stopAnswer, makeRoom, addExtras]);
 
   const adjustAnswer = useCallback((turnId: string, mode: AdjustMode) => {
     const turn = turnsRef.current.find(t => t.id === turnId);
@@ -327,7 +339,7 @@ function App() {
       return true;
     }
     // Instant: the user's own words, no AI call (Regenerate under it gives an AI retelling)
-    for (const id of [...inFlightRef.current.keys()]) stopAnswer(id);
+    stopAnswer(turnId);
     const answer = fillPlaceholders(match.answer, loadSettings().company);
     patchTurn(turnId, {
       status: 'done', answer, source: 'prepared', notes: match.notes, preparedId: match.id, kind: classifyQuestion(question),
@@ -347,13 +359,30 @@ function App() {
     lastSpeechAtRef.current = Date.now();
 
     let open = openTurnRef.current;
-    // The interviewer kept talking right after an early answer started: it was more of the same question
     const early = earlyRef.current;
-    earlyRef.current = null;
-    if (!open && early && Date.now() - early.at < CONTINUE_MS && !isFiller(text)) {
-      stopAnswer(early.id);
-      patchTurn(early.id, { status: 'listening', answer: '' });
-      open = { id: early.id, question: early.question };
+    if (!open) {
+      const language = loadSettings().language;
+      const busy = inFlightRef.current.size > 0;
+      const earlyTurn = early && turnsRef.current.find(t => t.id === early.id);
+      const kind = classifyIncoming(text, {
+        early: earlyTurn ? early.question : undefined,
+        sinceMs: early ? Date.now() - early.at : undefined,
+        answerWords: earlyTurn ? earlyTurn.answer.split(/\s+/).filter(Boolean).length : 0,
+        busy, language,
+      });
+      if (kind === 'merge' && early && Date.now() - early.at < CONTINUE_MS) {
+        // The interviewer carried on the same question after a pause: answer the whole question instead
+        earlyRef.current = null;
+        stopAnswer(early.id);
+        patchTurn(early.id, { status: 'listening', answer: '' });
+        open = { id: early.id, question: early.question };
+      } else if (kind === 'aside') {
+        // A remark or other talk while an answer is on screen: shown faintly, and the answer keeps going
+        addTurn({ id: newId(), question: text, answer: '', status: 'skipped' });
+        return;
+      } else {
+        earlyRef.current = null;
+      }
     }
     if (open) {
       open = { id: open.id, question: `${open.question} ${text}` };
@@ -388,8 +417,9 @@ function App() {
       const silentFor = Date.now() - lastSpeechAtRef.current;
       if (silentFor < PAUSE_BEFORE_ANSWER_MS) return;
 
-      if (isLikelyQuestion(open.question, loadSettings().language)) {
+      if (shouldAnswerOnPause(open.question, inFlightRef.current.size > 0, loadSettings().language)) {
         openTurnRef.current = null;
+        earlyRef.current = { id: open.id, question: open.question, at: Date.now() };
         answerWithAi(open.id, open.question);
       } else if (silentFor >= FILLER_TIMEOUT_MS) {
         openTurnRef.current = null;
@@ -596,7 +626,7 @@ function App() {
 
       {/* Feed contains per-turn buttons (regenerate etc.) so mark it interactive too */}
       <div data-interactive className="flex-1 min-h-0 flex flex-col">
-        <ConversationFeed turns={turns} layout={display.layout} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
+        <ConversationFeed turns={turns} layout={display.layout} isRecording={isRecording} keyPointsView={display.keyPoints} onAdjust={adjustAnswer} onAnswer={id => { const turn = turnsRef.current.find(t => t.id === id); if (turn) answerWithAi(id, turn.question); }} onCheck={() => setIsCheckOpen(true)} onMock={() => setIsMockOpen(true)} />
       </div>
 
       {/* Ask form: input + buttons */}
