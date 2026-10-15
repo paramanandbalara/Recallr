@@ -12,10 +12,13 @@ right there, with Approve and Reject.
 
 **Settings** holds the keys and details the business runs on, stored encrypted in the database:
 
-- **AI providers:** Groq and OpenAI keys (at least one), and which answers first. Use **Test** after saving.
+- **AI providers:** Groq, OpenAI and Claude keys (at least one), and whether the fastest answers or a fixed order. Use **Test** after saving.
 - **Razorpay:** key ID, key secret and webhook secret. Without them only offline payment is offered.
 - **Offline payments:** the UPI / bank details users see.
 - **Website:** business name, support email, Windows and macOS download links.
+- **App versions:** the latest and minimum desktop versions, what's new, and the **Update files address** (the folder
+  with the installers and `latest.yml` files). With the address set, apps download and install updates themselves;
+  see [DEPLOYMENT.md](DEPLOYMENT.md#updates-that-install-inside-the-app).
 
 Changes apply within seconds. Each field shows where its value comes from (Saved here, From .env, Default);
 **Remove** drops the saved value.
