@@ -55,14 +55,14 @@ export const fulfilPayment = async (paymentId: string, extra: { razorpayPaymentI
   let invoiceId: string | null = null;
   const purchase = await db.$transaction(async tx => {
     // Lock the payment first, so the browser and the webhook arriving together fulfil it once (one pack, one
-    // invoice, one email). Locking reads see the latest committed rows, so the call that waited for the lock
-    // finds the pack the first one made.
-    const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM payments WHERE id = ${paymentId} FOR UPDATE`;
-    if (!locked.length) throw new HttpError(404, 'Payment not found.');
-    const [done] = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM purchases WHERE payment_id = ${paymentId} FOR UPDATE`;
-    if (done) return db.purchase.findUniqueOrThrow({ where: { id: done.id } });
-    const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+    // invoice, one email). A locking read sees the latest committed status, so the call that waited for the
+    // lock sees PAID, and its first plain read (made after the lock) sees the pack the first call made.
+    const [locked] = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM payments WHERE id = ${paymentId} FOR UPDATE`;
+    if (!locked) throw new HttpError(404, 'Payment not found.');
+    const payment = await tx.payment.findUnique({ where: { id: paymentId }, include: { purchase: true } });
     if (!payment) throw new HttpError(404, 'Payment not found.');
+    if (payment.purchase) return payment.purchase;
+    if (locked.status === 'PAID') throw new HttpError(409, 'This payment is being confirmed. Refresh in a moment.');
     newlyPaid = true;
     const paidAt = new Date();
     await tx.payment.update({ where: { id: paymentId }, data: { status: 'PAID', paidAt, ...extra } });

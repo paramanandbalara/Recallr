@@ -178,8 +178,8 @@ describe('invoices', () => {
 
   it('makes one invoice when the browser and the webhook confirm the same payment together', async () => {
     const orderId = await order(user.token);
-    const [a, b, c] = await Promise.all([verify(user.token, orderId, 'pay_both'), webhook(orderId, 'pay_both'), verify(user.token, orderId, 'pay_both')]);
-    expect([a.status, b.status, c.status]).toEqual([200, 200, 200]);
+    const results = await Promise.all([1, 2, 3].flatMap(() => [verify(user.token, orderId, 'pay_both'), webhook(orderId, 'pay_both')]));
+    expect(results.map(r => r.status)).toEqual([200, 200, 200, 200, 200, 200]);
     await webhook(orderId, 'pay_both').expect(200);
     expect(await db.invoice.count()).toBe(1);
     expect(await db.purchase.count({ where: { userId: user.id } })).toBe(1);
