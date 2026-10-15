@@ -64,6 +64,7 @@ const STATIC: Record<string, PageMeta> = {
   '/download': { title: 'Download Recallr for Windows and macOS', description: 'Install the Recallr app, sign in with your account and start your free trial.' },
   '/guide': { title: 'How to use Recallr', description: 'Set up Recallr in five minutes: install, add your resume and the job, and start listening.' },
   '/colleges': { title: 'Recallr for colleges and bootcamps', description: 'Interview practice for your students: mock interviews with scores and speaking feedback, one invite link, and a coach dashboard.' },
+  '/ambassadors': { title: 'College ambassadors – Recallr', description: 'Share Recallr with your classmates and get bonus listening time for every friend who joins and pays.' },
 };
 
 // ---------- Blog ----------

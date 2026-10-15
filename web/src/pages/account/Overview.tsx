@@ -378,7 +378,10 @@ export const AccountOverview: React.FC = () => {
         </Card>
       )}
 
-      <h2 className="mt-10 text-lg font-semibold text-slate-100">Payments</h2>
+      <div className="mt-10 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold text-slate-100">Payments</h2>
+        <Link to="/account/billing" className="text-sm text-blue-400 hover:text-blue-300">Invoices and billing details</Link>
+      </div>
       <div className="mt-4">{payments && <PaymentTable payments={payments} />}</div>
     </AccountPage>
   );

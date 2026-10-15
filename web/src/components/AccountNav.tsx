@@ -12,6 +12,7 @@ export const AccountPage: React.FC<{ title: string; children: React.ReactNode }>
       <NavLink to="/account" end className={tab}>Overview</NavLink>
       <NavLink to="/account/questions" className={tab}>My questions</NavLink>
       <NavLink to="/account/progress" className={tab}>Progress</NavLink>
+      <NavLink to="/account/daily" className={tab}>Daily practice</NavLink>
       <NavLink to="/account/tools" className={tab}>Career tools</NavLink>
       <NavLink to="/account/buy" className={tab}>Buy a plan</NavLink>
       <NavLink to="/account/billing" className={tab}>Billing</NavLink>

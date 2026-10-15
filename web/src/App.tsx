@@ -24,10 +24,16 @@ const AccountInvite = named(() => import('./pages/account/Invite'), 'AccountInvi
 const AccountSupport = named(() => import('./pages/account/Support'), 'AccountSupport');
 const AccountQuestions = named(() => import('./pages/account/Questions'), 'AccountQuestions');
 const AccountProgress = named(() => import('./pages/account/Progress'), 'AccountProgress');
+const AccountDaily = named(() => import('./pages/account/Daily'), 'AccountDaily');
+const PracticeJoin = named(() => import('./pages/PracticeJoin'), 'PracticeJoin');
+const AdminWhatsApp = named(() => import('./pages/admin/WhatsApp'), 'AdminWhatsApp');
 const AccountCareerTools = named(() => import('./pages/account/CareerTools'), 'AccountCareerTools');
 const AccountOrganization = named(() => import('./pages/account/Organization'), 'AccountOrganization');
 const Join = named(() => import('./pages/Join'), 'Join');
 const Colleges = named(() => import('./pages/Colleges'), 'Colleges');
+const Ambassadors = named(() => import('./pages/Ambassadors'), 'Ambassadors');
+const AdminWebsiteContent = named(() => import('./pages/admin/WebsiteContent'), 'AdminWebsiteContent');
+const AdminReferrals = named(() => import('./pages/admin/Referrals'), 'AdminReferrals');
 const QuestionLibrary = named(() => import('./pages/Questions'), 'QuestionLibrary');
 const QuestionPage = named(() => import('./pages/Questions'), 'QuestionPage');
 const CompanyList = named(() => import('./pages/CompanyQuestions'), 'CompanyList');
@@ -93,7 +99,9 @@ export const App: React.FC = () => (
       <Route path="/refunds" element={<Legal page="refunds" />} />
       <Route path="/contact" element={<Legal page="contact" />} />
       <Route path="/colleges" element={<Colleges />} />
+      <Route path="/ambassadors" element={<Ambassadors />} />
       <Route path="/join/:code" element={<Join />} />
+      <Route path="/practice/join/:code" element={<PracticeJoin />} />
       <Route path="/interview-questions" element={<QuestionLibrary />} />
       <Route path="/interview-questions/companies" element={<CompanyList />} />
       <Route path="/interview-questions/companies/:slug" element={<CompanyQuestions />} />
@@ -112,6 +120,7 @@ export const App: React.FC = () => (
       <Route path="/account/support/:id" element={<RequireAuth><AccountSupport /></RequireAuth>} />
       <Route path="/account/questions" element={<RequireAuth><AccountQuestions /></RequireAuth>} />
       <Route path="/account/progress" element={<RequireAuth><AccountProgress /></RequireAuth>} />
+      <Route path="/account/daily" element={<RequireAuth><AccountDaily /></RequireAuth>} />
       <Route path="/account/tools" element={<RequireAuth><AccountCareerTools /></RequireAuth>} />
       <Route path="/account/organization" element={<RequireAuth><AccountOrganization /></RequireAuth>} />
 
@@ -127,8 +136,11 @@ export const App: React.FC = () => (
         <Route path="announcements" element={<AdminAnnouncements />} />
         <Route path="support" element={<AdminSupport />} />
         <Route path="support/:id" element={<AdminSupport />} />
+        <Route path="content" element={<AdminWebsiteContent />} />
+        <Route path="referrals" element={<AdminReferrals />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="activity" element={<AdminActivity />} />
+        <Route path="whatsapp" element={<AdminWhatsApp />} />
         <Route path="questions" element={<AdminQuestions />} />
         <Route path="blog" element={<AdminBlog />} />
         <Route path="organizations" element={<AdminOrganizations />} />

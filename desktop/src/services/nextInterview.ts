@@ -21,16 +21,25 @@ const startOfDay = (at: number) => {
   return d.getTime();
 };
 
-// "Now", "in 45 min", "Today 14:00", "Tomorrow 10:30", "Fri 09:00"
+// Short, so it fits the header: "Now", "in 45 min", "in 3 h", "Today", "Tomorrow", "Sat" (the exact time is in the
+// chip's tooltip, see chipFullTime)
 export const chipTimeText = (at: number, now: number, locale?: string) => {
   const until = at - now;
   if (until <= 0) return t('Now');
   if (until < CLOSE_MS) return t('in {minutes} min', { minutes: Math.max(1, Math.ceil(until / MINUTE)) });
-  const time = new Date(at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  if (until < 12 * CLOSE_MS) return t('in {hours} h', { hours: Math.round(until / CLOSE_MS) });
   const days = Math.round((startOfDay(at) - startOfDay(now)) / DAY);
-  if (days === 0) return `${t('Today')} ${time}`;
-  if (days === 1) return `${t('Tomorrow')} ${time}`;
-  return `${new Date(at).toLocaleDateString(locale, { weekday: 'short' })} ${time}`;
+  if (days === 0) return t('Today');
+  if (days === 1) return t('Tomorrow');
+  return new Date(at).toLocaleDateString(locale, { weekday: 'short' });
+};
+
+// "Tomorrow 10:30", "Sat 9:00": for the tooltip
+export const chipFullTime = (at: number, now: number, locale?: string) => {
+  const time = new Date(at).toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+  const days = Math.round((startOfDay(at) - startOfDay(now)) / DAY);
+  const day = days === 0 ? t('Today') : days === 1 ? t('Tomorrow') : new Date(at).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  return `${day} ${time}`;
 };
 
 // When the chip's text next changes: every minute in the last hour, otherwise at the next minute boundary

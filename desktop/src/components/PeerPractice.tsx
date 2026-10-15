@@ -231,8 +231,11 @@ export const PeerPractice: React.FC<Props> = ({ onClose }) => {
 
   // The interviewer moved on while an answer was still open: send what was said
   useEffect(() => {
-    if (!room || room.role !== 'candidate' || !turnRef.current || turnRef.current === room.current) return;
-    if (mode === 'voice' || mode === 'typing') void finishAnswer();
+    if (!room || room.role !== 'candidate' || !turnRef.current || (mode !== 'voice' && mode !== 'typing')) return;
+    if (room.status === 'ENDED') {
+      turnRef.current = null; // The room takes no more answers: just stop listening ("Practise again" resets the rest)
+      void stopRef.current();
+    } else if (turnRef.current !== room.current) void finishAnswer();
   }, [room, mode, finishAnswer]);
 
   // ---------- The interviewer ----------
@@ -551,7 +554,7 @@ export const PeerPractice: React.FC<Props> = ({ onClose }) => {
               </div>
             ))}
             <div className="flex gap-1.5">
-              <Button variant="primary" onClick={() => { setRoom(null); etagRef.current = ''; codeRef.current = ''; setError(''); setResumeNote(''); }}>{t('Practise again')}</Button>
+              <Button variant="primary" onClick={() => { setRoom(null); setMode('idle'); etagRef.current = ''; codeRef.current = ''; setError(''); setResumeNote(''); }}>{t('Practise again')}</Button>
               <Button variant="ghost" onClick={close}>{t('Close')}</Button>
             </div>
           </div>

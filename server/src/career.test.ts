@@ -1,11 +1,14 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
+import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AiGateway, ChatRequest } from './ai.js';
 import { createApp } from './app.js';
 import { extractFileText, guardNumbers, isLinkedInLink, parseAiJson, resumeChecks } from './career.js';
 import { db } from './db.js';
+import { HttpError, errorHandler } from './http.js';
+import { slowJson } from './routes/career.js';
 import { usageSaved } from './entitlements.js';
 import { clearSettingsCache } from './settings.js';
 
@@ -516,5 +519,35 @@ describe('history', () => {
 
     await request(app).post('/api/auth/me/delete').set(auth(token)).send({ password: 'password123' }).expect(200);
     expect(await db.careerReport.count()).toBe(0);
+  });
+});
+
+describe('long runs', () => {
+  const slowApp = (work: () => Promise<object>) => {
+    const mini = express();
+    mini.post('/run', slowJson(work, { after: 30, every: 20 }));
+    mini.use(errorHandler);
+    return mini;
+  };
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  it('keeps a slow answer’s connection alive with spaces, then sends the JSON', async () => {
+    const res = await request(slowApp(async () => { await wait(120); return { report: { id: 'r1' } }; })).post('/run');
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/^ {2,}\{"report":\{"id":"r1"\}\}$/);
+    expect(JSON.parse(res.text)).toEqual({ report: { id: 'r1' } });
+  });
+
+  it('answers quickly ones normally, with their real status for errors', async () => {
+    const fast = await request(slowApp(async () => ({ ok: true }))).post('/run');
+    expect(fast.text).toBe('{"ok":true}');
+    const failed = await request(slowApp(async () => { throw new HttpError(402, 'No plan', 'NO_PLAN'); })).post('/run');
+    expect(failed.status).toBe(402);
+  });
+
+  it('puts an error that comes late in the body', async () => {
+    const res = await request(slowApp(async () => { await wait(80); throw new HttpError(503, 'AI down', 'AI_ERROR'); })).post('/run');
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.text)).toEqual({ error: 'AI down', code: 'AI_ERROR', status: 503 });
   });
 });

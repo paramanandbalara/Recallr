@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Banknote, CreditCard } from 'lucide-react';
 import { api, days, hours, rupees, type Plan } from '../../api';
 import { useAuth } from '../../auth';
@@ -260,6 +260,9 @@ export const Buy: React.FC = () => {
               {method === 'online' && options.razorpayKeyId
                 ? <OnlinePayment plan={plan} code={code} amountPaise={amountPaise} onPaid={paid} />
                 : <OfflinePayment plan={plan} code={code} amountPaise={amountPaise} info={options.offlineInfo} onSent={() => navigate('/account')} />}
+              <p className="mt-4 text-xs text-slate-500">
+                You get an invoice by email. Need your company name or GSTIN on it? Add them under <Link to="/account/billing" className="text-blue-400">Billing</Link> before paying.
+              </p>
             </>
           )}
         </Card>

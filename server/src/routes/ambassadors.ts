@@ -107,7 +107,7 @@ const decide = (status: 'APPROVED' | 'REJECTED') => route(async (req, res) => {
     const s = await getSettings();
     const email = status === 'APPROVED'
       ? await emails.ambassadorApproved(existing.user, existing.college, numberSetting(s, 'ambassadorBonusMinutes'), note)
-      : await emails.ambassadorRejected(existing.user, note);
+      : await emails.ambassadorRejected(existing.user, note, existing.status === 'APPROVED');
     queueEmail(email, status === 'APPROVED' ? 'ambassador_approved' : 'ambassador_rejected', existing.userId);
   }
   await audit(req, status === 'APPROVED' ? 'ambassador.approve' : 'ambassador.reject', existing.user.email, { college: existing.college, note });

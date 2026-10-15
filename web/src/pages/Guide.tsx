@@ -131,8 +131,9 @@ export const Guide: React.FC = () => (
 
       <H id="plan" />
       <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-slate-300">
-        <li><B>Listening time</B> is the speech Recallr turns into text. Silence isn’t counted.</li>
-        <li><B>AI answers</B> are counted in tokens (pieces of words). A typical answer uses 1,500–3,000. The plans show an estimate of how many answers that is.</li>
+        <li><B>Listening time</B> is the speech Recallr turns into text: live listening in an interview and your spoken answers in mock interviews. It’s measured from the audio itself; silence isn’t counted.</li>
+        <li><B>AI answers</B> are everything the AI writes or reads for you: answers, typed questions, questions read from your screen, regenerating or shortening an answer, key points, prep packs, mock interview scores, reviews and company research. They’re counted in tokens (pieces of words); a typical answer uses 1,500–3,000. The plans show an estimate of how many answers that is.</li>
+        <li>Every payment comes with an invoice by email; they’re also under <Link to="/account/billing" className="text-blue-400">Billing</Link> on your account.</li>
         <li>Each pack is valid for its number of days. With more than one, time is used from the one that ends first.</li>
         <li>See what’s left on your <Link to="/account" className="text-blue-400">account page</Link> or in the app under <B>Settings → Account</B>.</li>
         <li>When something runs out, the app says so and offers a top-up. Your resume, answers and history are kept.</li>

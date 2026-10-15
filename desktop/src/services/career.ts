@@ -2,7 +2,8 @@
 // take up to a minute or two, count against the plan, and are saved to the account so the full report
 // can be opened on the website. Never part of live answers.
 
-import { request } from './account';
+import { t } from '../i18n';
+import { ApiError, request } from './account';
 
 export interface ResumeCheckResult {
   id: string;
@@ -23,7 +24,10 @@ export interface InterviewerInsights {
 
 const post = async <T>(path: string, body: object): Promise<{ id: string; result: T }> => {
   const res = await request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return (await res.json() as { report: { id: string; result: T } }).report;
+  // A long run answers 200 early to keep the connection open, so a late error comes in the body
+  const data = await res.json() as { report?: { id: string; result: T }; error?: string; code?: string; status?: number };
+  if (!data.report) throw new ApiError(data.status ?? 500, data.error ?? t("Recallr's server had a problem ({status}).", { status: data.status ?? 500 }), data.code);
+  return data.report;
 };
 
 const orUndefined = (text: string) => text.trim() || undefined;

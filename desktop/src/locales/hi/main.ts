@@ -329,4 +329,18 @@ export const main: Record<string, string> = {
   'Speak': 'बोलें',
   'Stop': 'रोकें',
   'The feedback uses a little of your plan’s AI.': 'फ़ीडबैक में आपके प्लान का थोड़ा AI लगता है।',
+
+  // Notice about the copy of the profiles on the account (shown once)
+  'A copy of your profiles is kept on your account': 'आपकी प्रोफ़ाइलों की एक कॉपी आपके अकाउंट पर रखी जाती है',
+  'Recallr now keeps a copy of your profiles on your Recallr account: your resume, job details, notes, prepared answers and stories.':
+    'Recallr अब आपकी प्रोफ़ाइलों की एक कॉपी आपके Recallr अकाउंट पर रखता है: आपका रिज़्यूमे, जॉब की जानकारी, नोट्स, तैयार जवाब और कहानियाँ।',
+  'It lets you get them back on a new computer, and helps us improve Recallr.':
+    'इससे आप उन्हें नए कंप्यूटर पर वापस पा सकते हैं, और इससे हमें Recallr बेहतर बनाने में मदद मिलती है।',
+  'The copy is stored encrypted. You can turn it off at any time in Settings → Data, which deletes the copy. Your profiles on this computer stay.':
+    'कॉपी एन्क्रिप्ट करके रखी जाती है। आप इसे कभी भी Settings → Data में बंद कर सकते हैं, जिससे कॉपी हट जाती है। इस कंप्यूटर पर आपकी प्रोफ़ाइलें बनी रहती हैं।',
+  'Turned off. The copy on your Recallr account was deleted. Your profiles on this computer stay.':
+    'बंद कर दिया। आपके Recallr अकाउंट पर रखी कॉपी हटा दी गई। इस कंप्यूटर पर आपकी प्रोफ़ाइलें बनी रहती हैं।',
+  'Turn it off': 'इसे बंद करें',
+  'OK': 'ठीक है',
+  'in {hours} h': '{hours} घंटे में',
 };

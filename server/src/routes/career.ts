@@ -65,6 +65,34 @@ const schemas = {
   }),
 };
 
+// A tool can run for over a minute. Past 25 s a space is sent every 20 s (allowed before JSON), so a proxy
+// that closes quiet connections (Nginx's 60 s default) doesn't cut it off. The status is 200 by then, so an
+// error after that comes as {"error", "code", "status"} in the body.
+export const slowJson = (handler: (req: Request) => Promise<object>, { after = 25_000, every = 20_000 } = {}) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const tick = () => {
+      if (!res.headersSent) {
+        res.status(200).type('application/json').setHeader('Cache-Control', 'no-cache');
+        res.flushHeaders();
+      }
+      res.write(' ');
+      timer = setTimeout(tick, every);
+    };
+    let timer = setTimeout(tick, after);
+    handler(req).then(body => {
+      clearTimeout(timer);
+      if (res.headersSent) res.end(JSON.stringify(body));
+      else res.json(body);
+    }, error => {
+      clearTimeout(timer);
+      if (!res.headersSent) return next(error);
+      if (!(error instanceof HttpError)) console.error(error);
+      res.end(JSON.stringify(error instanceof HttpError
+        ? { error: error.message, code: error.code, status: error.status }
+        : { error: 'Something went wrong. Try again in a moment.', status: 500 }));
+    });
+  };
+
 const KINDS: CareerReportKind[] = ['RESUME_SCORE', 'RESUME_REWRITE', 'LINKEDIN_REVIEW', 'COVER_LETTER', 'INTERVIEWER_INSIGHTS', 'SALARY_PRACTICE'];
 
 const summaryOf = (r: { id: string; kind: CareerReportKind; title: string; score: number | null; model: string; createdAt: Date }) =>
@@ -129,45 +157,45 @@ export const careerRoutes = (ai: AiGateway) => {
     res.json({ text: req.body.text, fileHints: req.body.fileHints, words: req.body.text.split(/\s+/).filter(Boolean).length });
   }));
 
-  router.post('/resume-score', fileInto('resumeText'), route(async (req, res) => {
+  router.post('/resume-score', fileInto('resumeText'), slowJson(async req => {
     const input = schemas.resumeScore.parse(req.body);
     const fileHints = input.fileHints ?? null;
     const checks = resumeChecks(input.resumeText, fileHints);
     const { data, model } = await runTool(req.user!.id, resumeScorePrompt(input, checks), { maxTokens: 8000, temperature: 0.2 },
       raw => buildResumeScore(raw, input, checks, fileHints));
     const role = input.targetRole || jobTitleOf(input.jobDescription) || data.detectedRole;
-    res.json({ report: await save(req.user!.id, 'RESUME_SCORE', { title: role ? `Resume score: ${role}` : 'Resume score', input, result: data, score: data.overall, model }) });
+    return { report: await save(req.user!.id, 'RESUME_SCORE', { title: role ? `Resume score: ${role}` : 'Resume score', input, result: data, score: data.overall, model }) };
   }));
 
-  router.post('/resume-rewrite', fileInto('resumeText'), route(async (req, res) => {
+  router.post('/resume-rewrite', fileInto('resumeText'), slowJson(async req => {
     const input = schemas.resumeRewrite.parse(req.body);
     const { data, model } = await runTool(req.user!.id, resumeRewritePrompt(input), { maxTokens: 12_000, temperature: 0.3 },
       raw => buildResumeRewrite(raw, input));
     const job = jobTitleOf(input.jobDescription);
-    res.json({ report: await save(req.user!.id, 'RESUME_REWRITE', { title: job ? `Resume for: ${job}` : 'Tailored resume', input, result: data, score: data.match, model }) });
+    return { report: await save(req.user!.id, 'RESUME_REWRITE', { title: job ? `Resume for: ${job}` : 'Tailored resume', input, result: data, score: data.match, model }) };
   }));
 
-  router.post('/linkedin-review', fileInto('profileText'), noLinkedInLink('profileText'), route(async (req, res) => {
+  router.post('/linkedin-review', fileInto('profileText'), noLinkedInLink('profileText'), slowJson(async req => {
     const input = schemas.linkedIn.parse(req.body);
     const { data, model } = await runTool(req.user!.id, linkedInPrompt(input), { maxTokens: 8000, temperature: 0.4 },
       raw => buildLinkedIn(raw, input));
-    res.json({ report: await save(req.user!.id, 'LINKEDIN_REVIEW', { title: 'LinkedIn review', input, result: data, score: data.score, model }) });
+    return { report: await save(req.user!.id, 'LINKEDIN_REVIEW', { title: 'LinkedIn review', input, result: data, score: data.score, model }) };
   }));
 
-  router.post('/cover-letter', fileInto('resumeText'), route(async (req, res) => {
+  router.post('/cover-letter', fileInto('resumeText'), slowJson(async req => {
     const input = schemas.coverLetter.parse(req.body);
     const { data, model } = await runTool(req.user!.id, coverLetterPrompt(input), { maxTokens: 5000, temperature: 0.6 },
       raw => buildCoverLetter(raw, input));
     const job = input.company || jobTitleOf(input.jobDescription);
-    res.json({ report: await save(req.user!.id, 'COVER_LETTER', { title: job ? `Cover letter: ${job}` : 'Cover letter', input, result: data, score: null, model }) });
+    return { report: await save(req.user!.id, 'COVER_LETTER', { title: job ? `Cover letter: ${job}` : 'Cover letter', input, result: data, score: null, model }) };
   }));
 
-  router.post('/interviewer-insights', fileInto('interviewerText'), noLinkedInLink('interviewerText'), route(async (req, res) => {
+  router.post('/interviewer-insights', fileInto('interviewerText'), noLinkedInLink('interviewerText'), slowJson(async req => {
     const input = schemas.interviewer.parse(req.body);
     const { data, model } = await runTool(req.user!.id, interviewerPrompt(input), { maxTokens: 8000, temperature: 0.4 },
       raw => buildInterviewer(raw));
     const who = [data.who.name, data.who.role].filter(Boolean).join(', ');
-    res.json({ report: await save(req.user!.id, 'INTERVIEWER_INSIGHTS', { title: who ? `Interviewer: ${who}` : 'Interviewer insights', input, result: data, score: null, model }) });
+    return { report: await save(req.user!.id, 'INTERVIEWER_INSIGHTS', { title: who ? `Interviewer: ${who}` : 'Interviewer insights', input, result: data, score: null, model }) };
   }));
 
   // ---------- History ----------

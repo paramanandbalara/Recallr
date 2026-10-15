@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Interview } from './calendar';
-import { chipRefreshMs, chipTimeText, nextInterviewWithin } from './nextInterview';
+import { chipFullTime, chipRefreshMs, chipTimeText, nextInterviewWithin } from './nextInterview';
 
 const at = (s: string) => new Date(s).getTime(); // Local time
 const interview = (id: string, startsAt: string): Interview => ({ id, profileId: 'p1', title: id, startsAt: at(startsAt), notes: '' });
 const NOW = at('2026-10-15T09:00'); // A Thursday
-const time = (s: string) => new Date(at(s)).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 describe('nextInterviewWithin', () => {
   it('is the soonest interview in the coming week', () => {
@@ -37,15 +36,20 @@ describe('chipTimeText', () => {
     expect(chipTimeText(at('2026-10-15T08:55'), NOW, 'en-GB')).toBe('Now');
   });
 
-  it('gives the day and time further out', () => {
-    expect(chipTimeText(at('2026-10-15T14:00'), NOW, 'en-GB')).toBe(`Today ${time('2026-10-15T14:00')}`);
-    expect(chipTimeText(at('2026-10-16T10:30'), NOW, 'en-GB')).toBe(`Tomorrow ${time('2026-10-16T10:30')}`);
-    expect(chipTimeText(at('2026-10-16T10:30'), NOW, 'en-GB')).toBe('Tomorrow 10:30');
-    expect(chipTimeText(at('2026-10-17T09:00'), NOW, 'en-GB')).toBe('Sat 09:00');
+  it('says hours, then the day, further out (short, to fit the header)', () => {
+    expect(chipTimeText(at('2026-10-15T14:00'), NOW, 'en-GB')).toBe('in 5 h');
+    expect(chipTimeText(at('2026-10-15T22:30'), NOW, 'en-GB')).toBe('Today');
+    expect(chipTimeText(at('2026-10-16T10:30'), NOW, 'en-GB')).toBe('Tomorrow');
+    expect(chipTimeText(at('2026-10-17T09:00'), NOW, 'en-GB')).toBe('Sat');
   });
 
   it('counts calendar days, not 24-hour periods', () => {
-    expect(chipTimeText(at('2026-10-16T00:30'), at('2026-10-15T22:00'), 'en-GB')).toBe('Tomorrow 00:30');
+    expect(chipTimeText(at('2026-10-17T00:30'), at('2026-10-16T08:00'), 'en-GB')).toBe('Tomorrow');
+  });
+
+  it('gives the exact time for the tooltip', () => {
+    expect(chipFullTime(at('2026-10-16T10:30'), NOW, 'en-GB')).toBe('Tomorrow 10:30');
+    expect(chipFullTime(at('2026-10-15T14:00'), NOW, 'en-GB')).toBe('Today 14:00');
   });
 });
 

@@ -19,6 +19,7 @@ import { ReviewPanel } from './components/ReviewPanel';
 import { SetupCheck } from './components/SetupCheck';
 import { NoticeBar } from './components/NoticeBar';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { ProfileCopyNotice } from './components/ProfileCopyNotice';
 import { CalendarReminder } from './components/CalendarReminder';
 import { GuidedTour } from './components/GuidedTour';
 import { NextInterviewChip } from './components/NextInterviewChip';
@@ -537,7 +538,7 @@ function App() {
         data-interactive
         className="drag-area fade-with-text flex items-center justify-between gap-2 px-2.5 py-2 border-b border-slate-800 shrink-0"
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
           <button
             data-tour="listen"
             onClick={toggleRecording}
@@ -736,6 +737,7 @@ function App() {
         onPrep={() => { setSettingsStart({ tab: 'answers', prep: true }); setIsSettingsOpen(true); }}
       />
       <UpdatePrompt paused={isRecording || isMockOpen || isCheckOpen} />
+      <ProfileCopyNotice paused={isRecording || isMockOpen || isCheckOpen || isSettingsOpen} />
       <GuidedTour listening={isRecording} blocked={isSettingsOpen || isMockOpen || isCheckOpen || isHistoryOpen || !!reviewId} />
     </div>
   );

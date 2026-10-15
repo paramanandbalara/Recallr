@@ -3,6 +3,7 @@ import { api, downloadFile } from '../../api';
 import { useAuth } from '../../auth';
 import { AccountPage } from '../../components/AccountNav';
 import { Button, Card, ErrorText, Field, Input } from '../../components/ui';
+import { WhatsAppSettings } from '../../components/WhatsAppSettings';
 
 const Saved: React.FC<{ show: boolean; children: React.ReactNode }> = ({ show, children }) =>
   show ? <p className="text-sm text-emerald-300">{children}</p> : null;
@@ -207,6 +208,7 @@ export const AccountSettings: React.FC = () => {
         </Card>
 
         <EmailChoices />
+        <WhatsAppSettings />
         <YourData />
       </div>
     </AccountPage>

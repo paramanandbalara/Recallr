@@ -85,6 +85,8 @@ describe('website content blocks', () => {
     expect((await bad('faq', { items: [{ q: 'x', a: 'y', extra: 1 }] })).status).toBe(400);
     expect((await bad('highlights', { items: [{ icon: 'not-an-icon', value: 'x', label: 'y' }] })).status).toBe(400);
     expect((await bad('announcement', { enabled: true, text: 'Hi', linkLabel: 'Go', linkUrl: 'javascript:alert(1)' })).status).toBe(400);
+    expect((await bad('announcement', { enabled: true, text: 'Hi', linkLabel: 'Go', linkUrl: '//evil.example' })).status).toBe(400);
+    await request(app).put('/api/admin/site-blocks/announcement').set(auth(admin)).send({ data: { enabled: true, text: 'New: college ambassadors', linkLabel: 'Apply', linkUrl: '/ambassadors' } }).expect(200);
     expect((await bad('nope', {})).status).toBe(404);
 
     const list = (await request(app).get('/api/admin/site-blocks').set(auth(admin))).body.blocks;

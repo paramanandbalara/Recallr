@@ -14,7 +14,7 @@ interface Setting {
   value: string; // Secrets come masked: "••••1234"
 }
 
-const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what: 'groq' | 'openai' | 'claude' | 'razorpay' | 'email'; label: string }[] }[] = [
+const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what: 'groq' | 'openai' | 'claude' | 'razorpay' | 'email' | 'whatsapp'; label: string }[] }[] = [
   {
     id: 'ai', title: 'AI providers', text: 'The keys every answer and transcription uses. Listening needs Groq or OpenAI; Claude can answer too. Users never see them.',
     test: [{ what: 'groq', label: 'Test Groq' }, { what: 'openai', label: 'Test OpenAI' }, { what: 'claude', label: 'Test Claude' }],
@@ -37,7 +37,9 @@ const GROUPS: { id: Setting['group']; title: string; text: string; test?: { what
   { id: 'storage', title: 'File storage (S3)', text: 'Copies of users’ profiles and their resume files. Use a private bucket (Block all public access on). Without it, profiles are kept in the database.' },
   { id: 'blog', title: 'Blog', text: 'Posts are written in Admin → Blog. The AI can also draft one post a day.' },
   { id: 'invoices', title: 'Invoices and GST', text: 'Every confirmed payment gets an invoice, emailed as a PDF and shown under the user’s Billing. With a GSTIN it is a tax invoice with GST; without one, a bill without GST.' },
-  { id: 'whatsapp', title: 'WhatsApp', text: 'Interview reminders and the question of the day, for users who turn them on. Needs the Meta WhatsApp Cloud API and approved message templates. Empty: no WhatsApp messages.' },
+  { id: 'whatsapp', title: 'WhatsApp', text: 'Interview reminders and the question of the day, for users who turn them on. Needs the Meta WhatsApp Cloud API and approved message templates. Empty: no WhatsApp messages. Every message is in Admin → WhatsApp.',
+    test: [{ what: 'whatsapp', label: 'Send a test message' }],
+  },
 ];
 
 const SOURCE: Record<Setting['source'], { label: string; tone: 'green' | 'blue' | 'slate' | 'amber' }> = {
@@ -79,11 +81,16 @@ export const AdminSettings: React.FC = () => {
   };
 
   const test = async (what: string) => {
+    // WhatsApp: the reminder template with sample values, to the number typed (or the admin's own verified number)
+    const to = what === 'whatsapp' ? window.prompt('Send the test to which WhatsApp number? Leave it empty to use your own verified number.', '+91 ') : '';
+    if (to === null) return;
     setTests(prev => ({ ...prev, [what]: 'testing' }));
     try {
       const result = what === 'email'
         ? await api<{ ok: boolean; error: string }>('/admin/emails/test', { body: {} })
-        : await api<{ ok: boolean; error: string }>('/admin/settings/test', { body: { what } });
+        : what === 'whatsapp'
+          ? await api<{ ok: boolean; error: string }>('/admin/whatsapp/test', { body: { to: to.replace(/[^\d+]/g, '') || undefined } })
+          : await api<{ ok: boolean; error: string }>('/admin/settings/test', { body: { what } });
       setTests(prev => ({ ...prev, [what]: result }));
     } catch (err) {
       setTests(prev => ({ ...prev, [what]: { ok: false, error: (err as Error).message } }));

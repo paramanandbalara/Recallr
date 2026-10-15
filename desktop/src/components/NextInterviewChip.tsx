@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { CALENDAR_EVENT, loadInterviews } from '../services/calendar';
-import { chipRefreshMs, chipTimeText, nextInterviewWithin } from '../services/nextInterview';
+import { chipFullTime, chipRefreshMs, chipTimeText, nextInterviewWithin } from '../services/nextInterview';
 import { t, uiLocale } from '../i18n';
 
 interface Props {
@@ -52,13 +52,13 @@ export const NextInterviewChip: React.FC<Props> = ({ onOpen, dimmed, children })
     <button
       type="button"
       onClick={onOpen}
-      title={t('Next interview: {title}, {when} (click to see your interviews)', { title: next.title, when })}
-      className={`compact-hide fade-in flex min-w-0 max-w-[13rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-[opacity,color,border-color] duration-300 ${
+      title={t('Next interview: {title}, {when} (click to see your interviews)', { title: next.title, when: chipFullTime(next.startsAt, now, uiLocale()) })}
+      className={`compact-hide fade-in flex min-w-0 max-w-[15rem] items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-[opacity,color,border-color] duration-300 ${
         soon ? 'border-amber-500/40 bg-amber-500/10 text-amber-300' : 'border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
       } ${dimmed ? 'opacity-40 hover:opacity-80' : ''}`}
     >
       <CalendarClock className="h-3 w-3 shrink-0" aria-hidden />
-      <span className="truncate">{next.title}</span>
+      <span className="min-w-[3.5rem] truncate">{next.title}</span>
       <span aria-hidden className="shrink-0 opacity-60">·</span>
       <span className="shrink-0 tabular-nums">{when}</span>
     </button>

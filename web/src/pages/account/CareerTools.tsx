@@ -203,7 +203,10 @@ export const AccountCareerTools: React.FC = () => {
     setError(null);
     setReport(null);
     try {
-      const { report: made } = await api<{ report: Report }>(tool.path, { body });
+      // A long run answers 200 early to keep the connection open, so a late error comes in the body
+      const data = await api<{ report?: Report; error?: string; code?: string; status?: number }>(tool.path, { body });
+      if (!data.report) throw new ApiError(data.status ?? 500, data.error ?? 'Something went wrong. Try again in a moment.', data.code);
+      const made = data.report;
       setReport(made);
       shownId.current = made.id;
       setParams({ tool: tool.id, report: made.id }, { replace: true });

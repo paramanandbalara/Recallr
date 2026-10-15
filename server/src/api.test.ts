@@ -569,6 +569,7 @@ describe('reports', () => {
     await request(app).post('/api/admin/payments/offline').set(auth(admin)).send({ userId, planId }).expect(201);
     const desktop = await appToken('user@example.com');
     await request(app).post('/api/ai/chat').set(auth(desktop)).send({ tier: 'fast', system: 's', user: 'u', maxTokens: 50 }).expect(200);
+    await usageSaved(); // Usage is saved just after the answer
     const report = (await request(app).get('/api/admin/reports?days=7').set(auth(admin))).body;
     expect(report.series).toHaveLength(7);
     const today = report.series.at(-1);

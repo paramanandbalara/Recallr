@@ -126,8 +126,10 @@ export const emails = {
     ...(note ? [note] : []),
   ], ['Get your invite link', '/account/invite']),
 
-  ambassadorRejected: (u: To, note: string) => build(u.email, 'About your Recallr ambassador application', first(u.name), [
-    'Thank you for applying to be a Recallr college ambassador. We can’t take your application forward right now.',
+  ambassadorRejected: (u: To, note: string, removed = false) => build(u.email, removed ? 'About your Recallr ambassador role' : 'About your Recallr ambassador application', first(u.name), [
+    removed
+      ? 'You’re no longer a Recallr college ambassador. Friends who join with your link from now on bring the usual invite bonus.'
+      : 'Thank you for applying to be a Recallr college ambassador. We can’t take your application forward right now.',
     ...(note ? [note] : []),
     'You can still invite friends with your own link and both get a bonus when they make their first payment.',
   ], ['Invite friends', '/account/invite']),
