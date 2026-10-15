@@ -104,9 +104,72 @@ and use fake AI and Razorpay gateways. CI (`.github/workflows/ci.yml`) runs all 
 ## Releasing
 
 - **Server + website:** see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (Docker image, Amazon RDS, Razorpay webhook).
-- **Desktop app:** set `desktop/.env` to the production URLs, then `NODE_ENV=production npm run dist:desktop`.
-  Installers land in `desktop/dist-installers/`. Upload them and paste the links in Admin → Settings → Website.
+- **Desktop app:** see [Releasing the desktop app](#releasing-the-desktop-app) below.
 - **Running it day to day:** see [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md).
+
+## Releasing the desktop app
+
+You need two installers: **`.exe` for Windows** (built on Windows) and **`.dmg` for macOS** (built on a Mac; Apple's
+tools only run there). The easiest way is to let GitHub build both for you.
+
+### Option A: GitHub builds them (recommended)
+
+1. One time, in GitHub → the repository → **Settings → Secrets and variables → Actions → Variables**, add
+   `RECALLR_API_URL` and `RECALLR_WEB_URL` (your live address, e.g. `https://recallr.app`; they're built into the app).
+2. Raise the version in `desktop/package.json` (e.g. `1.2.0`), commit, then tag and push:
+   ```bash
+   git tag v1.2.0 && git push origin v1.2.0
+   ```
+   (Or **Actions → Desktop release → Run workflow** without a tag.)
+3. About 15 minutes later, **Releases** has a draft with the files. To have them uploaded to S3 as well, add the
+   variable `S3_DOWNLOADS_PATH` (e.g. `my-bucket/recallr`) and the secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+   `AWS_REGION`. See `.github/workflows/desktop-release.yml`.
+
+### Option B: build on your own computers
+
+```bash
+cd desktop
+npm ci
+printf 'VITE_API_URL=https://recallr.app\nVITE_WEB_URL=https://recallr.app\n' > .env   # your live address
+NODE_ENV=production npm run dist:win    # on Windows → dist-installers/Recallr-Setup-1.2.0.exe
+NODE_ENV=production npm run dist:mac    # on a Mac   → dist-installers/Recallr-1.2.0-universal.dmg (Intel + Apple silicon)
+```
+
+Each build also makes `latest.yml` (Windows) or `latest-mac.yml` + a `.zip` (macOS): these are for updates inside
+the app, so upload them too.
+
+### Where to upload, and the links to give people
+
+Use storage that serves files over HTTPS to anyone. Note that downloads from a **private** GitHub repository's
+releases need a GitHub login, so they don't work as public links.
+
+| Where | Cost | Your download links |
+|-------|------|---------------------|
+| **Amazon S3 + CloudFront** (good with the rest on AWS) | a few rupees per GB downloaded | `https://downloads.your-domain.com/recallr/Recallr-Setup.exe`, `.../Recallr.dmg` |
+| **Cloudflare R2** with a public bucket or custom domain | free downloads (no egress fees) | `https://downloads.your-domain.com/recallr/Recallr-Setup.exe` |
+| **GitHub Releases** (public repository only) | free | `https://github.com/<you>/<repo>/releases/latest/download/Recallr-Setup-1.2.0.exe` |
+
+S3 step by step: create a bucket (e.g. `recallr-downloads`, region Mumbai `ap-south-1`) → upload into a folder
+`recallr/` → put CloudFront in front of it with your domain (`downloads.your-domain.com`, certificate from ACM in
+us-east-1) → the links are `https://downloads.your-domain.com/recallr/<file name>`. The workflow above also
+uploads each installer as `Recallr-Setup.exe` and `Recallr.dmg`, names that never change, so your website's buttons
+always give the newest version.
+
+Then, in **Admin → Settings**:
+- **Website → Windows download link / macOS download link:** the two links above (the website's Download page and
+  the buttons use them).
+- **App versions → Update files address:** the folder, e.g. `https://downloads.your-domain.com/recallr/`, so
+  installed apps download and install updates themselves. **Latest app version:** the new version, e.g. `1.2.0`.
+
+### Signing (removes the "unknown publisher" warnings)
+
+Unsigned installers work, but Windows SmartScreen and macOS Gatekeeper warn first (the website's guide explains how to
+open them). To remove the warnings:
+- **macOS:** an Apple Developer account (99 USD a year). Export your *Developer ID Application* certificate as a
+  `.p12` and add it as the secrets `CSC_LINK` (base64 of the file) and `CSC_KEY_PASSWORD`, plus `APPLE_ID`,
+  `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` for notarization. Signed Mac builds are also needed for updates
+  inside the app on macOS.
+- **Windows:** a code-signing certificate (OV or EV) as `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`.
 
 ## Features of the app
 

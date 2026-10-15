@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --universal --publish never",
     "test": "vitest run",
     "typecheck": "tsc -b"
   },
@@ -28,7 +30,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "Recallr-Setup-${version}.${ext}"
     },
     "mac": {
       "target": [
@@ -40,7 +43,12 @@
         "LSUIElement": true,
         "NSMicrophoneUsageDescription": "Recallr listens to the conversation to suggest answers.",
         "NSAudioCaptureUsageDescription": "Recallr listens to the call audio (the other participants) to suggest answers."
-      }
+      },
+      "artifactName": "Recallr-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "category": "public.app-category.productivity"
     },
     "publish": [
       {

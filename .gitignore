@@ -31,6 +31,7 @@ dist-electron
 release
 desktop/build/*
 !desktop/build/icon.png
+!desktop/build/entitlements.mac.plist
 
 # Secrets (never commit): each app's .env
 .env
