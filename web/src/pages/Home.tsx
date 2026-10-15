@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, BookMarked, BookOpen, Briefcase, Check, ChevronDown, Clock, CloudUpload, Ear, GraduationCap, History, Keyboard,
+  ArrowRight, BookMarked, BookOpen, Briefcase, Building2, CalendarClock, Check, ChevronDown, Clock, CloudUpload, Ear, GraduationCap, History, Keyboard,
   Languages, LayoutTemplate, ListChecks, MessageSquareQuote, MonitorSmartphone, Mic, ScanText, ShieldCheck, Smile, Sparkles,
-  Stethoscope, Target, Users, Zap,
+  MailCheck, RefreshCw, Stethoscope, Target, Users, Zap,
 } from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
 import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
@@ -57,6 +57,8 @@ const FEATURES = [
   { icon: Smile, title: 'Answers that sound human', text: 'Short sentences, everyday words, nothing hard to say. Each answer shows a “Natural” score, and one click makes it simpler.' },
   { icon: BookMarked, title: 'Story bank', text: 'Your real stories (a hard problem, a conflict, a failure) ready for “Tell me about a time…”, found in your resume.' },
   { icon: Briefcase, title: 'Prep pack for each job', text: 'The questions this job will likely ask, each with why and a drafted answer. Keep the ones you like.' },
+  { icon: CalendarClock, title: 'Interview calendar', text: 'Add your interviews. The day before, a prep pack is offered; just before it starts, the right profile is switched on.' },
+  { icon: Building2, title: 'Company research in one click', text: 'Paste the company’s website and get short notes on what they do, so “Why us?” mentions real details.' },
   { icon: Mic, title: 'Speaking feedback', text: 'In mock interviews: your pace, your filler words and the length of each answer, with what to work on.' },
   { icon: LayoutTemplate, title: 'Four window styles', text: 'Classic, Compact, Prompter or Glass, in small, medium or large, or any size you drag it to.' },
   { icon: GraduationCap, title: 'For colleges', text: 'Seats for a whole class with one invite link, and a coach dashboard of everyone’s practice.' },
@@ -67,6 +69,9 @@ const FEATURES = [
   { icon: Stethoscope, title: 'Pre-interview check', text: 'Tests your microphone, call audio, screen reading and speed before it matters.' },
   { icon: History, title: 'History and review', text: 'Every interview is saved on your computer, with a review of weak spots and a thank-you email.' },
   { icon: Users, title: 'A profile per job', text: 'Keep a separate resume, job description and notes for each company you interview with.' },
+  { icon: Languages, title: 'The app in Hindi', text: 'Menus and screens in English or हिन्दी. Answers can come in Hindi (as Hinglish) or English.' },
+  { icon: MailCheck, title: 'Weekly progress email', text: 'Your practice for the week, how your speaking changed, and one tip for next week. Turn it off any time.' },
+  { icon: RefreshCw, title: 'Updates install themselves', text: 'New versions download inside the app and install with one restart, never while you’re listening.' },
   { icon: CloudUpload, title: 'Cloud backup', text: 'Back up your profiles, answers and history, and restore them on a new computer.' },
   { icon: Keyboard, title: 'Shortcuts everywhere', text: 'Start listening, ask, regenerate or read the screen from any app with a shortcut.' },
   { icon: ShieldCheck, title: 'You stay in control', text: 'Your resume and conversations stay on your computer. Saved questions and answers are yours alone, and you can delete them.' },

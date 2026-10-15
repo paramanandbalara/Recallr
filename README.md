@@ -110,9 +110,11 @@ and use fake AI and Razorpay gateways. CI (`.github/workflows/ci.yml`) runs all 
 
 ## Features of the app
 
-**Before the interview:** profiles per application, prepared answers (imported, drafted from the resume, or predicted
-from the job description), a story bank for behavioural questions, company notes, mock interviews with scored
-feedback, and a pre-interview check (plan, answer speed, microphone, call audio, screen reading).
+**Before the interview:** profiles per application, an interview calendar (a prep pack offered the day before, the
+right profile switched on just before it starts), prepared answers (imported, drafted from the resume, or predicted
+from the job description), a story bank for behavioural questions, company notes (or research notes made from the
+company's website), mock interviews with scored feedback, and a pre-interview check (plan, answer speed, microphone,
+call audio, screen reading).
 
 **During:** live answers streamed in natural spoken English, "Call + mic" mode, regenerate / shorter / longer / simpler /
 more technical, key-points view, likely follow-ups, code answers, read the question from the screen, a see-through
@@ -120,6 +122,10 @@ overlay, and global shortcuts (⌃⌥ on macOS, Ctrl+Alt+Shift elsewhere: **L** 
 **N** new conversation, **S** read from screen).
 
 **After:** searchable history, an interview review with a thank-you email draft, and PDF / Markdown export.
+
+**Also:** the app's menus and screens in English or Hindi, updates that download and install inside the app, and a
+weekly email with practice progress and one tip. The website's interview question pages are pre-rendered by the
+server (with a sitemap) so search engines index them.
 
 Users' resumes, answers and history stay on their own computer; the server keeps accounts, payments and usage amounts only.
 
