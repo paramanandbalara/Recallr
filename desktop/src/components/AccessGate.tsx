@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Minus, MessageSquareQuote, Loader2, Ban, WifiOff, CreditCard, ExternalLink, Laptop, Download } from 'lucide-react';
+import { X, Minus, Loader2, Ban, WifiOff, CreditCard, ExternalLink, Laptop, Download } from 'lucide-react';
+import { LogoMark } from './Logo';
 import { ApiError, appVersion, downloadUrl, fetchAccount, fetchVersionInfo, isOlder, isSignedIn, openUrl, openWebsite, PLAN_EVENT, signIn, signOut, takeSignedOutNotice, type Allowance, type SignedInDevice, type TrialResult, type User, type VersionInfo } from '../services/account';
 import { AccountContext } from '../hooks/useAccount';
 import { setUiLanguage, t, uiLanguage, uiLocale, UI_LANGUAGES } from '../i18n';
@@ -28,7 +29,7 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div data-interactive className="flex h-screen w-full flex-col">
     <div className="drag-area flex items-center justify-between px-3 py-2.5 border-b border-slate-800 shrink-0">
       <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-        <MessageSquareQuote className="w-3.5 h-3.5 text-blue-400" /> Recallr
+        <LogoMark className="w-4 h-4" /> Recallr
       </span>
       <div className="flex items-center gap-0.5">
         <IconButton onClick={() => sendIpc('hide-app')} title={t('Hide')}><Minus className="w-4 h-4" /></IconButton>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Settings, X, Minus, MessageSquareQuote, SendHorizontal, Pin, PinOff, SquarePen, Volume2, SlidersHorizontal, History, ScanText, Users } from 'lucide-react';
+import { Mic, MicOff, Settings, X, Minus, SendHorizontal, Pin, PinOff, SquarePen, Volume2, SlidersHorizontal, History, ScanText, Users } from 'lucide-react';
 import { useAudioCapture, type Speaker } from './hooks/useAudioCapture';
 import { useClickThrough, useTypingFocus } from './hooks/useClickThrough';
 import { answerExtras, readQuestionFromScreen, streamInterviewAnswer, type AdjustMode } from './services/ai';
@@ -19,6 +19,7 @@ import { SetupCheck } from './components/SetupCheck';
 import { NoticeBar } from './components/NoticeBar';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { CalendarReminder } from './components/CalendarReminder';
+import { LogoMark } from './components/Logo';
 import { MockInterview } from './components/MockInterview';
 import { IconButton } from './components/ui';
 import { t } from './i18n';
@@ -540,7 +541,7 @@ function App() {
           </button>
           {!isRecording && (
             <span className="compact-hide hidden min-[440px]:flex items-center gap-1 text-xs font-semibold text-slate-300 truncate">
-              <MessageSquareQuote className="w-3.5 h-3.5 text-blue-400 shrink-0" /> Recallr
+              <LogoMark className="w-4 h-4 shrink-0" /> Recallr
             </span>
           )}
         </div>

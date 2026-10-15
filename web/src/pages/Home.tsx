@@ -2,10 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, BookMarked, BookOpen, Briefcase, Building2, CalendarClock, Check, ChevronDown, Clock, CloudUpload, Ear, GraduationCap, History, Keyboard,
-  Languages, LayoutTemplate, ListChecks, MessageSquareQuote, MonitorSmartphone, Mic, ScanText, ShieldCheck, Smile, Sparkles,
+  Languages, LayoutTemplate, ListChecks, MonitorSmartphone, Mic, ScanText, ShieldCheck, Smile, Sparkles,
   MailCheck, RefreshCw, Stethoscope, Target, Users, Zap,
 } from 'lucide-react';
 import { PlanCards } from '../components/PlanCards';
+import { LogoMark } from '../components/Logo';
 import { AppShot, NaturalAnswers, ProductDemo, ProductTour, Reveal, RotatingWord, SpeedRace, StyleGallery } from '../components/Showcase';
 import { useAuth } from '../auth';
 
@@ -313,7 +314,7 @@ export const Home: React.FC = () => {
         <Reveal className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-blue-500/30 bg-gradient-to-br from-blue-600/25 via-slate-900 to-violet-600/20 px-6 py-14 text-center">
           <div className="blob pointer-events-none -right-20 -top-20 h-72 w-72 bg-blue-500" aria-hidden />
           <div className="relative">
-            <MessageSquareQuote className="mx-auto h-8 w-8 text-blue-300" />
+            <LogoMark className="mx-auto h-12 w-12 drop-shadow-[0_6px_24px_rgba(124,58,237,0.5)]" />
             <h2 className="mt-4 text-3xl font-bold text-white sm:text-4xl">Walk into your next interview prepared</h2>
             <p className="mx-auto mt-3 max-w-xl text-slate-300">
               Practise with mock interviews today, and have Recallr beside you when it counts.

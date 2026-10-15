@@ -457,9 +457,12 @@ app.whenReady().then(() => {
   createWindow()
   registerShortcuts()
 
-  const iconPath = path.join(process.env.VITE_PUBLIC, 'icon.png')
-  // Shown at its pixel size, so shrink the 256px app icon to menu bar / system tray size
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: process.platform === 'darwin' ? 18 : 16, quality: 'best' })
+  // macOS: a black "template" image the menu bar colours for light or dark mode (trayTemplate@2x.png is picked up
+  // for sharp screens). Windows and Linux: the coloured logo at tray size.
+  const trayIcon = process.platform === 'darwin'
+    ? nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC, 'trayTemplate.png'))
+    : nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC, 'tray.png')).resize({ width: 16, quality: 'best' })
+  if (process.platform === 'darwin') trayIcon.setTemplateImage(true)
   tray = new Tray(trayIcon)
 
   const contextMenu = Menu.buildFromTemplate([

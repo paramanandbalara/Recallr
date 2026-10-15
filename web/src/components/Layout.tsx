@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Menu, MessageSquareQuote, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import { LogoMark } from './Logo';
 import { SITE } from '../api';
 import { useAuth } from '../auth';
 import { AnnouncementBar } from './AnnouncementBar';
@@ -50,7 +51,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <MessageSquareQuote className="h-5 w-5 text-blue-400" /> Recallr
+            <LogoMark className="h-7 w-7 drop-shadow-[0_2px_8px_rgba(124,58,237,0.45)]" /> Recallr
           </Link>
           <nav className="hidden items-center gap-1 md:flex">{links}</nav>
           <button className="rounded-lg p-1.5 text-slate-300 hover:bg-slate-800 md:hidden" onClick={() => setOpen(!open)} aria-label="Menu">
@@ -67,7 +68,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:grid-cols-3">
           <div>
             <div className="flex items-center gap-2 font-semibold text-slate-300">
-              <MessageSquareQuote className="h-4 w-4 text-blue-400" /> Recallr
+              <LogoMark className="h-5 w-5" /> Recallr
             </div>
             <p className="mt-2 text-xs leading-relaxed">Your AI interview assistant, from preparation to the last question.</p>
           </div>

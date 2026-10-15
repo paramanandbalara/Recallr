@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { MessageSquareQuote, ArrowRight, ArrowLeft, Check, FileText, BookOpen } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, FileText, BookOpen } from 'lucide-react';
+import { LogoMark } from './Logo';
 import { loadSettings, saveSettings, type Settings } from '../services/storage';
 import { useAccount } from '../hooks/useAccount';
 import { setUiLanguage, t, uiLanguage, UI_LANGUAGES } from '../i18n';
@@ -53,7 +54,7 @@ export const OnboardingScreen: React.FC<Props> = ({ onComplete }) => {
       {/* Header (draggable) */}
       <div className="drag-area flex items-center gap-2.5 px-4 py-3 border-b border-slate-800 bg-slate-900/80 shrink-0">
         <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
-          <MessageSquareQuote className="w-4 h-4 text-blue-400" />
+          <LogoMark className="w-5 h-5" />
         </div>
         <div>
           <h1 className="text-sm font-semibold text-slate-100 leading-tight">Recallr</h1>
